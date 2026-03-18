@@ -708,7 +708,7 @@
 <!-- particle canvas — always on top, never blocks touches -->
 <canvas id="fx" style="position:fixed;inset:0;pointer-events:none;z-index:999;width:100%;height:100%"></canvas>
 <script>if(typeof GOD_MODE==='undefined')window.GOD_MODE=false;</script>
-<div id="god-badge" style="display:none;position:fixed;bottom:80px;left:12px;z-index:998;background:linear-gradient(135deg,#c8841a,#e05898);color:#fff;font-family:'Syne',sans-serif;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:100px;pointer-events:none;opacity:0.75;box-shadow:0 2px 8px rgba(0,0,0,.2)">⚡ god mode</div>
+<div id="god-badge" onclick="toggleGodMode()" style="display:block;position:fixed;bottom:80px;left:12px;z-index:998;background:linear-gradient(135deg,#c8841a,#e05898);color:#fff;font-family:'Syne',sans-serif;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:100px;cursor:pointer;opacity:0.75;box-shadow:0 2px 8px rgba(0,0,0,.2);transition:opacity .2s">⚡ god mode</div>
 
 <div class="begin-screen" id="begin-screen" style="display:none">
   <canvas id="begin-water" style="position:absolute;bottom:0;left:0;width:100%;height:35%;pointer-events:none;opacity:0.32"></canvas>
@@ -835,8 +835,8 @@ function mkTask(id,name,color,total,workDur,restDur){
 }
 
 let S, ticker=null;
-const GOD_MODE=true; // 1min=1sec, free shop, infinite currency
-const TICK_AMT=GOD_MODE?60:1;
+let GOD_MODE=true; // 1min=1sec, free shop, infinite currency
+function godTick(){return GOD_MODE?60:1;}
 
 // ── BOOT ───────────────────────────────────────────────────────────
 function boot(){
@@ -982,7 +982,7 @@ function ensureTicker(){
     let any=false;
     S.tasks.forEach(t=>{
       if(!t.running||t.done)return;
-      any=true;t.rem=Math.max(0,t.rem-TICK_AMT);
+      any=true;t.rem=Math.max(0,t.rem-godTick());
       if(t.rem===0){
         const allDone=resolvePhaseEnd(t,true);
         save();
@@ -2777,7 +2777,19 @@ function checkBeginScreen(){
   setTimeout(checkBeginWater,50);
 }
 
-function render(){checkBeginScreen();renderBeginStreak();updateContToggle();renderDaybar();renderCards();updateLogoDot();updateHeader();updateScrollState();applyAquarium();updateAquariumBar();setTimeout(startWaveLoop,50);const gb=document.getElementById('god-badge');if(gb)gb.style.display=GOD_MODE?'block':'none';}
+function toggleGodMode(){
+  GOD_MODE=!GOD_MODE;
+  if(GOD_MODE){S.lifetimeCoins=9999;S.stars=999;save();}
+  updateGodBadge();updateHeader();
+  showToast(GOD_MODE?'⚡ God mode on':'God mode off',GOD_MODE?'#c8841a':'#6b6258',1200);
+}
+function updateGodBadge(){
+  const gb=document.getElementById('god-badge');
+  if(!gb)return;
+  gb.style.opacity=GOD_MODE?'0.85':'0.3';
+  gb.textContent=GOD_MODE?'⚡ god mode':'⚡ god off';
+}
+function render(){checkBeginScreen();renderBeginStreak();updateContToggle();renderDaybar();renderCards();updateLogoDot();updateHeader();updateScrollState();applyAquarium();updateAquariumBar();setTimeout(startWaveLoop,50);updateGodBadge();}
 
 function svgPlay(){return`<svg width="15" height="15" viewBox="0 0 12 12" fill="currentColor"><polygon points="2,1 11,6 2,11"/></svg>`;}
 function svgPause(){return`<svg width="15" height="15" viewBox="0 0 12 12" fill="currentColor"><rect x="1" y="1" width="3.5" height="10" rx="1"/><rect x="7.5" y="1" width="3.5" height="10" rx="1"/></svg>`;}
