@@ -32,7 +32,7 @@ A single-file PWA time-blocking app with a water/heat metaphor. Everything lives
 ## Important patterns
 - `reconcileTask(t, now)` — catches up elapsed time on resume, looping through multiple phase completions. Used in both `boot()` and `visibilitychange`.
 - `resolvePhaseEnd(t, animate)` — handles work→rest→next-block transitions. Returns true if task fully done.
-- `DEBUG_FAST` constant — set to `true` to make 1 minute = 1 second for testing.
+- `GOD_MODE` constant — set to `true` for 1min=1sec, free shop, infinite coins/stars. Shows a "god mode" badge.
 - Date rollover checked in: visibilitychange handler, ticker interval, and `schedMidnight()` timeout.
 
 ## What NOT to do
