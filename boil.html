@@ -709,6 +709,7 @@
 <canvas id="fx" style="position:fixed;inset:0;pointer-events:none;z-index:999;width:100%;height:100%"></canvas>
 <script>if(typeof GOD_MODE==='undefined')window.GOD_MODE=false;</script>
 <div id="god-badge" onclick="toggleGodMode()" style="display:block;position:fixed;bottom:80px;left:12px;z-index:998;background:linear-gradient(135deg,#c8841a,#e05898);color:#fff;font-family:'Syne',sans-serif;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:100px;cursor:pointer;opacity:0.75;box-shadow:0 2px 8px rgba(0,0,0,.2);transition:opacity .2s">⚡ god mode</div>
+<div id="tilt-debug" style="display:none;position:fixed;bottom:110px;left:12px;z-index:998;background:rgba(0,0,0,.7);color:#0f0;font-family:monospace;font-size:10px;padding:4px 8px;border-radius:6px;pointer-events:none"></div>
 
 <div class="begin-screen" id="begin-screen" style="display:none">
   <canvas id="begin-water" style="position:absolute;bottom:0;left:0;width:100%;height:35%;pointer-events:none;opacity:0.32"></canvas>
@@ -1035,6 +1036,7 @@ function shopBuy(id){
   } else if(item.type==='floater'){
     if(!S.shopItems.floaters)S.shopItems.floaters=[];
     if(!S.shopItems.floaters.includes(item.id))S.shopItems.floaters.push(item.id);
+    activeFloaters.length=0; // force respawn with new toy
   }
   save();
   showToast(`${item.emoji} ${item.name} unlocked!`,'#2e9e6a',2500);
@@ -1421,7 +1423,7 @@ function tapCard(id){
     if(o.id!==id&&o.running){o.running=false;o.savedAt=null;renderCard(o);}
   });
   t.running=!wasRunning;
-  if(t.running){t.savedAt=Date.now();sndTap();startAmbient();ensureTicker();showToast('Heating up. ↑','var(--tc)',1200);}
+  if(t.running){t.savedAt=Date.now();sndTap();startAmbient();ensureTicker();showToast('Heating up. ↑','var(--tc)',1200);if(!_sensorsAttached)requestMotionPermission();}
   else{t.savedAt=null;t.pauseCount=(t.pauseCount||0)+1;sndStop();stopAmbient();showToast('The water cools.','#6b6258',1800);}
   save();renderCard(t);renderDaybar();updateLogoDot();
   updateScrollState();
@@ -1967,14 +1969,22 @@ let lastFrame=0;
 // Phone tilt + shake — combined sensor init
 let tiltSmooth=0;
 let lastShakeAccel={x:0,y:0,z:0};
-(function initMotionSensors(){
+let _sensorsAttached=false;
+let _tiltRaw=null;
+function _attachSensors(){
+  if(_sensorsAttached)return;
+  _sensorsAttached=true;
   const onOrient=(e)=>{
+    _tiltRaw=e.gamma;
     if(e.gamma!==null){
       const g=Math.max(-30,Math.min(30,e.gamma));
-      tiltSmooth+=(g-tiltSmooth)*0.08;
+      tiltSmooth+=(g-tiltSmooth)*0.15;
     }
   };
-  const onMotion=(e)=>{
+  window.addEventListener('deviceorientation',onOrient);
+  // Some browsers/devices only fire the absolute variant
+  window.addEventListener('deviceorientationabsolute',onOrient);
+  window.addEventListener('devicemotion',(e)=>{
     const a=e.accelerationIncludingGravity;
     if(!a||!bgWaveState.active||bgHF.cols===0)return;
     const dx=a.x-(lastShakeAccel.x||0),dy=a.y-(lastShakeAccel.y||0),dz=a.z-(lastShakeAccel.z||0);
@@ -1984,19 +1994,21 @@ let lastShakeAccel={x:0,y:0,z:0};
       for(let i=0;i<bgHF.cols;i++)bgHF.v[i]+=(Math.random()-0.5)*mag*0.4;
       haptic([5]);
     }
-  };
+  });
+}
+function requestMotionPermission(){
+  // iOS 13+ requires explicit permission request from a user gesture
   if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
-    document.addEventListener('touchstart',function _rt(){
-      DeviceOrientationEvent.requestPermission().then(p=>{
-        if(p==='granted'){window.addEventListener('deviceorientation',onOrient);window.addEventListener('devicemotion',onMotion);}
-      }).catch(()=>{});
-      document.removeEventListener('touchstart',_rt);
-    },{once:true});
+    DeviceOrientationEvent.requestPermission().then(p=>{
+      if(p==='granted')_attachSensors();
+    }).catch(()=>{});
   } else {
-    if(window.DeviceOrientationEvent)window.addEventListener('deviceorientation',onOrient);
-    if(window.DeviceMotionEvent)window.addEventListener('devicemotion',onMotion);
+    _attachSensors();
   }
-})();
+}
+// Try attaching immediately (works on Android/desktop)
+// iOS will silently fail — permission requested on first tap via tapCard
+(function(){try{requestMotionPermission();}catch(e){}})();
 
 // Per-pip bubble pools keyed by task id
 const bubblePools={};
@@ -2021,11 +2033,13 @@ function stepHF(hf,tension,damping){
   v[0]+=(h[1]-h[0])*tension;
   v[cols-1]+=(h[cols-2]-h[cols-1])*tension;
   for(let i=0;i<cols;i++){
-    v[i]-=h[i]*0.002; // restoring force — gravity pulls surface back to equilibrium
+    v[i]-=h[i]*0.004;
     v[i]*=damping;
     h[i]+=v[i];
-    if(h[i]>80)h[i]=80; if(h[i]<-80)h[i]=-80; // clamp runaway
+    if(h[i]>150)h[i]=150; if(h[i]<-150)h[i]=-150;
   }
+  // Smoothing pass — prevents jagged surface from per-column noise
+  for(let i=1;i<cols-1;i++)h[i]=h[i]*0.7+(h[i-1]+h[i+1])*0.15;
 }
 function applyForce(hf,col,force,radius){
   const lo=Math.max(0,Math.floor(col-radius*3)),hi=Math.min(hf.cols,Math.ceil(col+radius*3));
@@ -2033,15 +2047,23 @@ function applyForce(hf,col,force,radius){
 }
 function injectBoilEnergy(hf,boil,dt){
   if(boil<0.02)return;
-  for(let i=0;i<hf.cols;i++){
-    if(Math.random()<boil*0.4*dt*60)hf.v[i]+=(Math.random()-0.5)*boil*4;
+  // Inject as gaussian blobs, not per-column noise — creates smooth rolling waves
+  const rate=boil*2*dt*60;
+  const n=Math.floor(rate+(Math.random()<(rate%1)?1:0));
+  for(let s=0;s<n;s++){
+    const col=Math.floor(Math.random()*hf.cols);
+    const strength=(Math.random()-0.5)*boil*6;
+    applyForce(hf,col,strength,8+Math.random()*12);
   }
 }
-function applyTiltForce(hf,tilt){
-  if(Math.abs(tilt)<0.3)return;
-  for(let i=0;i<hf.cols;i++){
-    const target=(tilt/30)*(i/hf.cols-0.5)*40;
-    hf.v[i]+=(target-hf.h[i])*0.008;
+// Tilt: separate smooth height layer (no oscillation, no jitter)
+let tiltH=null;
+function updateTiltLayer(cols){
+  if(!tiltH||tiltH.length!==cols)tiltH=new Float32Array(cols);
+  const strength=-tiltSmooth/30;
+  for(let i=0;i<cols;i++){
+    const target=strength*(i/cols-0.5)*300;
+    tiltH[i]+=(target-tiltH[i])*0.12;
   }
 }
 
@@ -2243,7 +2265,7 @@ document.addEventListener('touchstart',(e)=>{
     const tx=t.clientX*dpr,ty=t.clientY*dpr;
     waterTouches[t.identifier]={x:tx,y:ty};
     const col=_touchCol(tx);
-    if(col>=0)applyForce(bgHF,col,-8,6);
+    if(col>=0)applyForce(bgHF,col,-25,8);
     popBubbleAt(tx,ty);
     pushFloatersAt(tx,ty,0,-5);
   }
@@ -2258,7 +2280,7 @@ document.addEventListener('touchmove',(e)=>{
     if(prev){
       const vx=tx-prev.x,vy=ty-prev.y;
       const col=_touchCol(tx);
-      if(col>=0)applyForce(bgHF,col,vy*0.3,4);
+      if(col>=0)applyForce(bgHF,col,vy*0.8,6);
       pushFloatersAt(tx,ty,vx*0.5,vy*0.5);
       prev.x=tx;prev.y=ty;
     }
@@ -2273,7 +2295,7 @@ document.addEventListener('mousedown',(e)=>{
   const tx=e.clientX*dpr,ty=e.clientY*dpr;
   waterTouches['mouse']={x:tx,y:ty};
   const col=_touchCol(tx);
-  if(col>=0)applyForce(bgHF,col,-8,6);
+  if(col>=0)applyForce(bgHF,col,-25,8);
   popBubbleAt(tx,ty);
   pushFloatersAt(tx,ty,0,-5);
 });
@@ -2284,7 +2306,7 @@ document.addEventListener('mousemove',(e)=>{
   const tx=e.clientX*dpr,ty=e.clientY*dpr;
   const vx=tx-prev.x,vy=ty-prev.y;
   const col=_touchCol(tx);
-  if(col>=0)applyForce(bgHF,col,vy*0.3,4);
+  if(col>=0)applyForce(bgHF,col,vy*0.8,6);
   pushFloatersAt(tx,ty,vx*0.5,vy*0.5);
   prev.x=tx;prev.y=ty;
 });
@@ -2373,10 +2395,10 @@ function waveLoop(now){
       const bgN=Math.min(Math.ceil(W/bgStep)+1,1024);
       ensureBgHF(bgN);
       const boil2=(bgWaveState.fill/100)*(bgWaveState.fill/100);
-      const hfSteps=Math.max(1,Math.round(dt*60));
-      for(let si=0;si<hfSteps;si++)stepHF(bgHF,0.25,0.995);
+      const hfSteps=Math.max(2,Math.round(dt*60));
+      for(let si=0;si<hfSteps;si++)stepHF(bgHF,0.35,0.985);
       injectBoilEnergy(bgHF,boil2,dt);
-      applyTiltForce(bgHF,tiltSmooth);
+      updateTiltLayer(bgN);
       tickBubbles(bgBubbles,W,H,bgWaveState.fill,dt,bgWaveState.color,true);
       drawWater(ctx,W,H,bgWaveState.fill,bgWaveState.color,waveT*0.35,bgBubbles,true,bgHF);
       // Floaters
@@ -2430,6 +2452,7 @@ function waveLoop(now){
   }
 
   _anyContinue=anyRunning||bgWaveState.active;
+  if(GOD_MODE&&_tiltRaw!==undefined){const td=document.getElementById('tilt-debug');if(td)td.textContent=`tilt: ${_tiltRaw===null?'NO DATA':_tiltRaw.toFixed(1)}° smooth: ${tiltSmooth.toFixed(1)} | sensors: ${_sensorsAttached?'ON':'OFF'}`;}
   }catch(e){console.error('waveLoop:',e);_anyContinue=true;}
   if(_anyContinue){
     waveRaf=requestAnimationFrame(waveLoop);
@@ -2564,8 +2587,9 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
   let minY=H;
   for(let i=0;i<N;i++){
     if(hf&&i<hf.cols){
-      // Heightfield: physics-driven surface
-      _surf[i]=Math.max(2, Math.min(H-2, fillY+hf.h[i]));
+      // Heightfield + smooth tilt layer (separate from physics, no jitter)
+      const tOff=(tiltH&&i<tiltH.length)?tiltH[i]:0;
+      _surf[i]=Math.max(2, Math.min(H-2, fillY+hf.h[i]+tOff));
     } else {
       // Sine waves for pip canvas
       const x=i*step;
@@ -2716,6 +2740,7 @@ function onRestStart(id){
 }
 
 function beginDay(){
+  if(!_sensorsAttached)requestMotionPermission();
   const h=parseInt(document.getElementById('begin-h').value)||14;
   S.startTs=Date.now();S.dayHours=h;
   save();
@@ -2816,6 +2841,11 @@ function updateGodBadge(){
   if(!gb)return;
   gb.style.opacity=GOD_MODE?'0.85':'0.3';
   gb.textContent=GOD_MODE?'⚡ god mode':'⚡ god off';
+  const td=document.getElementById('tilt-debug');
+  if(td){
+    td.style.display=GOD_MODE?'block':'none';
+    if(GOD_MODE)td.textContent=`tilt: ${_tiltRaw===null?'NO DATA':_tiltRaw.toFixed(1)}° → smooth: ${tiltSmooth.toFixed(1)} | sensors: ${_sensorsAttached?'ON':'OFF'}`;
+  }
 }
 function render(){checkBeginScreen();renderBeginStreak();updateContToggle();renderDaybar();renderCards();updateLogoDot();updateHeader();updateScrollState();applyAquarium();updateAquariumBar();setTimeout(startWaveLoop,50);updateGodBadge();}
 
