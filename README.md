@@ -2,47 +2,163 @@
 
 Time-blocking with heat. Focus blocks that boil as you work.
 
+---
+
 ## What it is
 
-A single HTML file. No build step, no dependencies, no accounts. Open it in a browser and start.
+A single HTML file. No build step, no dependencies, no accounts.
 
-Your tasks are blocks of time. Start one and water begins to fill. As you work, it heats up — waves grow, bubbles form, the screen simmers. Finish a block and it shatters. Finish everything and the day is done.
+Open it in a browser and start.
+
+boil is not about planning your time.
+
+It’s about **actually starting**, **staying with**, and **returning to** your work.
+
+---
+
+## What it’s for
+
+Most productivity tools optimize for planning.
+
+boil exists to help you **follow through**.
+
+Especially when:
+- starting feels hard
+- switching tasks breaks momentum
+- interruptions derail your day
+- consistency collapses after one miss
+
+The goal is simple:
+
+> make it easier to begin, continue, and come back.
+
+---
+
+## How it feels
+
+Your tasks are blocks of time.
+
+Start one and water begins to rise.
+
+As you work, it heats up:
+- waves grow
+- bubbles form
+- the screen simmers
+
+Finish a block and it shatters.
+
+Finish everything and the day is done.
+
+The water is not decoration.
+
+**The water is the feedback.**
+
+---
 
 ## How it works
 
-- **Set your day window** — how many hours you're working today
-- **Add blocks** — name, color, number of sub-blocks, duration, optional rest
-- **Tap to start** — one task runs at a time, water rises as time passes
-- **Blocks complete automatically** — with optional rest periods between them
-- **Continuous mode** — auto-advance through blocks without pausing
+- **Set your day window** — how long you’re working today
+- **Add blocks** — name, duration, sub-blocks, optional rest
+- **Tap to start** — one task runs at a time
+- **Water rises continuously** as time passes
+- **Blocks complete automatically**
+- **Continuous mode** — flow through blocks without stopping
 
-## The game
+No dashboards. No scores. No friction.
 
-- Earn **coins** for every block completed
-- Earn **stars** for perfect blocks (no pauses)
-- Maintain a **streak** by completing 70%+ of your blocks each day
-- Spend coins in the **shop** on avatars, themes, and streak freezes
-- Unlock **badges** for milestones (early bird, night owl, streaks, etc.)
-- Rise through **heat levels** from Cold to Supernova based on lifetime coins
+---
+
+## The game (secondary)
+
+There are rewards:
+- coins
+- stars
+- streaks
+- badges
+- heat levels
+
+These exist to support momentum.
+
+They are not the goal.
+
+If they ever get in the way of real work, they are wrong.
+
+---
+
+## What success looks like
+
+- you start tasks faster
+- you stay with them longer
+- you come back after interruption
+- you finish what actually matters
+
+Not:
+- perfect streaks
+- perfect blocks
+- perfect days
+
+---
 
 ## Features
 
 - Works offline as a PWA — add to home screen
-- Canvas water engine with wave physics and bubble simulation
-- Phone tilt shifts the water surface (where supported)
-- Touch the screen to create ripples
-- Steam rises from the water at high boil
-- Haptic feedback and procedural audio throughout
+- Single-file app (`boil.html`)
+- Canvas water engine with wave physics and bubbles
+- Phone tilt affects the surface (where supported)
+- Touch creates ripples
+- Steam rises at high heat
+- Haptics and procedural audio
 - Drag to reorder tasks
 - Pomodoro-style work/rest cycles
-- Day timeline showing time allocation and slack
+- Day timeline with slack
+
+---
 
 ## Running it
 
-Open `boil.html` in a browser. That's it.
+Open `boil.html` in a browser.
 
-For mobile, serve it from any static host and add to home screen for the full PWA experience.
+That’s it.
+
+For mobile, serve it statically and add to home screen.
+
+---
 
 ## Philosophy
 
-One file. No server. No tracking. Your data stays in your browser's localStorage. If you clear your browser data, it's gone — like steam.
+One file.
+
+No server.  
+No tracking.  
+No accounts.  
+
+Your data stays in your browser.
+
+If you clear it, it’s gone — like steam.
+
+---
+
+## Design principles
+
+- One task at a time
+- Continuous feedback over discrete metrics
+- Recovery over perfection
+- Subtract before adding
+- The water is the product
+
+---
+
+## Non-goals
+
+- maximizing engagement
+- maximizing streaks
+- maximizing features
+- becoming a productivity dashboard
+
+---
+
+## Final note
+
+This is not a system to manage you.
+
+It is a system to help you **stay with your work**.
