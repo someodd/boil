@@ -1775,6 +1775,18 @@ function updateScrollState(){
     if(bgc)bgc.classList.remove('active');
     activeFloaters.length=0;
   } else {
+    // Immediately activate bg wave — don't wait for ticker
+    if(!bgWaveState.active){
+      const pd=rt.isRest?rt.restDur:rt.workDur;
+      const pct=pd>0?((pd-rt.rem)/pd*100):0;
+      const overallPct=rt.total>0?(rt.completed/rt.total*100):0;
+      bgWaveState.targetFill=20+overallPct*0.4+pct*0.4;
+      bgWaveState.fill=Math.max(bgWaveState.fill,2);
+      bgWaveState.targetColor=rt.isRest?'#2e9e6a':rt.color;
+      if(!bgWaveState.color)bgWaveState.color=bgWaveState.targetColor;
+      bgWaveState.active=true;
+      if(bgc)bgc.classList.add('active');
+    }
     startWaveLoop();
   }
 }
@@ -1919,9 +1931,11 @@ function fastUpdateCard(id){
     pf.dataset.color=t.isRest?'#2e9e6a':t.color;
     pf.dataset.running=t.running;
   }
-  // Update bg canvas wave — use overall task progress so water never vanishes between blocks
-  const bgPct=t.total>0?((t.completed+pct/100)/t.total*100):pct;
-  updateSiteWave(t,Math.max(bgPct,5));
+  // Update bg canvas wave — blend overall progress with current block for a breathing feel
+  // 20% floor + 40% from overall task progress + 40% from current block progress
+  const overallPct=t.total>0?(t.completed/t.total*100):0;
+  const bgPct=20+overallPct*0.4+pct*0.4;
+  updateSiteWave(t,bgPct);
   // Gentle haptic at 50% fill milestone (fires once per block)
   const halfKey='_half_'+t.id+'_'+t.completed;
   if(!window[halfKey]&&pct>=50&&pct<52){window[halfKey]=1;haptic([30]);}
@@ -2272,8 +2286,11 @@ document.addEventListener('mousemove',(e)=>{
 });
 document.addEventListener('mouseup',()=>{delete waterTouches['mouse'];});
 
+let _waveAlive=0;
 function startWaveLoop(){
-  if(waveRaf)return;
+  // Detect dead loop: waveRaf is set but loop hasn't run in 500ms
+  if(waveRaf&&performance.now()-_waveAlive<500)return;
+  if(waveRaf){cancelAnimationFrame(waveRaf);waveRaf=null;}
   lastFrame=performance.now();
   waveRaf=requestAnimationFrame(waveLoop);
 }
@@ -2282,11 +2299,15 @@ function stopWaveLoop(){
 }
 
 function waveLoop(now){
+  _waveAlive=now;
+  let _anyContinue=false;
+  try{
   const dt=Math.min((now-lastFrame)/1000,0.05);
   lastFrame=now;
   waveT=(waveT+dt)%10000;
   const anyRunning=S&&S.tasks&&S.tasks.some(t=>t.running&&!t.done);
   const rt=S&&S.tasks&&S.tasks.find(t=>t.running&&!t.done);
+  _anyContinue=anyRunning||bgWaveState.active;
 
   // ── Pip canvas ────────────────────────────────────────────────────
   if(rt){
@@ -2404,11 +2425,14 @@ function waveLoop(now){
     }
   }
 
-  if(anyRunning||bgWaveState.active){
+  _anyContinue=anyRunning||bgWaveState.active;
+  }catch(e){console.error('waveLoop:',e);_anyContinue=true;}
+  if(_anyContinue){
     waveRaf=requestAnimationFrame(waveLoop);
   } else {
     waveRaf=null;
-    if(bgc){const ctx=bgc.getContext('2d');ctx.clearRect(0,0,bgc.width,bgc.height);}
+    const _bgc=document.getElementById('bg-canvas');
+    if(_bgc){const _ctx=_bgc.getContext('2d');if(_ctx)_ctx.clearRect(0,0,_bgc.width,_bgc.height);}
   }
 }
 
