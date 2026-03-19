@@ -28,6 +28,11 @@ A single-file PWA time-blocking app with a water/heat metaphor. Everything lives
 - `S.continuous` — auto-advance through blocks without pausing
 - `S.streak`, `S.lastCompletedDate`, `S.bestScore`, `S.lifetimeCoins`, `S.stars`
 - `S.shopItems` — purchased customizations (avatar, theme)
+- `S.mercyCoins` — consumable mercy coins (skip a block)
+- `S.daysCompleted` — counter for progressive disclosure (0=first day, hides coins/shop/streak)
+- `S.seen` — object tracking first-occurrence contextual toasts
+- `S.isTrial` — true during first-run trial task flow
+- `t.days` — optional array of day numbers (0=Sun..6=Sat), null = every day
 
 ## Important patterns
 - `reconcileTask(t, now)` — catches up elapsed time on resume, looping through multiple phase completions. Used in both `boot()` and `visibilitychange`.

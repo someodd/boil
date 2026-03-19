@@ -244,6 +244,39 @@
     .play-btn:active{transform:scale(.82)!important;transition:transform .1s ease!important}
     .card.resting .play-btn{background:#2e9e6a}
     .card.done-all .play-btn{background:var(--brd);color:var(--dimmer);box-shadow:none;cursor:default}
+    .mercy-btn{
+      width:40px;height:40px;border-radius:50%;border:2px solid var(--brd);cursor:pointer;
+      display:flex;align-items:center;justify-content:center;flex-shrink:0;
+      background:var(--card);font-size:16px;line-height:1;
+      box-shadow:0 2px 8px rgba(0,0,0,.08);
+      transition:transform .3s cubic-bezier(.34,1.56,.64,1),box-shadow .2s;
+    }
+    .mercy-btn:hover{transform:scale(1.08);box-shadow:0 3px 12px rgba(0,0,0,.14)}
+    .mercy-btn:active{transform:scale(.85)!important}
+    .day-picker{display:flex;gap:5px}
+    .day-pill{
+      width:32px;height:32px;border-radius:50%;border:2px solid var(--brd);
+      background:transparent;color:var(--dim);font-size:11px;font-weight:800;
+      font-family:var(--fs);cursor:pointer;transition:all .14s;
+      display:flex;align-items:center;justify-content:center;
+    }
+    .day-pill.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+    /* Progressive disclosure — hide complexity on early days */
+    .app-wrap.day-0 .coin-pill,
+    .app-wrap.day-0 .streak-badge,
+    .app-wrap.day-0 .profile-pill,
+    .app-wrap.day-0 .cont-row,
+    .app-wrap.day-0 .pill-finish{display:none!important}
+    .hdr.day-0 .coin-pill,
+    .hdr.day-0 .streak-badge,
+    .hdr.day-0 .profile-pill,
+    .hdr.day-0 .pill-finish{display:none!important}
+    .app-wrap.day-1 .streak-badge,
+    .app-wrap.day-1 .profile-pill{display:none!important}
+    .hdr.day-1 .streak-badge,
+    .hdr.day-1 .profile-pill{display:none!important}
+    .app-wrap.day-0 .daybar{display:none!important}
 
     /* idle invitation breathing */
     .scroll:not(.has-running) .card:not(.done-all) .play-btn{
@@ -517,6 +550,14 @@
     }
     .begin-btn:hover{transform:scale(1.03);box-shadow:0 8px 32px rgba(28,25,23,.38)}
     .begin-btn:active{transform:scale(.92)!important;transition:transform .1s ease!important}
+    .quick-boil-btn{
+      background:transparent;color:var(--dim);border:1.5px solid var(--brd);
+      font-family:var(--fs);font-size:13px;font-weight:700;
+      padding:10px 24px;border-radius:100px;cursor:pointer;
+      transition:all .2s;margin-top:8px;
+    }
+    .quick-boil-btn:hover{background:var(--card);color:var(--ink)}
+    .quick-boil-btn:active{transform:scale(.92)!important}
     .begin-hours{
       display:flex;align-items:center;gap:12px;
     }
@@ -715,12 +756,13 @@
   <canvas id="begin-water" style="position:absolute;bottom:0;left:0;width:100%;height:35%;pointer-events:none;opacity:0.32"></canvas>
   <div class="begin-logo">boil.</div>
   <div id="begin-streak"></div>
-  <div class="begin-sub">Time-blocking with heat.<br>Your blocks heat up, boil, and finish as you focus.</div>
+  <div class="begin-sub" id="begin-sub">Time-blocking with heat.<br>Your blocks heat up, boil, and finish as you focus.</div>
   <div class="begin-hours">
     <span class="begin-h-label">hours</span>
     <input class="begin-h-input" id="begin-h" type="number" value="14" min="1" max="24" inputmode="numeric">
   </div>
   <button class="begin-btn" onclick="beginDay()">begin the day</button>
+  <button class="quick-boil-btn" onclick="quickBoil()">just 5 minutes</button>
 </div>
 
 <div class="hdr">
@@ -738,7 +780,7 @@
       <span class="coin-pill-val" id="hdr-coins-val">0</span>
     </button>
     <button class="pill" id="aq-toggle" style="display:none" onclick="toggleAquarium()" title="Aquarium mode">🐠</button>
-    <button class="pill" onclick="openFinishDay()">finish</button>
+    <button class="pill pill-finish" onclick="openFinishDay()">day</button>
     <button class="pill" onclick="openAdd()">+ new</button>
   </div>
 </div>
@@ -811,12 +853,13 @@ const KEY='boil-v1'; // renamed from blocks-v7
 
 // ── DATA MODEL ─────────────────────────────────────────────────────
 function defaults(){
+  const isFirstRun=!localStorage.getItem(KEY)&&!localStorage.getItem('blocks-v7');
   return{
-    tasks:[
-      mkTask('work','Work','#4a9eba',8,50*60,10*60),
-      mkTask('chinese','Chinese','#c8841a',1,50*60,10*60),
-      mkTask('life','Life','#9b6bb5',1,50*60,10*60),
-    ],
+    tasks:isFirstRun
+      ?[mkTask('trial','Try it','#4a9eba',1,GOD_MODE?2*60:2*60,0)]
+      :[mkTask('work','Work','#4a9eba',8,50*60,10*60),
+        mkTask('chinese','Chinese','#c8841a',1,50*60,10*60),
+        mkTask('life','Life','#9b6bb5',1,50*60,10*60)],
     date:today(),
     startTs:null,
     dayHours:14,
@@ -828,11 +871,15 @@ function defaults(){
     stars:0,
     streakFreezes:0,
     badges:[],
-    shopItems:{}
+    shopItems:{},
+    mercyCoins:0,
+    daysCompleted:isFirstRun?0:99,
+    seen:{},
+    isTrial:isFirstRun
   };
 }
-function mkTask(id,name,color,total,workDur,restDur){
-  return{id,name,color,total,workDur,restDur,completed:0,isRest:false,rem:workDur,running:false,done:false,savedAt:null,pauseCount:0,perfectBlocks:[]};
+function mkTask(id,name,color,total,workDur,restDur,days){
+  return{id,name,color,total,workDur,restDur,days:days||null,completed:0,isRest:false,rem:workDur,running:false,done:false,savedAt:null,pauseCount:0,perfectBlocks:[]};
 }
 
 let S, ticker=null;
@@ -863,6 +910,11 @@ function boot(){
   if(S.badges===undefined)S.badges=[];
   if(S.shopItems===undefined)S.shopItems={};
   if(S.aquariumOn===undefined)S.aquariumOn=false;
+  if(S.mercyCoins===undefined)S.mercyCoins=0;
+  if(S.daysCompleted===undefined)S.daysCompleted=99; // existing users skip progressive disclosure
+  if(S.seen===undefined)S.seen={};
+  if(S.isTrial===undefined)S.isTrial=false;
+  S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;});
   const now=Date.now(),td=today();
   if(S.date!==td){
     S.tasks.forEach(resetTask);
@@ -1000,6 +1052,7 @@ function ensureTicker(){
 setInterval(renderDaybar,1000);
 
 const SHOP_ITEMS=[
+  {id:'mercy',       name:'Mercy',         emoji:'🕊️', cost:30,  type:'consumable', desc:'Skip a block. Instant completion.'},
   {id:'freeze',      name:'Streak Freeze', emoji:'🧊', cost:50,  type:'consumable', desc:'Protects your streak once'},
   {id:'warm_theme',  name:'Warm Amber',    emoji:'🟠', cost:100, type:'theme', desc:'Amber water tint'},
   {id:'cool_theme',  name:'Deep Blue',     emoji:'🔵', cost:100, type:'theme', desc:'Cool blue water tint'},
@@ -1027,6 +1080,7 @@ function shopBuy(id){
   if(!GOD_MODE){if(currency==='stars')S.stars-=item.cost; else S.lifetimeCoins-=item.cost;}
   if(item.type==='consumable'||item.type==='star_consumable'){
     if(id==='freeze'||id==='star_freeze')S.streakFreezes=(S.streakFreezes||0)+1;
+    if(id==='mercy')S.mercyCoins=(S.mercyCoins||0)+1;
   } else if(item.type==='theme'){
     S.shopItems.theme=id;
   } else if(item.type==='avatar'){
@@ -1118,6 +1172,7 @@ function openProfile(){
   `);
 }
 function openShop(){
+  seenToast('shop','Spend coins on water toys.','#6b6258',200);
   const coins=S.lifetimeCoins||0;
   const stars=S.stars||0;
   const rows=SHOP_ITEMS.map(item=>{
@@ -1141,11 +1196,18 @@ function openShop(){
       <div><div style="font-size:20px;font-weight:800;font-family:var(--fd)">${coins} 🪙</div><div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:.06em;text-transform:uppercase">coins</div></div>
       <div><div style="font-size:20px;font-weight:800;font-family:var(--fd)">${stars} ⭐</div><div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:.06em;text-transform:uppercase">stars</div></div>
       <div><div style="font-size:20px;font-weight:800;font-family:var(--fd)">${S.streakFreezes||0} 🧊</div><div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:.06em;text-transform:uppercase">freezes</div></div>
+      <div><div style="font-size:20px;font-weight:800;font-family:var(--fd)">${S.mercyCoins||0} 🕊️</div><div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:.06em;text-transform:uppercase">mercy</div></div>
     </div>
     ${rows}
     <div style="margin-top:20px"></div>`);
 }
 
+let _seenThisSession=false;
+function seenToast(key,msg,color,delay){
+  if(S.seen[key]||_seenThisSession)return;
+  S.seen[key]=true;_seenThisSession=true;save();
+  setTimeout(()=>showToast(msg,color||'#6b6258',2800),delay||600);
+}
 function showToast(msg,color='#1c1917',duration=2000){
   const d=document.createElement('div');
   d.style.cssText=`position:fixed;top:60px;left:50%;transform:translateX(-50%) translateY(-8px);background:${color};color:#fff;font-family:var(--fs);font-size:13px;font-weight:800;padding:9px 20px;border-radius:100px;z-index:999;pointer-events:none;opacity:0;transition:opacity .25s,transform .25s;white-space:nowrap`;
@@ -1429,6 +1491,21 @@ function tapCard(id){
   updateScrollState();
 }
 
+function useMercy(id){
+  if(!S.mercyCoins||S.mercyCoins<1)return;
+  const t=S.tasks.find(x=>x.id===id);
+  if(!t||!t.running||t.done)return;
+  S.mercyCoins--;
+  t.rem=0;
+  const allDone=resolvePhaseEnd(t,true);
+  save();
+  if(allDone)onTaskDone(t.id);
+  else if(!t.isRest)onSubBlockDone(t.id);
+  else{renderCard(t);renderDaybar();}
+  showToast('🕊️ Mercy granted.','#6b6258',1800);
+  haptic([15,30,60]);
+}
+
 function notify(title,body){
   if('Notification' in window&&Notification.permission==='granted'&&document.hidden){
     try{new Notification(title,{body,icon:'',silent:true});}catch(e){}
@@ -1452,6 +1529,9 @@ function onSubBlockDone(id){
       save();
     }
     t.pauseCount=0; // reset for next block
+    // Contextual one-liners
+    seenToast('coin','🪙 You earned a coin. One per block.','#c8841a',1200);
+    if((t.pauseCount||0)===0&&S.stars>0)seenToast('star','⭐ No pauses = perfect block = star.','#c8841a',1400);
   }
   const el=document.getElementById('c-'+id);
   if(!el){renderCards();return;}
@@ -1504,6 +1584,29 @@ function onTaskDone(id){
   bgWaveState.targetFill=0;bgWaveState.fill=0;bgWaveState.active=false;activeFloaters.length=0;if(bgHF.h)bgHF.h.fill(0);if(bgHF.v)bgHF.v.fill(0);
   const bgc=document.getElementById('bg-canvas');if(bgc)bgc.classList.remove('active');
   const t=S.tasks.find(x=>x.id===id);
+  // Trial task: delete it and prompt user to add their own
+  if(S.isTrial&&id==='trial'){
+    S.tasks=S.tasks.filter(x=>x.id!=='trial');
+    S.isTrial=false;
+    save();
+    setTimeout(()=>{
+      showToast("That's it. Add your own blocks.",'#1c1917',3500);
+      setTimeout(()=>openAdd(),1800);
+    },1200);
+    renderCards();
+    return;
+  }
+  // Quick boil: offer to keep or auto-delete
+  if(t&&t._isQuick){
+    setTimeout(()=>{
+      openSheet(`<div class="sh-ttl">Quick boil done</div>
+        <p style="font-size:14px;color:var(--mid);line-height:1.7;margin-bottom:12px">Want to keep this as a regular task?</p>
+        <div class="sh-btns">
+          <button class="bs" onclick="S.tasks=S.tasks.filter(x=>x.id!=='${id}');save();closeSheet();renderCards()">Delete</button>
+          <button class="bp" onclick="const qt=S.tasks.find(x=>x.id==='${id}');if(qt)delete qt._isQuick;save();closeSheet();renderCards()">Keep</button>
+        </div>`);
+    },1400);
+  }
   const el=document.getElementById('c-'+id);
   if(el){
     const r=el.getBoundingClientRect();
@@ -1514,13 +1617,15 @@ function onTaskDone(id){
     setTimeout(()=>{
       el.classList.remove('all-done-flash');
       renderCard(t);renderDaybar();updateLogoDot();updateScrollState();
-      if(S.tasks.length&&S.tasks.every(x=>x.done)){
+      const vis=S.tasks.filter(taskVisibleToday);
+      if(vis.length&&vis.every(x=>x.done)){
         setTimeout(()=>triggerDayCeremony(),600);
       }
     },720);
   } else {
     renderCards();
-    if(S.tasks.length&&S.tasks.every(x=>x.done))setTimeout(()=>triggerDayCeremony(),600);
+    const vis=S.tasks.filter(taskVisibleToday);
+    if(vis.length&&vis.every(x=>x.done))setTimeout(()=>triggerDayCeremony(),600);
   }
 }
 
@@ -1640,6 +1745,7 @@ function checkRuntimeBadges(t){
   }
 }
 function triggerDayCeremony(){
+  S.daysCompleted=(S.daysCompleted||0)+1;
   updateStreak();
   sndDay();
   rainConfetti('#c8841a',120);
@@ -1860,7 +1966,8 @@ function cardHTML(t){
   const badge=t.running&&t.restDur>0
     ?`<div class="phase ${t.isRest?'rest':'work'}"><div class="phase-dot"></div>${t.isRest?'Rest':'Work'}</div>`:'';
 
-  const sub=`🪙 ${t.completed}/${t.total} · ${blocksLeft} left · ${fmtHM(t.workDur)} each${t.restDur>0?` · ${fmtHM(t.restDur)} rest`:''}`;
+  const dayLabel=t.days?` · ${t.days.map(d=>['Su','Mo','Tu','We','Th','Fr','Sa'][d]).join('')}`:'';
+  const sub=`🪙 ${t.completed}/${t.total} · ${blocksLeft} left · ${fmtHM(t.workDur)} each${t.restDur>0?` · ${fmtHM(t.restDur)} rest`:''}${dayLabel}`;
 
   return`<div class="card${stCls?' '+stCls:''}${cs?' '+cs:''}" id="c-${t.id}" style="--tc:${t.color}" onclick="tapCard('${t.id}')">
     <div class="c-bar"></div>
@@ -1887,18 +1994,23 @@ function cardHTML(t){
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
         <div class="c-sub">${sub}</div>
-        <button class="play-btn" aria-label="${t.running?'pause':'start'} ${t.name}" onclick="event.stopPropagation();tapCard('${t.id}')">
-          ${t.running?svgPause():svgPlay()}
-        </button>
+        <div style="display:flex;align-items:center;gap:8px">
+          ${S.mercyCoins>0&&t.running&&!t.done?`<button class="mercy-btn" onclick="event.stopPropagation();useMercy('${t.id}')" title="Use mercy — skip this block">🕊️</button>`:''}
+          <button class="play-btn" aria-label="${t.running?'pause':'start'} ${t.name}" onclick="event.stopPropagation();tapCard('${t.id}')">
+            ${t.running?svgPause():svgPlay()}
+          </button>
+        </div>
       </div>
     </div>
   </div>`;
 }
 
+function taskVisibleToday(t){return !t.days||t.days.includes(new Date().getDay());}
 function renderCards(){
   const el=document.getElementById('cards');
-  if(!S.tasks.length){el.innerHTML=`<div class="empty">nothing to boil yet.\ntap <b style="font-weight:800">+</b> to add a block</div>`;return;}
-  el.innerHTML=S.tasks.map(cardHTML).join('');
+  const visible=S.tasks.filter(taskVisibleToday);
+  if(!visible.length){el.innerHTML=`<div class="empty">nothing to boil yet.\ntap <b style="font-weight:800">+</b> to add a block</div>`;return;}
+  el.innerHTML=visible.map(cardHTML).join('');
   updateScrollState();
   setTimeout(attachDrag,0);
 }
@@ -2428,11 +2540,13 @@ function waveLoop(now){
     }
   }
 
-  // Steam particles above waterline at high boil
-  if(bgWaveState.active&&bgWaveState.fill>35){
+  // Steam particles above waterline at high boil — heat level lowers threshold
+  const _steamHm=heatMultiplier();
+  const _steamThreshold=Math.max(15,35-_steamHm*4);
+  if(bgWaveState.active&&bgWaveState.fill>_steamThreshold){
     const steamBoil=(bgWaveState.fill/100)*(bgWaveState.fill/100);
-    if(steamBoil>0.15){
-      const steamRate=(steamBoil-0.15)*5;
+    if(steamBoil>0.10){
+      const steamRate=(steamBoil-0.10)*5*_steamHm;
       const sN=Math.floor(steamRate*dt+(Math.random()<(steamRate*dt%1)?1:0));
       const surfY=FX.height*(1-bgWaveState.fill/100);
       for(let si=0;si<sN;si++){
@@ -2465,10 +2579,12 @@ function waveLoop(now){
 
 
 // ── BUBBLE SYSTEM ─────────────────────────────────────────────────────
+function heatMultiplier(){const idx=HEAT_LEVELS.findIndex(h=>h===getHeatLevel());return 1+idx*0.12;}
 function tickBubbles(pool,W,H,fp,dt,color,isBg){
   const b2=(fp/100)*(fp/100);
   const fillY=H*(1-fp/100);
-  const baseRate=isBg?(fp<8?0:b2*120):(fp<15?0:b2*18);
+  const hm=heatMultiplier();
+  const baseRate=isBg?(fp<8?0:b2*120*hm):(fp<15?0:b2*18*hm);
   const n=Math.floor(baseRate*dt+(Math.random()<(baseRate*dt%1)?1:0));
   for(let s=0;s<n;s++){
     // Nucleation-site spawning: bubbles form near bottom and edges
@@ -2571,14 +2687,16 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
   let gi=parseInt(colorHex.slice(3,5),16);
   let bi=parseInt(colorHex.slice(5,7),16);
   // Temperature color tint — task color stays the base, warmth intensifies with boil
+  // Heat level amplifies the visual intensity
+  const _hm=heatMultiplier();
   if(isBg){
-    const warm=Math.max(0,(fp/100-0.25)/0.75);
+    const warm=Math.max(0,(fp/100-0.25)/0.75)*_hm;
     ri=Math.min(255,Math.round(ri+warm*50));
     gi=Math.max(0,Math.round(gi-warm*15));
     bi=Math.max(0,Math.round(bi-warm*40));
   } else {
-    ri=Math.min(255,Math.round(ri+boil*10));
-    bi=Math.max(0,Math.round(bi-boil*6));
+    ri=Math.min(255,Math.round(ri+boil*10*_hm));
+    bi=Math.max(0,Math.round(bi-boil*6*_hm));
   }
 
   // Build surface
@@ -2634,9 +2752,10 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
   ctx.lineWidth=isBg?2.0:1.3;
   ctx.strokeStyle=`rgba(255,255,255,${isBg?0.75:0.92})`;
   ctx.stroke();
-  // Soft glow below line
-  ctx.lineWidth=isBg?(8+boil*12):(2.5+boil*3);
-  ctx.strokeStyle=`rgba(255,255,255,${isBg?0.16:0.35})`;
+  // Soft glow below line — heat level amplifies
+  const glowMul=0.8+(_hm-1)*0.5;
+  ctx.lineWidth=isBg?(8+boil*12*glowMul):(2.5+boil*3*glowMul);
+  ctx.strokeStyle=`rgba(255,255,255,${isBg?Math.min(0.32,0.16*glowMul):Math.min(0.55,0.35*glowMul)})`;
   ctx.stroke();
   ctx.restore();
 
@@ -2719,6 +2838,7 @@ function updateSiteWave(t,pct){
 function onRestStart(id){
   const t=S.tasks.find(x=>x.id===id);
   if(!t)return;
+  seenToast('rest','☕ Rest. The next block starts after.','#2e9e6a',800);
   // Gentle descending chime — work done, relax now
   const now=ac().currentTime;
   [[0,880,.06],[.1,660,.055],[.22,523,.05],[.36,440,.04]].forEach(([dt,hz,v])=>tone(hz,.35,v,now+dt));
@@ -2772,6 +2892,21 @@ function beginDay(){
   haptic([30,40,80]);
 }
 
+function quickBoil(){
+  // Create a temporary 5-min single-block task and immediately start it
+  const qid='quick-'+Date.now();
+  const qt=mkTask(qid,'Quick boil','#c8841a',1,5*60,0);
+  qt._isQuick=true;
+  S.tasks.push(qt);
+  // Start the day
+  S.startTs=Date.now();S.dayHours=14;
+  document.getElementById('begin-screen').style.display='none';
+  if(beginWaveRaf){cancelAnimationFrame(beginWaveRaf);beginWaveRaf=null;}
+  save();render();
+  // Auto-start the quick task
+  setTimeout(()=>tapCard(qid),300);
+}
+
 function toggleContinuous(){
   S.continuous=!S.continuous;
   save();
@@ -2811,6 +2946,8 @@ function updateAquariumBar(){
 function renderBeginStreak(){
   const el=document.getElementById('begin-streak');
   if(!el)return;
+  // Hide streak/level info on first run
+  if(S.daysCompleted===0){el.innerHTML='';return;}
   const lvl=getHeatLevel();
   const avatar=S.shopItems&&S.shopItems.avatar?S.shopItems.avatar:lvl[1];
   const lvlIdx=HEAT_LEVELS.findIndex(h=>h===lvl);
@@ -2827,6 +2964,15 @@ function checkBeginScreen(){
   if(!bs)return;
   const needsBegin=!S.startTs||S.date!==today();
   bs.style.display=needsBegin?'flex':'none';
+  // First-run: simplified begin screen
+  const sub=document.getElementById('begin-sub');
+  const bh=document.querySelector('.begin-hours');
+  if(S.isTrial){
+    if(sub)sub.innerHTML='Tap play. Watch it boil.';
+    if(bh)bh.style.display='none';
+  } else {
+    if(bh)bh.style.display='';
+  }
   setTimeout(checkBeginWater,50);
 }
 
@@ -2847,7 +2993,16 @@ function updateGodBadge(){
     if(GOD_MODE)td.textContent=`tilt: ${_tiltRaw===null?'NO DATA':_tiltRaw.toFixed(1)}° → smooth: ${tiltSmooth.toFixed(1)} | sensors: ${_sensorsAttached?'ON':'OFF'}`;
   }
 }
-function render(){checkBeginScreen();renderBeginStreak();updateContToggle();renderDaybar();renderCards();updateLogoDot();updateHeader();updateScrollState();applyAquarium();updateAquariumBar();setTimeout(startWaveLoop,50);updateGodBadge();}
+function render(){
+  // Progressive disclosure classes
+  const dc=S.daysCompleted||0;
+  const dayClass=dc===0?'day-0':dc<=2?'day-1':'';
+  const aw=document.querySelector('.app-wrap');
+  const hdr=document.querySelector('.hdr');
+  if(aw){aw.classList.remove('day-0','day-1');if(dayClass)aw.classList.add(dayClass);}
+  if(hdr){hdr.classList.remove('day-0','day-1');if(dayClass)hdr.classList.add(dayClass);}
+  checkBeginScreen();renderBeginStreak();updateContToggle();renderDaybar();renderCards();updateLogoDot();updateHeader();updateScrollState();applyAquarium();updateAquariumBar();setTimeout(startWaveLoop,50);updateGodBadge();
+}
 
 function svgPlay(){return`<svg width="15" height="15" viewBox="0 0 12 12" fill="currentColor"><polygon points="2,1 11,6 2,11"/></svg>`;}
 function svgPause(){return`<svg width="15" height="15" viewBox="0 0 12 12" fill="currentColor"><rect x="1" y="1" width="3.5" height="10" rx="1"/><rect x="7.5" y="1" width="3.5" height="10" rx="1"/></svg>`;}
@@ -2887,10 +3042,23 @@ function taskForm(t){
     </div>
     <div id="rfield" style="display:${pomo?'block':'none'}">
       <div class="field"><label>Rest duration (minutes)</label><input id="frest" type="number" value="${t?Math.round(t.restDur/60)||10:10}" min="1" max="120" inputmode="numeric"></div>
+    </div>
+    <div class="field"><label>Days</label>
+      <div class="day-picker" id="day-picker">${['S','M','T','W','T','F','S'].map((d,i)=>{
+        const on=t&&t.days?t.days.includes(i):false;
+        return`<button class="day-pill${on?' on':''}" data-day="${i}" onclick="toggleDayPill(this)">${d}</button>`;
+      }).join('')}</div>
+      <div style="font-size:10px;color:var(--dim);margin-top:4px">Leave all off = every day</div>
     </div>`;
 }
 function togglePomo(){pomoOn=!pomoOn;document.getElementById('ptog').classList.toggle('on',pomoOn);document.getElementById('rfield').style.display=pomoOn?'block':'none';}
 function pickCol(p){pickedCol=p;document.querySelectorAll('.sw').forEach(s=>s.classList.toggle('on',s.dataset.p===p));}
+function toggleDayPill(el){el.classList.toggle('on');}
+function getPickedDays(){
+  const pills=document.querySelectorAll('#day-picker .day-pill.on');
+  if(!pills.length)return null;
+  return Array.from(pills).map(p=>parseInt(p.dataset.day));
+}
 
 function applyPreset(label,total,workMin,restMin){
   document.getElementById('ftot').value=total;
@@ -2927,12 +3095,13 @@ function saveTask(id){
   const workDur=parseInt(document.getElementById('fwork').value)*60||3600;
   const restDur=pomoOn?(parseInt(document.getElementById('frest').value)*60||600):0;
   const color=pickedCol||PAL[0];
+  const days=getPickedDays();
   if(!name)return;
   if(id){
     const t=S.tasks.find(x=>x.id===id);
-    if(t){t.name=name;t.color=color;if(t.workDur!==workDur||t.restDur!==restDur){t.workDur=workDur;t.restDur=restDur;resetTask(t);}else{t.total=Math.max(t.completed,total);}}
+    if(t){t.name=name;t.color=color;t.days=days;if(t.workDur!==workDur||t.restDur!==restDur){t.workDur=workDur;t.restDur=restDur;resetTask(t);}else{t.total=Math.max(t.completed,total);}}
   } else {
-    S.tasks.push(mkTask('t-'+Date.now(),name,color,total,workDur,restDur));
+    S.tasks.push(mkTask('t-'+Date.now(),name,color,total,workDur,restDur,days));
   }
   pickedCol=null;save();closeSheet();render();
 }
@@ -3033,6 +3202,7 @@ function openFinishDay(){
   },80);
 }
 function finishDay(){
+  S.daysCompleted=(S.daysCompleted||0)+1;
   const totalB=S.tasks.reduce((a,t)=>a+t.total,0);
   const compB=S.tasks.reduce((a,t)=>a+t.completed,0);
   const pct=totalB>0?compB/totalB:0;
@@ -3042,6 +3212,10 @@ function finishDay(){
       showToast(`🔥 ${Math.round(pct*100)}% — streak maintained!`,'#c8841a',2500);
       haptic([20,30,20,30,80]);
     }
+  }
+  // Unlock toast after first day
+  if(S.daysCompleted===1){
+    setTimeout(()=>showToast('You earned coins. Tap 🪙 to spend them.','#c8841a',3500),800);
   }
   doReset();
 }
