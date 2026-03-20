@@ -49,9 +49,19 @@ Where possible:
 
 ## Invariants
 
-Examples:
+### Project-specific invariants (boil)
 
-- only one active block at a time
+- Only one task may have `running: true` at a time.
+- `reconcileTask` must credit exactly the elapsed time — no more (gifting unearned progress), no less (losing real work).
+- A paused task in a background tab must not advance. Absence is not work.
+- After reconciliation, the UI must immediately reflect the true state. No stale screens.
+- `S.tasks` array order is the user's chosen order. Never silently reorder.
+- State must survive code changes (see ARCHITECTURE.md: State & Data Preservation).
+- Only one task may be in a rest phase at a time (rest follows the running task's block completion).
+- Day rollover must reset daily task state without losing lifetime data (coins, shop items, streak).
+
+### General invariant patterns
+
 - time progresses monotonically
 - block completion is consistent with elapsed time
 - transitions preserve state integrity

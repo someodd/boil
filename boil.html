@@ -198,20 +198,6 @@
     .pip.empty{background:transparent;border:2px solid var(--brd)}
     .pip.active{background:color-mix(in srgb,var(--tc) 5%,transparent);border:2px solid var(--tc)}
     .pip.rest-active{background:transparent;border:2px solid #2e9e6a}
-    /* liquid fill rising from bottom */
-    .pip-fill{
-      position:absolute;left:0;bottom:0;width:100%;
-      background:var(--tc);opacity:.28;
-      transition:height 1s linear;
-    }
-    .pip.rest-active .pip-fill{background:#2e9e6a}
-    /* tick mark inside active pip */
-    .pip-tick{
-      position:absolute;left:0;right:0;bottom:var(--fill-h,0%);
-      height:2px;background:var(--tc);opacity:.55;
-      transition:bottom 1s linear;
-    }
-    .pip.rest-active .pip-tick{background:#2e9e6a}
     @keyframes active-glow{
       0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--tc) 30%,transparent)}
       50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--tc) 12%,transparent)}
@@ -222,13 +208,6 @@
       50%{box-shadow:0 0 0 5px rgba(46,158,106,.1)}
     }
     .pip.rest-active{animation:rest-glow 2.4s ease-in-out infinite}
-
-    /* phase badge */
-    .phase{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;padding:3px 10px;border-radius:100px;margin-bottom:9px}
-    .phase.work{background:color-mix(in srgb,var(--tc) 13%,transparent);color:var(--tc)}
-    .phase.rest{background:#e0f5ea;color:#2e9e6a;animation:rest-badge-pulse 2.4s ease-in-out infinite}
-    @keyframes rest-badge-pulse{0%,100%{opacity:1}50%{opacity:.65}}
-    .phase-dot{width:5px;height:5px;border-radius:50%;background:currentColor}
 
     /* .c-bottom/.timer removed — using .c-times now */
 
@@ -596,6 +575,17 @@
     }
     .card.rest-flash{animation:restPulse .8s ease forwards}
 
+    /* Steam banner — shows during rest above cards */
+    #steam-banner{
+      text-align:center;padding:18px 16px 14px;
+      font-family:var(--fd);color:var(--ink);opacity:0.55;
+      transition:opacity .6s ease;
+      position:relative;z-index:2;
+    }
+    #steam-banner .sb-title{font-size:20px;font-weight:800;letter-spacing:-.02em}
+    #steam-banner .sb-timer{font-size:42px;font-weight:800;letter-spacing:-.04em;font-variant-numeric:tabular-nums;line-height:1.1}
+    #steam-banner .sb-sub{font-size:11px;font-weight:600;font-family:var(--fs);color:var(--mid);margin-top:2px}
+
     /* Rest overlay inside pips-wrap — covers pips with a chill vibe */
     .rest-overlay{
       position:absolute;inset:0;
@@ -741,6 +731,20 @@
     .fin-task-name{flex:1;font-size:14px;font-weight:700;color:var(--ink)}
     .fin-task-detail{font-size:12px;font-weight:600;color:var(--dim)}
     .fin-task-coins{font-size:14px}
+
+    /* Tap ripple */
+    .tap-ripple{
+      position:fixed;pointer-events:none;z-index:997;
+      width:0;height:0;border-radius:50%;
+      border:1.8px solid rgba(28,25,23,0.16);
+      transform:translate(-50%,-50%);
+      animation:tap-ring .55s ease-out forwards;
+    }
+    .tap-ripple:nth-child(odd){animation-duration:.7s;border-color:rgba(28,25,23,0.11);}
+    @keyframes tap-ring{
+      0%{width:0;height:0;opacity:1}
+      100%{width:100px;height:100px;opacity:0}
+    }
   </style>
 </head>
 <body>
@@ -803,6 +807,7 @@
 <div class="scroll" id="cards"></div>
 <button class="fab" onclick="openAdd()" title="Add block">+</button>
 
+<div id="steam-banner" style="display:none"></div>
 </div><!-- /app-wrap -->
 <div class="ov" id="ov" onclick="ovClick(event)">
   <div class="sheet"><div class="sh-hnd"></div><div id="sb"></div></div>
@@ -848,7 +853,7 @@ function DAY_S(){
 }
 function dayEl(){if(!S?.startTs)return 0;return Math.min(DAY_S(),Math.max(0,Math.floor((Date.now()-S.startTs)/1000)));}
 function dayRem(){return Math.max(0,DAY_S()-dayEl());}
-const PAL=['#4a9eba','#c8841a','#9b6bb5','#3a9e6a','#c0453a','#4a78c0','#c07828','#7a9e30','#c06090','#e09030'];
+const PAL=['#c0453a','#d4782a','#b59a1a','#3a9e6a','#2a8a8a','#4a78c0','#5b5cd6','#9b6bb5','#c06090','#8a6548'];
 const KEY='boil-v1'; // renamed from blocks-v7
 
 // ── DATA MODEL ─────────────────────────────────────────────────────
@@ -879,11 +884,11 @@ function defaults(){
   };
 }
 function mkTask(id,name,color,total,workDur,restDur,days){
-  return{id,name,color,total,workDur,restDur,days:days||null,completed:0,isRest:false,rem:workDur,running:false,done:false,savedAt:null,pauseCount:0,perfectBlocks:[]};
+  return{id,name,color,total,workDur,restDur,days:days||null,completed:0,isRest:false,rem:workDur,running:false,done:false,savedAt:null};
 }
 
 let S, ticker=null;
-let GOD_MODE=true; // 1min=1sec, free shop, infinite currency
+let GOD_MODE=false; // 1min=1sec, free shop, infinite currency
 function godTick(){return GOD_MODE?60:1;}
 
 // ── BOOT ───────────────────────────────────────────────────────────
@@ -905,7 +910,7 @@ function boot(){
   if(S.bestScore===undefined)S.bestScore=0;
   if(S.lifetimeCoins===undefined)S.lifetimeCoins=0;
   if(S.stars===undefined)S.stars=0;
-  S.tasks.forEach(t=>{if(!t.perfectBlocks)t.perfectBlocks=[];});
+  S.tasks.forEach(t=>{delete t.perfectBlocks;delete t.pauseCount;});
   if(S.streakFreezes===undefined)S.streakFreezes=0;
   if(S.badges===undefined)S.badges=[];
   if(S.shopItems===undefined)S.shopItems={};
@@ -914,6 +919,8 @@ function boot(){
   if(S.daysCompleted===undefined)S.daysCompleted=99; // existing users skip progressive disclosure
   if(S.seen===undefined)S.seen={};
   if(S.isTrial===undefined)S.isTrial=false;
+  if(S.fullBoils===undefined)S.fullBoils=0;
+  if(S.ballRecord===undefined)S.ballRecord=0;
   S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;});
   const now=Date.now(),td=today();
   if(S.date!==td){
@@ -922,7 +929,6 @@ function boot(){
   } else {
     S.tasks.forEach(t=>reconcileTask(t,now));
   }
-  if(GOD_MODE){S.lifetimeCoins=9999;S.stars=999;}
   // Capture elapsed BEFORE save() overwrites savedAt
   const _reopenTask=S.tasks.find(t=>t.running&&t.savedAt);
   const _elapsedBeforeSave=_reopenTask?Math.floor((Date.now()-_reopenTask.savedAt)/60000):0;
@@ -940,7 +946,7 @@ function boot(){
     },600);
   }
 }
-function resetTask(t){t.completed=0;t.isRest=false;t.rem=t.workDur;t.running=false;t.done=false;t.savedAt=null;t.perfectBlocks=[];if(bubblePools[t.id])bubblePools[t.id]=[];delete window['_sf_'+t.id];}
+function resetTask(t){t.completed=0;t.isRest=false;t.rem=t.workDur;t.running=false;t.done=false;t.savedAt=null;if(bubblePools[t.id])bubblePools[t.id]=[];delete window['_sf_'+t.id];}
 
 function resolvePhaseEnd(t,animate){
   const cont=S.continuous;
@@ -949,7 +955,7 @@ function resolvePhaseEnd(t,animate){
     t.isRest=false;t.completed++;
     S.lifetimeCoins=(S.lifetimeCoins||0)+1; // accumulate in real-time
     if(t.completed>=t.total){t.done=true;t.running=false;t.savedAt=null;return true;}
-    t.rem=t.workDur;t.pauseCount=0; // new block, fresh slate
+    t.rem=t.workDur;
     if(cont){t.savedAt=animate?Date.now():null;}
     else{t.running=false;t.savedAt=null;}
   } else {
@@ -970,6 +976,15 @@ function resolvePhaseEnd(t,animate){
   return false;
 }
 
+function skipRest(id){
+  const t=S.tasks.find(x=>x.id===id);
+  if(!t||!t.isRest||!t.running)return;
+  t.rem=0;
+  const allDone=resolvePhaseEnd(t,true);
+  save();
+  if(allDone){onTaskDone(id);}
+  renderCard(t);updateHeader();
+}
 function reconcileTask(t,now){
   if(!t.running||t.done||!t.savedAt)return;
   let el=Math.floor((now-t.savedAt)/1000);
@@ -986,7 +1001,9 @@ function reconcileTask(t,now){
   else t.savedAt=null;
 }
 
+let _erasing=false;
 function save(){
+  if(_erasing)return;
   const now=Date.now();
   S.tasks.forEach(t=>{if(t.running&&!t.done)t.savedAt=now;});
   try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
@@ -1000,6 +1017,7 @@ document.addEventListener('visibilitychange',()=>{
   if(S.date!==td){
     S.tasks.forEach(t=>{if(t.running){t.running=false;t.savedAt=null;}});
     stopAmbient();S.tasks.forEach(resetTask);S.date=td;S.startTs=null;
+    delete S._daySnap; // day ended naturally — rewards earned
     clearInterval(ticker);ticker=null;bgBubbles.length=0;
     save();render();return;
   }
@@ -1029,6 +1047,7 @@ function ensureTicker(){
     if(S.date!==today()){
       S.tasks.forEach(t=>{if(t.running){t.running=false;t.savedAt=null;}});
       stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;
+      delete S._daySnap; // day ended naturally — rewards earned
       clearInterval(ticker);ticker=null;bgBubbles.length=0;
       save();render();return;
     }
@@ -1051,11 +1070,165 @@ function ensureTicker(){
 }
 setInterval(renderDaybar,1000);
 
+const BOIL_THEMES={
+  default:{
+    name:'Water',emoji:'💧',
+    waterTint:null,opacityMul:1.0,foamColor:null,
+    floaters:[],noodles:false,
+    doneCopy:['Boiled through.'],
+    dayCopy:null,
+  },
+  noodles:{
+    name:'Noodles',emoji:'🍜',
+    waterTint:{r:15,g:10,b:-8},opacityMul:1.05,
+    foamColor:'rgba(240,230,200,0.35)',
+    floaters:[],noodles:true,
+    doneCopy:['Al dente.','Done. Strain and serve.'],
+    dayCopy:[['Al dente.','Every strand, perfectly timed.'],['Buon appetito.','The pot is empty.']],
+  },
+};
+
+// ── PROCEDURAL NOODLES ──────────────────────────────────────────────
+// Noodles: spaghetti dropped in as a bundle — stiff sticks fanning from
+// a grip point near the surface, many poking above the water. As they cook
+// they soften and slink down into the water, eventually draping limp.
+const _noodles=[];
+function initNoodles(W,H,fillY){
+  _noodles.length=0;
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const count=22+Math.floor(Math.random()*6);
+  // Bundle grip point — where your hand dropped them in
+  // Slightly off-center for a natural look
+  const gripX=W*(0.4+Math.random()*0.2);
+  for(let i=0;i<count;i++){
+    const len=(320+Math.random()*180)*dpr;
+    // Fan angle: steep, mostly pointing UP from the bottom
+    const spread=(i/count-0.5)*1.2; // -0.6 to +0.6
+    const baseAngle=-Math.PI/2+spread; // straight up ± fan
+    const angle=baseAngle+(Math.random()-0.5)*0.3; // individual jitter
+    // Anchor x: clustered around the grip point with slight scatter
+    const x=gripX+(Math.random()-0.5)*30*dpr;
+    // bottomOff: small offset from the very bottom of the canvas
+    const bottomOff=(Math.random()-0.5)*20*dpr;
+    _noodles.push({
+      x,bottomOff,len,
+      initAngle:angle, // raw/rigid angle (steep, poking up from bottom)
+      cookedAngle:-0.1+Math.random()*0.2, // target: mostly horizontal when cooked
+      phase:Math.random()*Math.PI*2,
+      drift:0.15+Math.random()*0.25,
+      thick:(4.5+Math.random()*2.0)*dpr,
+      bendCenter:0.3+Math.random()*0.4,
+      cookOffset:Math.random()*0.18,
+      bob:0.4+Math.random()*0.6,
+      // Each strand settles to a different depth when fully cooked
+      settleDepth:0.15+Math.random()*0.55,
+      // Slight x drift as strand settles — they spread out
+      settleX:W*(0.05+Math.random()*0.9),
+    });
+  }
+}
+function drawNoodles(ctx,W,H,fillY,boil,t){
+  if(!_noodles.length)return;
+  const rawCook=Math.min(boil*2.0,1.0);
+  const waterDepth=H-fillY;
+  ctx.save();
+  ctx.lineCap='round';
+  ctx.lineJoin='round';
+
+  // Starchy water overlay — subtle milky tint that increases with cooking
+  if(rawCook>0.1){
+    ctx.save();
+    ctx.globalAlpha=rawCook*0.08;
+    ctx.fillStyle='rgb(245,240,230)';
+    ctx.fillRect(0,fillY,W,H-fillY);
+    ctx.restore();
+  }
+
+  _noodles.forEach(n=>{
+    const cook=Math.max(0,Math.min(1,rawCook-n.cookOffset));
+    // Ease function — fast initial slump, slow settle
+    const ease=1-Math.pow(1-cook,2.5);
+
+    // Anchor point transitions from bottom cluster to spread-out floating position
+    const nx=n.x+(n.settleX-n.x)*ease+Math.sin(t*0.3+n.phase)*n.drift*25*cook;
+    // Rigid: sits on the bottom. Cooked: floats up to settle in the water column.
+    const bottomY=H-8+n.bottomOff;
+    const floatY=fillY+waterDepth*n.settleDepth;
+    const ny=bottomY+(floatY-bottomY)*ease+Math.sin(t*0.2*n.bob+n.phase*1.3)*8*cook;
+
+    // Angle: steep (poking up) at raw → horizontal when cooked
+    const angle=n.initAngle+(n.cookedAngle-n.initAngle)*ease;
+
+    // Length above water shrinks as they cook (slink into the pot)
+    // At raw: most of the strand is above water. At cooked: fully submerged.
+    const segs=14;
+    const segLen=n.len/segs;
+    const pts=[];
+    for(let s=0;s<=segs;s++){
+      const frac=s/segs;
+      // Baseline: straight rigid stick from anchor at current angle
+      const bx=nx+Math.cos(angle)*segLen*s;
+      const by=ny+Math.sin(angle)*segLen*s;
+
+      // Softening bend — only develops as strand cooks
+      const maxBend=n.len*0.10;
+      const bendAmp=cook*cook*maxBend;
+      const bend=bendAmp*Math.sin((frac-n.bendCenter)*Math.PI*1.3+n.phase*0.3);
+
+      // Gravity: pulls tips downward. Stronger at the far end of the strand.
+      // At low cook: stiff, gravity barely affects. At high cook: tips droop heavily.
+      const gravityPull=cook*cook*n.len*0.12*frac*frac;
+
+      // Subtle secondary wave at high cook
+      const secondary=cook>0.5?(cook-0.5)*n.len*0.012*Math.sin(frac*Math.PI*2.3+t*0.15+n.phase):0;
+
+      const px=-Math.sin(angle);
+      const py=Math.cos(angle);
+      pts.push({
+        x:bx+px*(bend+secondary),
+        y:by+py*(bend+secondary)+gravityPull
+      });
+    }
+    // At low cook: allow points above fillY (sticking out of water)
+    // At high cook: clamp into water column
+    const minY=fillY*(1-Math.max(0,1-cook*1.5))+0; // at cook=0: allow y=0; at cook>0.67: clamp to fillY
+    const clampTop=cook<0.67?0:fillY+4;
+    pts.forEach(p=>{p.y=Math.max(clampTop,Math.min(H-6,p.y));});
+
+    // Draw smooth curve
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x,pts[0].y);
+    for(let s=1;s<pts.length-1;s++){
+      const cx=(pts[s].x+pts[s+1].x)/2;
+      const cy=(pts[s].y+pts[s+1].y)/2;
+      ctx.quadraticCurveTo(pts[s].x,pts[s].y,cx,cy);
+    }
+    ctx.lineTo(pts[pts.length-1].x,pts[pts.length-1].y);
+
+    // Color: raw semolina → cooked pale wheat
+    const r=Math.round(224+cook*13);
+    const g=Math.round(204+cook*20);
+    const b=Math.round(144+cook*28);
+    const alpha=0.65+cook*0.10;
+    ctx.strokeStyle=`rgba(${r},${g},${b},${alpha})`;
+    ctx.lineWidth=n.thick*(1+cook*0.15);
+    ctx.stroke();
+
+    // Subtle highlight
+    ctx.strokeStyle=`rgba(250,243,220,${0.10+cook*0.06})`;
+    ctx.lineWidth=n.thick*0.25;
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+function getTheme(){
+  const id=S.shopItems&&S.shopItems.boilTheme?S.shopItems.boilTheme:'default';
+  return BOIL_THEMES[id]||BOIL_THEMES['default'];
+}
+
 const SHOP_ITEMS=[
   {id:'mercy',       name:'Mercy',         emoji:'🕊️', cost:30,  type:'consumable', desc:'Skip a block. Instant completion.'},
   {id:'freeze',      name:'Streak Freeze', emoji:'🧊', cost:50,  type:'consumable', desc:'Protects your streak once'},
-  {id:'warm_theme',  name:'Warm Amber',    emoji:'🟠', cost:100, type:'theme', desc:'Amber water tint'},
-  {id:'cool_theme',  name:'Deep Blue',     emoji:'🔵', cost:100, type:'theme', desc:'Cool blue water tint'},
   {id:'star_freeze', name:'Star Freeze',   emoji:'⭐🧊',cost:3,  type:'star_consumable', currency:'stars', desc:'Buy with 3 stars'},
   // Profile avatar emojis (bought with coins)
   {id:'avatar_chef',  name:'Chef',         emoji:'👨‍🍳', cost:80,  type:'avatar', desc:'A cook who takes the heat'},
@@ -1070,19 +1243,19 @@ const SHOP_ITEMS=[
   {id:'float_ball',   name:'Beach Ball',    emoji:'🏐', cost:40,  type:'floater', desc:'Tap to keep it in the air'},
   {id:'float_fish',   name:'Little Fish',   emoji:'🐟', cost:5,   type:'floater', currency:'stars', desc:'Panics at full boil'},
   {id:'aquarium',     name:'Aquarium Mode', emoji:'🐠', cost:150, type:'unlock',  desc:'Minimize UI, maximize water'},
+  // Food (bought with full boils ♨️)
+  {id:'theme_noodles',   name:'Noodles',   emoji:'🍜', cost:3, type:'boilTheme', currency:'fullBoils', desc:'Noodles soften as they boil'},
 ];
 function shopBuy(id){
   const item=SHOP_ITEMS.find(i=>i.id===id);
   if(!item)return;
   const currency=item.currency||'coins';
-  const bal=currency==='stars'?(S.stars||0):(S.lifetimeCoins||0);
-  if(!GOD_MODE&&bal<item.cost){showToast(`Not enough ${currency}. Need ${item.cost}.`,'#c0453a');return;}
-  if(!GOD_MODE){if(currency==='stars')S.stars-=item.cost; else S.lifetimeCoins-=item.cost;}
+  const bal=currency==='stars'?(S.stars||0):currency==='fullBoils'?(S.fullBoils||0):(S.lifetimeCoins||0);
+  if(!GOD_MODE&&bal<item.cost){showToast(`Not enough ${currency==='fullBoils'?'full boils':currency}. Need ${item.cost}.`,'#c0453a');return;}
+  if(!GOD_MODE){if(currency==='stars')S.stars-=item.cost;else if(currency==='fullBoils')S.fullBoils-=item.cost;else S.lifetimeCoins-=item.cost;}
   if(item.type==='consumable'||item.type==='star_consumable'){
     if(id==='freeze'||id==='star_freeze')S.streakFreezes=(S.streakFreezes||0)+1;
     if(id==='mercy')S.mercyCoins=(S.mercyCoins||0)+1;
-  } else if(item.type==='theme'){
-    S.shopItems.theme=id;
   } else if(item.type==='avatar'){
     S.shopItems.avatar=item.emoji;
   } else if(item.type==='unlock'){
@@ -1091,11 +1264,24 @@ function shopBuy(id){
     if(!S.shopItems.floaters)S.shopItems.floaters=[];
     if(!S.shopItems.floaters.includes(item.id))S.shopItems.floaters.push(item.id);
     activeFloaters.length=0; // force respawn with new toy
+  } else if(item.type==='boilTheme'){
+    if(!S.shopItems.ownedBoilThemes)S.shopItems.ownedBoilThemes=[];
+    const themeKey=item.id.replace('theme_','');
+    if(!S.shopItems.ownedBoilThemes.includes(themeKey))S.shopItems.ownedBoilThemes.push(themeKey);
+    S.shopItems.boilTheme=themeKey;
+    activeFloaters.length=0;_noodles.length=0; // force respawn
   }
   save();
   showToast(`${item.emoji} ${item.name} unlocked!`,'#2e9e6a',2500);
   haptic([10,40,10]);
   openShop(); // refresh
+}
+function equipBoilTheme(id){
+  S.shopItems.boilTheme=id;
+  activeFloaters.length=0;_noodles.length=0;
+  save();
+  showToast(`${BOIL_THEMES[id]?BOIL_THEMES[id].emoji:'💧'} ${BOIL_THEMES[id]?BOIL_THEMES[id].name:'Water'} equipped`,'#2e9e6a',1500);
+  openShop();
 }
 function openProfile(){
   const lvl=getHeatLevel();
@@ -1143,18 +1329,22 @@ function openProfile(){
     </div>
 
     <!-- Stats grid -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:16px">
       <div style="background:var(--bg);border-radius:12px;padding:10px 12px;text-align:center">
         <div style="font-size:20px;font-weight:800;font-family:var(--fd);color:#c8841a">${S.streak||0}🔥</div>
-        <div style="font-size:9px;font-weight:800;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-top:2px">day streak</div>
+        <div style="font-size:9px;font-weight:800;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-top:2px">streak</div>
       </div>
       <div style="background:var(--bg);border-radius:12px;padding:10px 12px;text-align:center">
         <div style="font-size:20px;font-weight:800;font-family:var(--fd);color:#c8841a">${S.stars||0} ⭐</div>
         <div style="font-size:9px;font-weight:800;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-top:2px">stars</div>
       </div>
       <div style="background:var(--bg);border-radius:12px;padding:10px 12px;text-align:center">
-        <div style="font-size:20px;font-weight:800;font-family:var(--fd)">${S.bestScore||0}</div>
-        <div style="font-size:9px;font-weight:800;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-top:2px">best score</div>
+        <div style="font-size:20px;font-weight:800;font-family:var(--fd);color:#c8841a">${S.fullBoils||0} ♨️</div>
+        <div style="font-size:9px;font-weight:800;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-top:2px">full boils</div>
+      </div>
+      <div style="background:var(--bg);border-radius:12px;padding:10px 12px;text-align:center">
+        <div style="font-size:20px;font-weight:800;font-family:var(--fd)">${S.daysCompleted||0}</div>
+        <div style="font-size:9px;font-weight:800;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-top:2px">full days</div>
       </div>
     </div>
 
@@ -1169,36 +1359,51 @@ function openProfile(){
       <button class="bs" onclick="closeSheet()">close</button>
       <button class="bp" onclick="closeSheet();openShop()">🪙 shop</button>
     </div>
+    <button onclick="event.stopPropagation();askEraseAll()" style="display:block;margin:24px auto 0;background:none;border:none;font-family:var(--fs);font-size:11px;font-weight:700;color:var(--dim);cursor:pointer;padding:8px 0">reset all data</button>
   `);
 }
 function openShop(){
   seenToast('shop','Spend coins on water toys.','#6b6258',200);
   const coins=S.lifetimeCoins||0;
   const stars=S.stars||0;
+  const fb=S.fullBoils||0;
+  const ownedThemes=S.shopItems.ownedBoilThemes||[];
+  const equippedTheme=S.shopItems.boilTheme||'default';
   const rows=SHOP_ITEMS.map(item=>{
     const currency=item.currency||'coins';
-    const bal=currency==='stars'?stars:coins;
-    const owned=item.type==='consumable'||item.type==='star_consumable'
-      ?''
-      :(S.shopItems.restEmoji===item.emoji||S.shopItems.theme===item.id||S.shopItems.avatar===item.emoji||(item.type==='floater'&&S.shopItems.floaters&&S.shopItems.floaters.includes(item.id))||(item.type==='unlock'&&S.shopItems[item.id]))?'<span style="color:#2e9e6a;font-weight:800;font-size:11px">owned ✓</span>':'';
+    const bal=currency==='stars'?stars:currency==='fullBoils'?fb:coins;
+    let owned='';
+    if(item.type==='boilTheme'){
+      const tk=item.id.replace('theme_','');
+      if(ownedThemes.includes(tk)){
+        owned=equippedTheme===tk
+          ?'<span style="color:#2e9e6a;font-weight:800;font-size:11px">equipped ✓</span>'
+          :`<button onclick="equipBoilTheme('${tk}')" style="background:var(--bg);color:var(--ink);border:1.5px solid var(--brd);border-radius:100px;padding:5px 12px;font-size:11px;font-weight:800;cursor:pointer;font-family:var(--fs)">equip</button>`;
+      }
+    } else if(item.type!=='consumable'&&item.type!=='star_consumable'){
+      owned=(S.shopItems.avatar===item.emoji||(item.type==='floater'&&S.shopItems.floaters&&S.shopItems.floaters.includes(item.id))||(item.type==='unlock'&&S.shopItems[item.id]))?'<span style="color:#2e9e6a;font-weight:800;font-size:11px">owned ✓</span>':'';
+    }
     const canBuy=bal>=item.cost&&!owned;
+    const costIcon=currency==='stars'?'⭐':currency==='fullBoils'?'♨️':'🪙';
     return`<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--brd)">
       <span style="font-size:22px">${item.emoji}</span>
       <div style="flex:1">
         <div style="font-size:14px;font-weight:700;color:var(--ink)">${item.name}</div>
         <div style="font-size:11px;color:var(--dim)">${item.desc}</div>
       </div>
-      ${owned||`<button onclick="shopBuy('${item.id}')" style="background:${canBuy?'var(--ink)':'var(--brd)'};color:${canBuy?'#fff':'var(--dim)'};border:none;border-radius:100px;padding:6px 14px;font-size:12px;font-weight:800;cursor:${canBuy?'pointer':'default'};font-family:var(--fs)">${item.cost}${currency==='stars'?'⭐':'🪙'}</button>`}
+      ${owned||`<button onclick="shopBuy('${item.id}')" style="background:${canBuy?'var(--ink)':'var(--brd)'};color:${canBuy?'#fff':'var(--dim)'};border:none;border-radius:100px;padding:6px 14px;font-size:12px;font-weight:800;cursor:${canBuy?'pointer':'default'};font-family:var(--fs)">${item.cost}${costIcon}</button>`}
     </div>`;
   }).join('');
   openSheet(`<div class="sh-ttl">shop</div>
-    <div style="display:flex;gap:16px;margin-bottom:16px;background:var(--bg);border-radius:12px;padding:12px 14px">
+    <div style="display:flex;gap:12px;margin-bottom:16px;background:var(--bg);border-radius:12px;padding:12px 14px;flex-wrap:wrap">
       <div><div style="font-size:20px;font-weight:800;font-family:var(--fd)">${coins} 🪙</div><div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:.06em;text-transform:uppercase">coins</div></div>
       <div><div style="font-size:20px;font-weight:800;font-family:var(--fd)">${stars} ⭐</div><div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:.06em;text-transform:uppercase">stars</div></div>
+      <div><div style="font-size:20px;font-weight:800;font-family:var(--fd)">${fb} ♨️</div><div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:.06em;text-transform:uppercase">full boils</div></div>
       <div><div style="font-size:20px;font-weight:800;font-family:var(--fd)">${S.streakFreezes||0} 🧊</div><div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:.06em;text-transform:uppercase">freezes</div></div>
       <div><div style="font-size:20px;font-weight:800;font-family:var(--fd)">${S.mercyCoins||0} 🕊️</div><div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:.06em;text-transform:uppercase">mercy</div></div>
     </div>
     ${rows}
+    ${ownedThemes.length&&equippedTheme!=='default'?`<div style="text-align:center;margin-top:12px"><button onclick="equipBoilTheme('default')" style="background:none;border:1.5px solid var(--brd);border-radius:100px;padding:6px 16px;font-size:12px;font-weight:700;color:var(--mid);cursor:pointer;font-family:var(--fs)">💧 Reset to Water</button></div>`:''}
     <div style="margin-top:20px"></div>`);
 }
 
@@ -1215,23 +1420,6 @@ function showToast(msg,color='#1c1917',duration=2000){
   document.body.appendChild(d);
   requestAnimationFrame(()=>{d.style.opacity='1';d.style.transform='translateX(-50%) translateY(0)';});
   setTimeout(()=>{d.style.opacity='0';d.style.transform='translateX(-50%) translateY(-8px)';setTimeout(()=>d.remove(),300);},duration);
-}
-function scheduleStreakRisk(){
-  // Fire a notification at 8pm if day isn’t complete
-  if(!('Notification' in window)||Notification.permission!=='granted')return;
-  const now=new Date();
-  const eightPm=new Date(now);eightPm.setHours(20,0,0,0);
-  const ms=eightPm-now;
-  if(ms<0)return; // already past 8pm
-  setTimeout(()=>{
-    // Only fire if today hasn't been completed
-    if(S.lastCompletedDate!==today()&&document.hidden){
-      const streakMsg=S.streak>0
-        ?`🔥 ${S.streak}-day streak at risk. You haven’t boiled today.`
-        :`⏳ Your day is slipping away. Start heating up.`;
-      try{new Notification('boil',{body:streakMsg,silent:false});}catch(e){}
-    }
-  },ms);
 }
 function schedMidnight(){
   const now=new Date(),mid=new Date(now);mid.setHours(24,0,2,0);
@@ -1264,6 +1452,26 @@ function tone(hz,dur,vol,t0,type='sine'){
   }catch(e){}
 }
 const sndTap   =()=>{tone(720,.065,.022);haptic([8]);};
+// Water surface tap — hollow plop with pitch scaled by force
+function sndPlop(force){
+  try{
+    const c=ac(),now=c.currentTime;
+    const f=Math.min(Math.abs(force||25),50);
+    const hz=180+f*3; // harder tap = higher pitch
+    const vol=0.015+f*0.0006;
+    // body: short sine drop
+    const o=c.createOscillator(),g=c.createGain();
+    o.type='sine';o.frequency.setValueAtTime(hz,now);
+    o.frequency.exponentialRampToValueAtTime(hz*0.4,now+0.12);
+    g.gain.setValueAtTime(vol,now);g.gain.exponentialRampToValueAtTime(0.001,now+0.15);
+    o.connect(g);g.connect(c.destination);o.start(now);o.stop(now+0.16);
+    // click: tiny triangle transient
+    const o2=c.createOscillator(),g2=c.createGain();
+    o2.type='triangle';o2.frequency.value=hz*2.2;
+    g2.gain.setValueAtTime(vol*0.5,now);g2.gain.exponentialRampToValueAtTime(0.001,now+0.03);
+    o2.connect(g2);g2.connect(c.destination);o2.start(now);o2.stop(now+0.04);
+  }catch(e){}
+}
 // Ambient focus drone — very faint 40hz sine while block runs
 let _ambOsc=null,_ambGain=null;
 function startAmbient(){
@@ -1358,11 +1566,17 @@ class P {
   draw(){
     ctx.save();
     ctx.globalAlpha=Math.max(0,this.life);
-    ctx.fillStyle=this.col;
     ctx.translate(this.x,this.y);
-    if(this.round){
+    if(this.emoji){
+      ctx.rotate(this.rot);
+      ctx.font=`${Math.round(this.sz)}px sans-serif`;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(this.emoji,0,0);
+    } else if(this.round){
+      ctx.fillStyle=this.col;
       ctx.beginPath();ctx.arc(0,0,this.sz/2,0,Math.PI*2);ctx.fill();
     } else {
+      ctx.fillStyle=this.col;
       ctx.rotate(this.rot);
       ctx.fillRect(-this.sz/2,-this.sz/2,this.sz,this.sz);
     }
@@ -1455,6 +1669,20 @@ function rainConfetti(col,n=80){
     p.life=.85+Math.random()*.15;
     parts.push(p);
   }
+  // Noodle theme: toss pasta emojis with the confetti
+  if(getTheme().noodles){
+    const pastas=['🍝','🍜','🍝','🍜','🍝','🍜'];
+    for(let i=0;i<Math.round(n/6);i++){
+      const p=new P(
+        Math.random()*FX.width,-20-Math.random()*60,
+        (Math.random()-.5)*2.5,1.2+Math.random()*3,
+        'rgba(0,0,0,0)',14+Math.random()*10);
+      p.emoji=pastas[Math.floor(Math.random()*pastas.length)];
+      p.decay=.004+Math.random()*.003;
+      p.life=.9+Math.random()*.1;
+      parts.push(p);
+    }
+  }
   startFX();
 }
 
@@ -1486,7 +1714,7 @@ function tapCard(id){
   });
   t.running=!wasRunning;
   if(t.running){t.savedAt=Date.now();sndTap();startAmbient();ensureTicker();showToast('Heating up. ↑','var(--tc)',1200);if(!_sensorsAttached)requestMotionPermission();}
-  else{t.savedAt=null;t.pauseCount=(t.pauseCount||0)+1;sndStop();stopAmbient();showToast('The water cools.','#6b6258',1800);}
+  else{t.savedAt=null;sndStop();stopAmbient();showToast('The water cools.','#6b6258',1800);}
   save();renderCard(t);renderDaybar();updateLogoDot();
   updateScrollState();
 }
@@ -1512,26 +1740,15 @@ function notify(title,body){
   }
 }
 function onSubBlockDone(id){
+  if(S.aquariumOn){S.aquariumOn=false;save();applyAquarium();}
   sndSub();
   const t=S.tasks.find(x=>x.id===id);
   if(t){
     const blocksLeft2=t.total-t.completed-1;
     if(blocksLeft2>0)notify(`${t.name} block done ✓`,`${blocksLeft2} block${blocksLeft2!==1?'s':''} left`);
     else notify(`${t.name} — last block done!`,'Task completing…');
-    // Perfect block: no pauses = earn a star
-    if((t.pauseCount||0)===0){
-      S.stars=(S.stars||0)+1;
-      if(!t.perfectBlocks)t.perfectBlocks=[];
-      t.perfectBlocks.push(t.completed-1); // block just completed = index completed-1
-      showToast('⭐ Perfect block! +1 star','#c8841a',2200);
-      haptic([8,30,8,30,60]);
-      updateHeader();
-      save();
-    }
-    t.pauseCount=0; // reset for next block
     // Contextual one-liners
     seenToast('coin','🪙 You earned a coin. One per block.','#c8841a',1200);
-    if((t.pauseCount||0)===0&&S.stars>0)seenToast('star','⭐ No pauses = perfect block = star.','#c8841a',1400);
   }
   const el=document.getElementById('c-'+id);
   if(!el){renderCards();return;}
@@ -1577,9 +1794,17 @@ function onSubBlockDone(id){
 }
 
 function onTaskDone(id){
+  if(S.aquariumOn){S.aquariumOn=false;save();applyAquarium();}
   stopAmbient();sndTask();
   const _td=S.tasks.find(x=>x.id===id);
-  if(_td)notify(`${_td.name} complete! 💰`,'All blocks done. What\'s next?');
+  if(_td){
+    notify(`${_td.name} complete! ⭐`,'All blocks done. What\'s next?');
+    S.stars=(S.stars||0)+1;save();updateHeader();
+    const _dc=getTheme().doneCopy;
+    const _dm=_dc[Math.floor(Math.random()*_dc.length)];
+    showToast(`⭐ ${_dm} +1 star`,'#c8841a',2200);
+    haptic([8,30,8,30,60]);
+  }
   // Reset bg wave
   bgWaveState.targetFill=0;bgWaveState.fill=0;bgWaveState.active=false;activeFloaters.length=0;if(bgHF.h)bgHF.h.fill(0);if(bgHF.v)bgHF.v.fill(0);
   const bgc=document.getElementById('bg-canvas');if(bgc)bgc.classList.remove('active');
@@ -1639,9 +1864,9 @@ function getHeatLevel(){
 function calcDayScore(){
   // Score = coins × 10, bonus for tasks completed in order, cap at 9999
   const coins=S.tasks.reduce((a,t)=>a+t.completed,0);
-  const bags=S.tasks.filter(t=>t.done).length;
+  const stars=S.tasks.filter(t=>t.done).length;
   const total=S.tasks.length;
-  const orderBonus=S.tasks.every(t=>t.done)?Math.round(bags*15):0;
+  const orderBonus=S.tasks.every(t=>t.done)?Math.round(stars*15):0;
   return Math.min(9999, coins*10 + orderBonus);
 }
 function updateStreak(){
@@ -1655,7 +1880,7 @@ function updateStreak(){
   } else if(S.streakFreezes>0){
     // Use a freeze instead of resetting!
     S.streakFreezes--;
-    showToast('🧊 Streak freeze used. Don’t make it a habit.','#4a78c0',3500);
+    showToast('🧊 Streak freeze used. Back to it.','#4a78c0',3500);
     haptic([0,50,0,50,200]);
     // Don’t change streak, just update date
   } else {
@@ -1745,14 +1970,20 @@ function checkRuntimeBadges(t){
   }
 }
 function triggerDayCeremony(){
-  S.daysCompleted=(S.daysCompleted||0)+1;
+  const firstComplete=S.lastCompletedDate!==today();
+  if(firstComplete){
+    S.daysCompleted=(S.daysCompleted||0)+1;
+    S.fullBoils=(S.fullBoils||0)+1;
+  }
   updateStreak();
   sndDay();
   rainConfetti('#c8841a',120);
+  if(firstComplete) showToast('♨️ Full boil! +1','#c8841a',2200);
   setTimeout(()=>launchSolitaire(),400);
   const div=document.createElement('div');
   div.className='day-done-msg';
-  const dayMsgs=[
+  const _th=getTheme();
+  const dayMsgs=_th.dayCopy||[
     ['Full boil.','Everything cooked.'],
     ['All done.','Go be a person.'],
     ['Faithful again.','Rest is sacred.'],
@@ -1763,7 +1994,7 @@ function triggerDayCeremony(){
   const dm=dayMsgs[Math.floor(Math.random()*dayMsgs.length)];
   div.innerHTML=`<div class="day-done-inner">${dm[0]}<span class="day-done-sub">${dm[1]}</span></div>`;
   document.body.appendChild(div);
-  setTimeout(()=>div.remove(),4200);
+  setTimeout(()=>{div.remove();renderCards();},4200);
 }
 
 // ── FORMAT ─────────────────────────────────────────────────────────
@@ -1887,10 +2118,9 @@ function updateScrollState(){
     if(!bgWaveState.active){
       const pd=rt.isRest?rt.restDur:rt.workDur;
       const pct=pd>0?((pd-rt.rem)/pd*100):0;
-      const overallPct=rt.total>0?(rt.completed/rt.total*100):0;
-      bgWaveState.targetFill=20+overallPct*0.4+pct*0.4;
+      bgWaveState.targetFill=5+pct*0.95;
       bgWaveState.fill=Math.max(bgWaveState.fill,2);
-      bgWaveState.targetColor=rt.isRest?'#2e9e6a':rt.color;
+      bgWaveState.targetColor=rt.color;
       if(!bgWaveState.color)bgWaveState.color=bgWaveState.targetColor;
       bgWaveState.active=true;
       if(bgc)bgc.classList.add('active');
@@ -1926,7 +2156,7 @@ function cardHTML(t){
       <div class="c-bar"></div>
       <div class="c-body">
         <div class="done-row">
-          <div class="done-trophy">💰</div>
+          <div class="done-trophy">${getTheme().emoji}</div>
           <div class="done-name">${t.name}</div>
           <div class="done-count" style="display:flex;align-items:center;gap:5px">${t.total}×${fmtHM(t.workDur)}<span style="color:#2e9e6a;font-size:12px">✓</span></div>
           <button class="c-edit" onclick="event.stopPropagation();openEdit('${t.id}')">⋯</button>
@@ -1946,8 +2176,7 @@ function cardHTML(t){
   // bubbles handled by canvas engine, not CSS divs
   const pips=Array.from({length:t.total},(_,i)=>{
     if(i<t.completed){
-      const isPerfect=(t.perfectBlocks||[]).includes(i);
-      return`<div style="${baseStyle}background:${t.color}"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1">${isPerfect?'<span style="position:absolute;font-size:12px;opacity:.85">⭐</span>':''}<span style="filter:drop-shadow(0 1px 2px rgba(0,0,0,.18))">🪙</span></div></div>`;
+      return`<div style="${baseStyle}background:${t.color}"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1"><span style="filter:drop-shadow(0 1px 2px rgba(0,0,0,.18))">🪙</span></div></div>`;
     }
     if(i===t.completed){
       return`<div class="pip active" id="pip-${t.id}" style="${baseStyle}border:2px solid ${bc};overflow:hidden;">
@@ -1961,11 +2190,6 @@ function cardHTML(t){
   const blocksLeft=t.total-t.completed;
   const showTotal=blocksLeft>1;
   const totalRem=taskTotalRem(t);
-  // Only show work/rest phase badge when the card is actively running
-  // On idle cards it adds noise without meaning
-  const badge=t.running&&t.restDur>0
-    ?`<div class="phase ${t.isRest?'rest':'work'}"><div class="phase-dot"></div>${t.isRest?'Rest':'Work'}</div>`:'';
-
   const dayLabel=t.days?` · ${t.days.map(d=>['Su','Mo','Tu','We','Th','Fr','Sa'][d]).join('')}`:'';
   const sub=`🪙 ${t.completed}/${t.total} · ${blocksLeft} left · ${fmtHM(t.workDur)} each${t.restDur>0?` · ${fmtHM(t.restDur)} rest`:''}${dayLabel}`;
 
@@ -1976,16 +2200,15 @@ function cardHTML(t){
         <div class="c-name">${t.name}</div>
         <button class="c-edit" onclick="event.stopPropagation();openEdit('${t.id}')">⋯</button>
       </div>
-      ${t.isRest?'':`${badge}`}
       <div class="pips-wrap">
         <div style="display:block;line-height:0;font-size:0;padding-bottom:46px">${pips}</div>
         ${t.isRest?`
         <div class="rest-overlay" id="ro-${t.id}">
           <div class="rest-emoji">${S.shopItems&&S.shopItems.restEmoji?S.shopItems.restEmoji:"☕"}</div>
-          <div class="rest-label" id="rest-label-${t.id}">${(()=>{const bl=t.total-t.completed;if(bl<=1)return'final cooldown';if(bl===2)return'almost there';if((S.streak||0)>=7)return'well earned';return['rest','breathe','take it in','be still'][t.completed%4];})()}</div>
+          <div class="rest-label" id="rest-label-${t.id}">${(()=>{const bl=t.total-t.completed;if(bl<=1)return'last bit of steam';if(bl===2)return'almost cooked';if((S.streak||0)>=7)return'well earned';return['let some steam out','cooling off','venting','letting it settle'][t.completed%4];})()}</div>
           <div class="rest-timer-big" id="ptc-${t.id}">${fmtTime(t.rem)}</div>
           <div class="rest-bar-wrap"><div class="rest-bar" id="rb-${t.id}" style="width:${((t.restDur-t.rem)/t.restDur*100).toFixed(1)}%"></div></div>
-          <div style="font-size:10px;font-weight:700;color:rgba(46,158,106,.6);margin-top:5px;letter-spacing:.03em">Block ${t.completed} of ${t.total} · ${fmtHM(dayEl())} in</div>
+          <button onclick="event.stopPropagation();skipRest('${t.id}')" style="margin-top:6px;background:none;border:1.5px solid rgba(46,158,106,.3);border-radius:100px;font-family:var(--fs);font-size:10px;font-weight:700;color:#2e9e6a;padding:4px 14px;cursor:pointer">skip rest →</button>
         </div>
         `:`<div class="pip-timer-overlay">
           <span class="pto-cur" id="ptc-${t.id}">${fmtTime(t.rem)}</span>
@@ -2010,6 +2233,21 @@ function renderCards(){
   const el=document.getElementById('cards');
   const visible=S.tasks.filter(taskVisibleToday);
   if(!visible.length){el.innerHTML=`<div class="empty">nothing to boil yet.\ntap <b style="font-weight:800">+</b> to add a block</div>`;return;}
+  if(visible.length&&visible.every(t=>t.done)){
+    const taskCount=visible.length;
+    const blockCount=visible.reduce((a,t)=>a+t.total,0);
+    el.innerHTML=`<div style="text-align:center;padding:48px 20px 32px">
+      <div style="font-size:48px;margin-bottom:16px">♨️</div>
+      <div style="font-family:var(--fd);font-size:22px;font-weight:800;letter-spacing:-.03em;color:var(--ink);margin-bottom:6px">Everything boiled.</div>
+      <div style="font-size:13px;color:var(--mid);font-weight:600;margin-bottom:24px">${taskCount} task${taskCount!==1?'s':''}, ${blockCount} block${blockCount!==1?'s':''}. All done.</div>
+      <div style="display:inline-flex;align-items:center;gap:8px;background:var(--bg);border-radius:12px;padding:10px 18px;margin-bottom:24px">
+        <span style="font-size:20px">♨️</span>
+        <span style="font-size:13px;font-weight:700;color:var(--ink)">+1 full boil</span>
+      </div>
+      <div style="font-size:12px;color:var(--dim);font-weight:600">Spend in the shop on food.</div>
+    </div>`;
+    return;
+  }
   el.innerHTML=visible.map(cardHTML).join('');
   updateScrollState();
   setTimeout(attachDrag,0);
@@ -2042,13 +2280,11 @@ function fastUpdateCard(id){
   const pf=document.getElementById('pf-'+t.id);
   if(pf){
     pf.dataset.fill=Math.max(0,Math.min(pct,100)).toFixed(1);
-    pf.dataset.color=t.isRest?'#2e9e6a':t.color;
+    pf.dataset.color=t.color;
     pf.dataset.running=t.running;
   }
-  // Update bg canvas wave — blend overall progress with current block for a breathing feel
-  // 20% floor + 40% from overall task progress + 40% from current block progress
-  const overallPct=t.total>0?(t.completed/t.total*100):0;
-  const bgPct=20+overallPct*0.4+pct*0.4;
+  // Update bg canvas wave — mirrors current sub-block fill percentage
+  const bgPct=5+pct*0.95;
   updateSiteWave(t,bgPct);
   // Gentle haptic at 50% fill milestone (fires once per block)
   const halfKey='_half_'+t.id+'_'+t.completed;
@@ -2070,7 +2306,12 @@ function fastUpdateCard(id){
     }
   }
 }
-function fastUpdateAll(){S.tasks.filter(t=>t.running&&!t.done).forEach(t=>fastUpdateCard(t.id));updateLogoDot();updateHeader();updateAquariumBar();}
+function updateSteamBanner(){
+  const sb=document.getElementById('steam-banner');if(!sb)return;
+  // Rest indicator handled by card overlay (normal) or canvas text (aquarium)
+  sb.style.display='none';
+}
+function fastUpdateAll(){S.tasks.filter(t=>t.running&&!t.done).forEach(t=>fastUpdateCard(t.id));updateSteamBanner();updateLogoDot();updateHeader();updateAquariumBar();}
 
 // ── WATER ENGINE ─────────────────────────────────────────────────────
 
@@ -2185,16 +2426,17 @@ const FLOATER_DEFS={
   'float_ducky':{emoji:'🦆',size:28,buoyancy:0.06,drag:0.88},
   'float_boat': {emoji:'⛵',size:24,buoyancy:0.05,drag:0.90},
   'float_ice':  {emoji:'🧊',size:32,buoyancy:0.07,drag:0.86},
-  'float_ball': {emoji:'🏐',size:22,buoyancy:0.10,drag:0.88,bouncy:true},
+  'float_ball': {emoji:'🏐',size:30,buoyancy:0.10,drag:0.88,bouncy:true},
   'float_fish': {emoji:'🐟',size:22,buoyancy:0.06,drag:0.98,underwater:true},
 };
 function spawnFloaters(W,fillY){
   activeFloaters.length=0;
   const owned=S.shopItems&&S.shopItems.floaters?S.shopItems.floaters:[];
-  owned.forEach((id,idx)=>{
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  let idx=0;
+  owned.forEach((id)=>{
     const def=FLOATER_DEFS[id];
     if(!def)return;
-    const dpr=Math.min(window.devicePixelRatio||1,2);
     const spawnY=def.underwater?fillY+40:fillY-def.size*dpr*0.3;
     activeFloaters.push({
       type:id,emoji:def.emoji,
@@ -2204,39 +2446,77 @@ function spawnFloaters(W,fillY){
       x:W*(0.2+idx*0.15+Math.random()*0.1),
       y:spawnY,vx:0,vy:0,rot:0,
       fishDir:1,fishTimer:2+Math.random()*3,
-      melt:0
+      melt:0,juggleCount:0
     });
+    idx++;
   });
+  // Theme floaters
+  const th=getTheme();
+  if(th.floaters&&th.floaters.length){
+    th.floaters.forEach(def=>{
+      for(let c=0;c<(def.count||1);c++){
+        const sz=def.size*dpr;
+        const spawnY=def.sinkFirst?fillY+80+Math.random()*60:fillY-sz*0.3;
+        activeFloaters.push({
+          type:'theme',emoji:def.emoji,
+          size:sz,baseSize:sz,
+          buoyancy:def.buoyancy,drag:def.drag,
+          bouncy:false,underwater:false,
+          sinkFirst:!!def.sinkFirst,sinkTimer:def.sinkFirst?2.5+Math.random():0,
+          roll:!!def.roll,
+          x:W*(0.1+idx*0.12+Math.random()*0.08),
+          y:spawnY,vx:0,vy:0,rot:0,
+          fishDir:1,fishTimer:3+Math.random()*4,melt:0,juggleCount:0
+        });
+        idx++;
+      }
+    });
+  }
 }
 function stepFloaters(W,H,fillY,hf,step,dt,boil){
   activeFloaters.forEach(f=>{
     const col=Math.round(f.x/step);
     const surfY=(hf&&col>=0&&col<hf.cols)?fillY+hf.h[col]:fillY;
-    // Fish: actively swim through the water
+    // Fish: swim through the water with sinusoidal path
     if(f.underwater){
-      // Target: middle of the water column (between surface and bottom)
+      // Target: middle of the water column
       const waterMid=surfY+(H-surfY)*0.5;
-      f.vy+=(waterMid-f.y)*0.03;
-      f.vy*=0.9;
+      f.vy+=(waterMid-f.y)*0.02;
+      f.vy*=0.92;
       f.y+=f.vy;
-      // Fish AI: swim with purpose
+      // Fish AI: gentle turns with longer intervals
       f.fishTimer-=dt;
-      if(f.fishTimer<=0||f.x<=f.size+2||f.x>=W-f.size-2){f.fishDir*=-1;f.fishTimer=2+Math.random()*3;}
-      const panicMult=boil>0.5?1+boil*3:1;
-      const baseSwim=1.8*panicMult;
-      f.vx=f.fishDir*baseSwim;
+      if(f.fishTimer<=0){f.fishDir*=-1;f.fishTimer=3+Math.random()*5;}
+      // Wall bounce — nudge away so it doesn't re-trigger
+      if(f.x<=f.size+4){f.x=f.size+5;f.fishDir=1;f.fishTimer=3+Math.random()*4;}
+      if(f.x>=W-f.size-4){f.x=W-f.size-5;f.fishDir=-1;f.fishTimer=3+Math.random()*4;}
+      const panicMult=boil>0.5?1+boil*2:1;
+      const baseSwim=0.7*panicMult;
+      f.vx+=(f.fishDir*baseSwim-f.vx)*0.08; // smooth acceleration
       f.x+=f.vx;
-      // Wiggle: sinusoidal y oscillation while swimming
-      f.y+=Math.sin(waveT*5+f.x*0.02)*0.6*panicMult;
-      // Tilt into swim direction
-      f.rot=f.fishDir<0?0.12:-0.12;
+      // Sinusoidal swimming path — gentle wave motion
+      f.y+=Math.sin(waveT*2.5+f.x*0.01)*0.4*panicMult;
+      // Tilt into swim direction + slight bobbing
+      f.rot=f.fishDir<0?0.08:-0.08;
+      f.rot+=Math.sin(waveT*3)*0.04;
+      // Flip direction stored for drawing
+      f.flipX=f.fishDir>0;
       // Panic jump at high boil
-      if(boil>0.6&&Math.random()<boil*0.003){
-        f.vy=-8-boil*5;
-        if(hf&&col>=0&&col<hf.cols)hf.v[col]+=3;
+      if(boil>0.6&&Math.random()<boil*0.002){
+        f.vy=-6-boil*4;
+        if(hf&&col>=0&&col<hf.cols)hf.v[col]+=2;
       }
+    } else if(f.sinkFirst&&f.sinkTimer>0){
+      // Dumpling: sink first, then float up
+      f.sinkTimer-=dt;
+      f.vy+=0.3; // gravity pulls down
+      f.vy*=0.95;
+      f.y+=f.vy;
+      // Don't fall through bottom
+      if(f.y>H-f.size){f.y=H-f.size;f.vy=0;}
     } else {
       // Surface floaters
+      if(f.sinkFirst)f.sinkFirst=false; // done sinking, now float normally
       const submerge=f.size*0.35;
       const targetY=surfY-submerge;
       const aboveWater=f.y<targetY-2;
@@ -2260,13 +2540,22 @@ function stepFloaters(W,H,fillY,hf,step,dt,boil){
           }
           f.vy*=-0.4;
         }
+      } else if(f.bouncy){
+        // Ball on water surface — apply buoyancy
+        f.vy+=(targetY-f.y)*f.buoyancy;
+        f.vy*=f.drag;
+        f.y+=f.vy;
+        // Ball touched water — combo ends
+        if(f.juggleCount>0)f.juggleCount=0;
       } else {
         f.vy+=(targetY-f.y)*f.buoyancy;
         f.vy*=f.drag;
         f.y+=f.vy;
       }
-      // Rotation from surface slope
-      if(hf&&col>0&&col<hf.cols-1){
+      // Rotation from surface slope (or slow continuous roll for eggs)
+      if(f.roll){
+        f.rot+=dt*0.3;
+      } else if(hf&&col>0&&col<hf.cols-1){
         const tRot=Math.atan2(hf.h[col+1]-hf.h[col-1],step*2)*0.8;
         f.rot+=(tRot-f.rot)*0.12;
       }
@@ -2301,11 +2590,21 @@ function drawFloaters(ctx){
   activeFloaters.forEach(f=>{
     ctx.save();
     ctx.translate(f.x,f.y);
+    if(f.flipX)ctx.scale(-1,1);
     ctx.rotate(f.rot);
     ctx.font=`${f.size}px sans-serif`;
     ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText(f.emoji,0,0);
     ctx.restore();
+    // Juggle combo counter above ball
+    if(f.bouncy&&f.juggleCount>1){
+      ctx.save();
+      ctx.font=`bold ${Math.min(f.size*0.7,24)}px sans-serif`;
+      ctx.textAlign='center';ctx.textBaseline='bottom';
+      ctx.fillStyle='rgba(200,132,26,0.9)';
+      ctx.fillText(`×${f.juggleCount}`,f.x,f.y-f.size*0.7);
+      ctx.restore();
+    }
   });
 }
 function pushFloatersAt(tx,ty,vx,vy){
@@ -2315,14 +2614,36 @@ function pushFloatersAt(tx,ty,vx,vy){
     if(dist>=f.size*3)return;
 
     // Ball: ONLY direct taps, no proximity/drag forces
+    // Rising pitch on successive juggles (Mario shell style)
     if(f.bouncy){
       if(dist<f.size*2){
-        f.vy=-8;
-        f.vx+=(Math.random()-0.5)*1;
+        // Only count juggles when ball is above water surface
+        const _H=window.innerHeight*_bgDpr();
+        const _waterSurf=_H*(1-bgWaveState.fill/100);
+        const aboveSurf=f.y<_waterSurf+f.size*0.5;
+        const nx=f.x-tx, ny=f.y-ty;
+        const mag=Math.sqrt(nx*nx+ny*ny)||1;
+        const power=6+Math.min(dist/f.size,1)*4;
+        f.vx=nx/mag*power*0.6;
+        f.vy=ny/mag*power;
+        if(f.vy>-3) f.vy=-3;
+        if(aboveSurf){
+          f.juggleCount=(f.juggleCount||0)+1;
+        }
+        const jc=Math.min(f.juggleCount,10); // pitch caps at 10
+        const basePitch=300+jc*70;
         try{const now=ac().currentTime;
-          tone(300,.06,.035,now);tone(500,.06,.03,now+.05);tone(800,.1,.025,now+.09);
+          tone(basePitch,.06,.035,now);tone(basePitch+200,.06,.03,now+.05);tone(basePitch+500,.1,.025,now+.09);
         }catch(e){}
         haptic([10,20,10]);
+        // Confetti + record toast the moment you beat the high score
+        if(aboveSurf&&f.juggleCount>0&&f.juggleCount>(S.ballRecord||0)&&f.juggleCount>3){
+          S.ballRecord=f.juggleCount;save();
+          const dpr=_bgDpr();
+          burstAt(f.x/dpr,f.y/dpr,'#c8841a',40);
+          burstAt(f.x/dpr,f.y/dpr,PAL[f.juggleCount%PAL.length],25);
+          showToast(`🏐 New record: ${f.juggleCount}!`,'#c8841a',1800);
+        }
       }
       return;
     }
@@ -2357,42 +2678,60 @@ function popBubbleAt(tx,ty){
     const b=bgBubbles[j];
     const dx=tx-b.x,dy=ty-b.y;
     if(dx*dx+dy*dy<(b.r+12)*(b.r+12)){
-      for(let k=0;k<5;k++){
-        const a=Math.random()*Math.PI*2,sp=1+Math.random()*3;
-        const p=new P(b.x,b.y,Math.cos(a)*sp,Math.sin(a)*sp-2,'rgba(255,255,255,0.5)',1+Math.random()*2,0.12);
-        p.round=true;p.decay=0.04+Math.random()*0.02;parts.push(p);
+      const popCount=5+Math.round(b.r*1.5);
+      for(let k=0;k<popCount;k++){
+        const a=Math.random()*Math.PI*2,sp=1.5+Math.random()*4;
+        const p=new P(b.x,b.y,Math.cos(a)*sp,Math.sin(a)*sp-2.5,'rgba(255,255,255,0.65)',1.5+Math.random()*3+b.r*0.3,0.12);
+        p.round=true;p.decay=0.03+Math.random()*0.02;parts.push(p);
       }
+      // Ring flash at pop site
+      const ring=new P(b.x,b.y,0,0,'rgba(255,255,255,0.35)',b.r*2,0);
+      ring.round=true;ring.decay=0.08;ring.grav=0;parts.push(ring);
       startFX();bgBubbles.splice(j,1);
       // Pop pitch inversely proportional to size — big bubbles = deep, small = high
-      tone(600+2000/(b.r+1)+Math.random()*200, .04+b.r*.008, .02+b.r*.005);
-      haptic([3]);break;
+      tone(600+2000/(b.r+1)+Math.random()*200, .04+b.r*.008, .025+b.r*.006);
+      haptic([5]);break;
     }
   }
 }
 document.addEventListener('touchstart',(e)=>{
-  if(!bgWaveState.active)return;
+  if(!bgWaveState.active||e.target.closest('.card,.sheet,.fab,.hdr,.pill,.coin-pill'))return;
   const dpr=_bgDpr();
+  const H=window.innerHeight*dpr;
+  const waterY=H*(1-bgWaveState.fill/100);
+  const surfZone=80*dpr; // surface interaction zone below waterline
+  const aboveZone=20*dpr; // narrow zone above waterline
   for(let i=0;i<e.changedTouches.length;i++){
     const t=e.changedTouches[i];
     const tx=t.clientX*dpr,ty=t.clientY*dpr;
-    waterTouches[t.identifier]={x:tx,y:ty};
-    const col=_touchCol(tx);
-    if(col>=0)applyForce(bgHF,col,-25,8);
-    popBubbleAt(tx,ty);
+    // Always allow floater interaction (ball juggling needs taps above water)
     pushFloatersAt(tx,ty,0,-5);
+    popBubbleAt(tx,ty);
+    // Water surface effects only near the water
+    if(ty<waterY-aboveZone)continue;
+    waterTouches[t.identifier]={x:tx,y:ty};
+    if(ty<waterY+surfZone){
+      const col=_touchCol(tx);
+      if(col>=0){applyForce(bgHF,col,-25,8);sndPlop(25);}
+    }
   }
 },{passive:true});
 document.addEventListener('touchmove',(e)=>{
   if(!bgWaveState.active)return;
   const dpr=_bgDpr();
+  const H=window.innerHeight*dpr;
+  const waterY=H*(1-bgWaveState.fill/100);
+  const surfZone=80*dpr;
   for(let i=0;i<e.changedTouches.length;i++){
     const t=e.changedTouches[i];
     const tx=t.clientX*dpr,ty=t.clientY*dpr;
     const prev=waterTouches[t.identifier];
     if(prev){
       const vx=tx-prev.x,vy=ty-prev.y;
-      const col=_touchCol(tx);
-      if(col>=0)applyForce(bgHF,col,vy*0.8,6);
+      if(ty<waterY+surfZone){
+        const col=_touchCol(tx);
+        if(col>=0)applyForce(bgHF,col,vy*0.8,6);
+      }
       pushFloatersAt(tx,ty,vx*0.5,vy*0.5);
       prev.x=tx;prev.y=ty;
     }
@@ -2405,11 +2744,20 @@ document.addEventListener('mousedown',(e)=>{
   if(!bgWaveState.active||e.target.closest('.card,.sheet,.fab,.hdr,.pill,.coin-pill'))return;
   const dpr=_bgDpr();
   const tx=e.clientX*dpr,ty=e.clientY*dpr;
-  waterTouches['mouse']={x:tx,y:ty};
-  const col=_touchCol(tx);
-  if(col>=0)applyForce(bgHF,col,-25,8);
-  popBubbleAt(tx,ty);
+  const H=window.innerHeight*dpr;
+  const waterY=H*(1-bgWaveState.fill/100);
+  const surfZone=80*dpr;
+  const aboveZone=20*dpr;
+  // Always allow floater interaction (ball juggling needs taps above water)
   pushFloatersAt(tx,ty,0,-5);
+  popBubbleAt(tx,ty);
+  // Water surface effects only near the water
+  if(ty<waterY-aboveZone)return;
+  waterTouches['mouse']={x:tx,y:ty};
+  if(ty<waterY+surfZone){
+    const col=_touchCol(tx);
+    if(col>=0){applyForce(bgHF,col,-25,8);sndPlop(25);}
+  }
 });
 document.addEventListener('mousemove',(e)=>{
   const prev=waterTouches['mouse'];
@@ -2417,12 +2765,37 @@ document.addEventListener('mousemove',(e)=>{
   const dpr=_bgDpr();
   const tx=e.clientX*dpr,ty=e.clientY*dpr;
   const vx=tx-prev.x,vy=ty-prev.y;
-  const col=_touchCol(tx);
-  if(col>=0)applyForce(bgHF,col,vy*0.8,6);
+  const H=window.innerHeight*dpr;
+  const waterY=H*(1-bgWaveState.fill/100);
+  const surfZone=80*dpr;
+  if(ty<waterY+surfZone){
+    const col=_touchCol(tx);
+    if(col>=0)applyForce(bgHF,col,vy*0.8,6);
+  }
   pushFloatersAt(tx,ty,vx*0.5,vy*0.5);
   prev.x=tx;prev.y=ty;
 });
 document.addEventListener('mouseup',()=>{delete waterTouches['mouse'];});
+
+// ── TAP RIPPLE ──────────────────────────────────────────────────────
+function spawnRipple(x,y){
+  const r1=document.createElement('div');
+  r1.className='tap-ripple';r1.style.left=x+'px';r1.style.top=y+'px';
+  const r2=document.createElement('div');
+  r2.className='tap-ripple';r2.style.left=x+'px';r2.style.top=y+'px';
+  r2.style.animationDelay='.08s';
+  document.body.appendChild(r1);document.body.appendChild(r2);
+  setTimeout(()=>{r1.remove();r2.remove();},700);
+}
+document.addEventListener('pointerdown',(e)=>{
+  // Ripple on interactive UI elements
+  if(e.target.closest('button,a,.card,.pill,.coin-pill,.fab,.sw,[onclick]')){spawnRipple(e.clientX,e.clientY);return;}
+  // Ripple on water surface taps
+  if(bgWaveState.active&&bgWaveState.fill>1){
+    const waterY=window.innerHeight*(1-bgWaveState.fill/100);
+    if(Math.abs(e.clientY-waterY)<60)spawnRipple(e.clientX,e.clientY);
+  }
+},{passive:true});
 
 let _waveAlive=0;
 function startWaveLoop(){
@@ -2469,7 +2842,25 @@ function waveLoop(now){
       }
       const ctx=cv.getContext('2d');
       ctx.clearRect(0,0,W,H);
-      if(fill>0.2){
+      if(rt.isRest){
+        // Pip steam: task-colored fog dissipating
+        const rPct=rt.restDur>0?rt.rem/rt.restDur:0;
+        const parseH=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
+        const [pr,pg,pb]=parseH(color);
+        const sg=ctx.createLinearGradient(0,0,0,H);
+        const sa=rPct*0.6;
+        sg.addColorStop(0,`rgba(${pr},${pg},${pb},${(sa*0.15).toFixed(3)})`);
+        sg.addColorStop(1,`rgba(${pr},${pg},${pb},${sa.toFixed(3)})`);
+        ctx.fillStyle=sg;ctx.fillRect(0,0,W,H);
+        // Wisp
+        const wx=W*(0.3+0.4*Math.sin(waveT*0.2));
+        const wy=H*(0.3+0.3*Math.cos(waveT*0.15));
+        const wg=ctx.createRadialGradient(wx,wy,0,wx,wy,W*0.4);
+        wg.addColorStop(0,`rgba(${pr},${pg},${pb},${(rPct*0.2).toFixed(3)})`);
+        wg.addColorStop(1,`rgba(${pr},${pg},${pb},0)`);
+        ctx.fillStyle=wg;ctx.fillRect(0,0,W,H);
+        drawContainerWalls(ctx,W,H);
+      } else if(fill>0.2){
         const bubs=getBubbles(rt.id,color);
         tickBubbles(bubs,W,H,fill,dt,color,false);
         drawWater(ctx,W,H,fill,color,waveT,bubs,false,0);
@@ -2480,6 +2871,7 @@ function waveLoop(now){
 
   // ── Bg canvas ─────────────────────────────────────────────────────
   const bgc=document.getElementById('bg-canvas');
+  const isResting=rt&&rt.isRest;
   if(bgc&&bgWaveState.active&&anyRunning){
     bgWaveState.fill+=(bgWaveState.targetFill-bgWaveState.fill)*Math.min(dt*3,0.18);
     if(bgWaveState.fill<2&&bgWaveState.targetFill>0)bgWaveState.fill=2; // never fully zero while active
@@ -2501,7 +2893,57 @@ function waveLoop(now){
     }
     const ctx=bgc.getContext('2d');
     ctx.clearRect(0,0,W,H);
-    if(bgWaveState.fill>0.3){
+
+    if(isResting){
+      // ── REST: steam dissipating ──────────────────────────────────
+      // Steam density = how much rest remains (dense at start, clear at end)
+      const restPct=rt.restDur>0?rt.rem/rt.restDur:0; // 1.0→0.0
+      const parseHex=h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];
+      const [sr,sg,sb]=parseHex(bgWaveState.color);
+      // Vertical gradient: dense at bottom (where water was), thinning upward
+      const steamG=ctx.createLinearGradient(0,0,0,H);
+      const baseA=restPct*0.45; // max opacity scales with remaining rest
+      steamG.addColorStop(0,   `rgba(${sr},${sg},${sb},${(baseA*0.05).toFixed(3)})`);
+      steamG.addColorStop(0.3, `rgba(${sr},${sg},${sb},${(baseA*0.25).toFixed(3)})`);
+      steamG.addColorStop(0.7, `rgba(${sr},${sg},${sb},${(baseA*0.6).toFixed(3)})`);
+      steamG.addColorStop(1,   `rgba(${sr},${sg},${sb},${baseA.toFixed(3)})`);
+      ctx.fillStyle=steamG;
+      ctx.fillRect(0,0,W,H);
+      // Animated wisps — slow-moving cloudy patches
+      const wispCount=6;
+      for(let wi=0;wi<wispCount;wi++){
+        const wx=W*(0.1+0.8*((Math.sin(waveT*0.08+wi*2.1)+1)/2));
+        const wy=H*(0.2+0.6*((Math.cos(waveT*0.05+wi*1.7)+1)/2));
+        const wr=W*(0.15+0.1*Math.sin(waveT*0.03+wi));
+        const wispA=restPct*0.12;
+        const wg=ctx.createRadialGradient(wx,wy,0,wx,wy,wr);
+        wg.addColorStop(0,`rgba(${sr},${sg},${sb},${wispA.toFixed(3)})`);
+        wg.addColorStop(1,`rgba(${sr},${sg},${sb},0)`);
+        ctx.fillStyle=wg;
+        ctx.fillRect(wx-wr,wy-wr,wr*2,wr*2);
+      }
+      // ── Centered rest text (aquarium mode only — cards hidden) ──
+      if(document.querySelector('.app-wrap.aquarium')){
+        const textA=Math.min(1,restPct*1.5)*0.55;
+        const dprBgT=Math.min(window.devicePixelRatio||1,2);
+        ctx.save();
+        ctx.textAlign='center';
+        ctx.textBaseline='middle';
+        ctx.font=`800 ${Math.round(22*dprBgT)}px Syne,sans-serif`;
+        ctx.fillStyle=`rgba(28,25,23,${textA.toFixed(2)})`;
+        ctx.fillText('steam clearing.',W/2,H*0.44);
+        ctx.font=`800 ${Math.round(48*dprBgT)}px Syne,sans-serif`;
+        ctx.fillStyle=`rgba(28,25,23,${(textA*0.9).toFixed(2)})`;
+        ctx.fillText(fmtTime(rt.rem),W/2,H*0.44+Math.round(52*dprBgT));
+        ctx.font=`600 ${Math.round(12*dprBgT)}px "Plus Jakarta Sans",sans-serif`;
+        ctx.fillStyle=`rgba(28,25,23,${(textA*0.5).toFixed(2)})`;
+        const bl=rt.total-rt.completed;
+        const sub=bl<=1?'final block next':'block '+(rt.completed+1)+' of '+rt.total+' next';
+        ctx.fillText(sub,W/2,H*0.44+Math.round(90*dprBgT));
+        ctx.restore();
+      }
+    } else if(bgWaveState.fill>0.3){
+      // ── WORK: water + floaters + noodles ─────────────────────────
       // Step heightfield physics
       const bgStep=3;
       const bgN=Math.min(Math.ceil(W/bgStep)+1,1024);
@@ -2513,9 +2955,14 @@ function waveLoop(now){
       updateTiltLayer(bgN);
       tickBubbles(bgBubbles,W,H,bgWaveState.fill,dt,bgWaveState.color,true);
       drawWater(ctx,W,H,bgWaveState.fill,bgWaveState.color,waveT*0.35,bgBubbles,true,bgHF);
-      // Floaters
+      // Noodles (drawn submerged, before floaters)
       const bgFillY=H*(1-bgWaveState.fill/100);
-      if(activeFloaters.length===0&&S.shopItems&&S.shopItems.floaters&&S.shopItems.floaters.length)spawnFloaters(W,bgFillY);
+      if(getTheme().noodles){
+        if(!_noodles.length)initNoodles(W,H,bgFillY);
+        drawNoodles(ctx,W,H,bgFillY,boil2,waveT);
+      }
+      // Floaters
+      if(activeFloaters.length===0&&((S.shopItems&&S.shopItems.floaters&&S.shopItems.floaters.length)||getTheme().floaters.length))spawnFloaters(W,bgFillY);
       stepFloaters(W,H,bgFillY,bgHF,bgStep,dt,boil2);
       drawFloaters(ctx);
       // Glass fogging at high boil
@@ -2590,7 +3037,9 @@ function tickBubbles(pool,W,H,fp,dt,color,isBg){
     // Nucleation-site spawning: bubbles form near bottom and edges
     // Start TINY, grow as they rise (simulated via r scaling with born time)
     const startR=isBg?(0.3+Math.random()*0.8):(0.3+Math.random()*0.6);
-    const maxR  =isBg?(2+b2*9+Math.random()*(b2*4)):(1.0+b2*3.0+Math.random()*(b2*2.0));
+    // At high boil (b2>0.6) bubbles grow significantly larger and more visible
+    const highBoilBonus=isBg?Math.max(0,b2-0.5)*8:0;
+    const maxR  =isBg?(2+b2*9+highBoilBonus+Math.random()*(b2*4+highBoilBonus*0.5)):(1.0+b2*3.0+Math.random()*(b2*2.0));
     const speed=isBg?(10+b2*140+Math.random()*(b2*80))
                     :(4+b2*35+Math.random()*(b2*20));
     // Nucleation sites: mostly near walls and bottom
@@ -2605,7 +3054,7 @@ function tickBubbles(pool,W,H,fp,dt,color,isBg){
       x:spawnX, y:spawnY,
       vy:-speed, vx:(Math.random()-.5)*(isBg?3:1.5),
       r:startR, maxR, // grow toward maxR as rises
-      op:isBg?(0.5+b2*0.45+Math.random()*0.05):(0.55+b2*0.35+Math.random()*0.05),
+      op:isBg?(0.5+b2*0.5+Math.random()*0.05):(0.55+b2*0.35+Math.random()*0.05),
       born:0, wobble:Math.random()*Math.PI*2
     });
   }
@@ -2625,9 +3074,10 @@ function tickBubbles(pool,W,H,fp,dt,color,isBg){
       // Surface pop: inject impulse into heightfield + spray particles
       if(b.y<=fillY&&isBg&&bgHF.cols>0){
         const col=Math.round(b.x/W*bgHF.cols);
-        if(col>=0&&col<bgHF.cols)bgHF.v[col]-=b.r*0.25;
+        if(col>=0&&col<bgHF.cols)bgHF.v[col]-=b.r*0.35;
         if(b.r>2.5){
-          for(let k=0;k<3;k++){
+          const sprayCount=b.r>6?6:3;
+          for(let k=0;k<sprayCount;k++){
             const a=-Math.PI*0.3+Math.random()*Math.PI*0.6-Math.PI/2;
             const sp=0.5+Math.random()*2;
             const p=new P(b.x,fillY,Math.cos(a)*sp,Math.sin(a)*sp,'rgba(255,255,255,0.35)',0.5+Math.random()*1.5,0.08);
@@ -2686,6 +3136,11 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
   let ri=parseInt(colorHex.slice(1,3),16);
   let gi=parseInt(colorHex.slice(3,5),16);
   let bi=parseInt(colorHex.slice(5,7),16);
+  // Theme tint — shifts task color toward theme character
+  const _theme=getTheme();
+  if(_theme.waterTint&&isBg){
+    ri=clr(ri+_theme.waterTint.r);gi=clr(gi+_theme.waterTint.g);bi=clr(bi+_theme.waterTint.b);
+  }
   // Temperature color tint — task color stays the base, warmth intensifies with boil
   // Heat level amplifies the visual intensity
   const _hm=heatMultiplier();
@@ -2720,11 +3175,14 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
   const gt=Math.max(0,minY-3);
 
   // ── Body gradient (light at surface, deep at bottom) ──────────────
+  const _om=_theme.opacityMul||1.0;
+  // Background water starts transparent, reaches full opacity near completion
+  const _bp=isBg?0.35+0.65*(fp/100):1;
   const g=ctx.createLinearGradient(0,gt,0,H);
-  g.addColorStop(0,   `rgba(${clr(ri+70)},${clr(gi+70)},${clr(bi+70)},${isBg?0.32:0.95})`);
-  g.addColorStop(0.08,`rgba(${clr(ri+35)},${clr(gi+35)},${clr(bi+35)},${isBg?0.27:0.85})`);
-  g.addColorStop(0.4, `rgba(${ri},${gi},${bi},${isBg?0.22:0.78})`);
-  g.addColorStop(1,   `rgba(${clr(ri-25)},${clr(gi-25)},${clr(bi-25)},${isBg?0.28:0.82})`);
+  g.addColorStop(0,   `rgba(${clr(ri+70)},${clr(gi+70)},${clr(bi+70)},${Math.min(1,(isBg?0.32:0.95)*_om*_bp)})`);
+  g.addColorStop(0.08,`rgba(${clr(ri+35)},${clr(gi+35)},${clr(bi+35)},${Math.min(1,(isBg?0.27:0.85)*_om*_bp)})`);
+  g.addColorStop(0.4, `rgba(${ri},${gi},${bi},${Math.min(1,(isBg?0.22:0.78)*_om*_bp)})`);
+  g.addColorStop(1,   `rgba(${clr(ri-25)},${clr(gi-25)},${clr(bi-25)},${Math.min(1,(isBg?0.28:0.82)*_om*_bp)})`);
   ctx.beginPath();
   ctx.moveTo(0,_surf[0]);
   for(let i=1;i<N;i++)ctx.lineTo(i*step,_surf[i]);
@@ -2764,6 +3222,7 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
     ctx.save();
     const foamA=Math.min((boil-0.3)*1.5,0.7);
     ctx.globalAlpha=foamA;
+    const _fc=_theme.foamColor||null;
     for(let i=0;i<N;i++){
       const x=i*step,sy=_surf[i];
       // Deterministic foam using sin hash — stable per frame, noisy across x
@@ -2772,7 +3231,7 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
         const fr=0.4+Math.abs(h)*2.0;
         ctx.beginPath();
         ctx.arc(x,sy+Math.sin(x*0.8+t*3)*1.5,fr,0,Math.PI*2);
-        ctx.fillStyle=`rgba(255,255,255,${0.45*foamA})`;
+        ctx.fillStyle=_fc||`rgba(255,255,255,${0.45*foamA})`;
         ctx.fill();
       }
     }
@@ -2823,7 +3282,7 @@ function updateSiteWave(t,pct){
   if(!bgc)return;
   if(t&&t.running){
     bgWaveState.targetFill=pct;
-    bgWaveState.targetColor=t.isRest?'#2e9e6a':t.color;
+    bgWaveState.targetColor=t.color;
     if(!bgWaveState.color)bgWaveState.color=bgWaveState.targetColor;
     bgWaveState.active=true;
     bgc.classList.add('active');
@@ -2838,7 +3297,8 @@ function updateSiteWave(t,pct){
 function onRestStart(id){
   const t=S.tasks.find(x=>x.id===id);
   if(!t)return;
-  seenToast('rest','☕ Rest. The next block starts after.','#2e9e6a',800);
+  if(S.seen.rest)showToast('☕ Rest','#2e9e6a',1500);
+  else seenToast('rest','☕ Rest. The next block starts after.','#2e9e6a',800);
   // Gentle descending chime — work done, relax now
   const now=ac().currentTime;
   [[0,880,.06],[.1,660,.055],[.22,523,.05],[.36,440,.04]].forEach(([dt,hz,v])=>tone(hz,.35,v,now+dt));
@@ -2854,7 +3314,10 @@ function onRestStart(id){
     src.start(now+.1);src.stop(now+.5);
   }catch(e){}
   haptic([0,30,60]);
-  // Card flash green
+  // Re-render card to show rest overlay, then flash green
+  const t2=S.tasks.find(x=>x.id===id);
+  if(t2)renderCard(t2);
+  updateAquariumBar();
   const el=document.getElementById('c-'+id);
   if(el){el.classList.add('rest-flash');setTimeout(()=>el.classList.remove('rest-flash'),850);}
 }
@@ -2863,14 +3326,13 @@ function beginDay(){
   if(!_sensorsAttached)requestMotionPermission();
   const h=parseInt(document.getElementById('begin-h').value)||14;
   S.startTs=Date.now();S.dayHours=h;
+  _snapshotDay();
   save();
   document.getElementById('begin-screen').style.display='none';
   if(beginWaveRaf){cancelAnimationFrame(beginWaveRaf);beginWaveRaf=null;}
   renderDaybar();renderCards();updateLogoDot();updateScrollState();
   if('Notification' in window && Notification.permission==='default'){
-    Notification.requestPermission().then(scheduleStreakRisk);
-  } else {
-    scheduleStreakRisk();
+    Notification.requestPermission();
   }
   // Begin ceremony: flash + low G2 tone (98hz)
   const _fc=S.tasks.length?S.tasks[0].color:'#4a9eba';
@@ -2900,6 +3362,7 @@ function quickBoil(){
   S.tasks.push(qt);
   // Start the day
   S.startTs=Date.now();S.dayHours=14;
+  _snapshotDay();
   document.getElementById('begin-screen').style.display='none';
   if(beginWaveRaf){cancelAnimationFrame(beginWaveRaf);beginWaveRaf=null;}
   save();render();
@@ -2937,7 +3400,7 @@ function updateAquariumBar(){
   const ap=document.getElementById('aq-prog');
   if(!t){if(an)an.textContent='';if(at)at.textContent='';if(ap)ap.style.width='0%';return;}
   if(an)an.textContent=t.name;
-  if(at)at.textContent=fmtTime(t.rem);
+  if(at)at.textContent=t.isRest?'':fmtTime(t.rem);
   const pd=t.isRest?t.restDur:t.workDur;
   const pct=pd>0?((pd-t.rem)/pd*100):0;
   if(ap){ap.style.width=pct+'%';ap.style.background=t.isRest?'#2e9e6a':t.color;}
@@ -2947,7 +3410,7 @@ function renderBeginStreak(){
   const el=document.getElementById('begin-streak');
   if(!el)return;
   // Hide streak/level info on first run
-  if(S.daysCompleted===0){el.innerHTML='';return;}
+  if(S.daysCompleted===0&&!GOD_MODE){el.innerHTML='';return;}
   const lvl=getHeatLevel();
   const avatar=S.shopItems&&S.shopItems.avatar?S.shopItems.avatar:lvl[1];
   const lvlIdx=HEAT_LEVELS.findIndex(h=>h===lvl);
@@ -2978,8 +3441,9 @@ function checkBeginScreen(){
 
 function toggleGodMode(){
   GOD_MODE=!GOD_MODE;
-  if(GOD_MODE){S.lifetimeCoins=9999;S.stars=999;save();}
-  updateGodBadge();updateHeader();
+  if(GOD_MODE){S.fullBoils=99;}
+  save();
+  render();
   showToast(GOD_MODE?'⚡ God mode on':'God mode off',GOD_MODE?'#c8841a':'#6b6258',1200);
 }
 function updateGodBadge(){
@@ -2995,13 +3459,13 @@ function updateGodBadge(){
 }
 function render(){
   // Progressive disclosure classes
-  const dc=S.daysCompleted||0;
+  const dc=GOD_MODE?99:(S.daysCompleted||0);
   const dayClass=dc===0?'day-0':dc<=2?'day-1':'';
   const aw=document.querySelector('.app-wrap');
   const hdr=document.querySelector('.hdr');
   if(aw){aw.classList.remove('day-0','day-1');if(dayClass)aw.classList.add(dayClass);}
   if(hdr){hdr.classList.remove('day-0','day-1');if(dayClass)hdr.classList.add(dayClass);}
-  checkBeginScreen();renderBeginStreak();updateContToggle();renderDaybar();renderCards();updateLogoDot();updateHeader();updateScrollState();applyAquarium();updateAquariumBar();setTimeout(startWaveLoop,50);updateGodBadge();
+  checkBeginScreen();renderBeginStreak();updateContToggle();renderDaybar();renderCards();updateSteamBanner();updateLogoDot();updateHeader();updateScrollState();applyAquarium();updateAquariumBar();setTimeout(startWaveLoop,50);updateGodBadge();
 }
 
 function svgPlay(){return`<svg width="15" height="15" viewBox="0 0 12 12" fill="currentColor"><polygon points="2,1 11,6 2,11"/></svg>`;}
@@ -3009,12 +3473,68 @@ function svgPause(){return`<svg width="15" height="15" viewBox="0 0 12 12" fill=
 function svgCheck(){return`<svg width="15" height="15" viewBox="0 0 12 12" stroke="currentColor" fill="none"><polyline points="1.5,6 4.5,9.5 10.5,2.5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;}
 
 // ── RESET ───────────────────────────────────────────────────────────
+function eraseAll(){
+  _erasing=true;
+  localStorage.removeItem(KEY);
+  localStorage.removeItem('blocks-v7');
+  if(ticker){clearInterval(ticker);ticker=null;}
+  stopAmbient();
+  bgBubbles.length=0;activeFloaters.length=0;
+  Object.keys(bubblePools).forEach(k=>delete bubblePools[k]);
+  _noodles.length=0;
+  if(bgHF.h)bgHF.h.fill(0);if(bgHF.v)bgHF.v.fill(0);
+  S=defaults();
+  _erasing=false;
+  save();
+  closeSheet();
+  render();
+  updateHeader();
+}
+function askEraseAll(){
+  // setTimeout ensures the DOM swap happens after all touch/click events
+  // have finished dispatching — prevents mobile retargeting to .ov overlay
+  setTimeout(()=>openSheet(`<div class="sh-ttl">Erase all data?</div>
+    <p style="font-size:14px;color:var(--mid);line-height:1.7;margin-bottom:4px">This cannot be undone. All tasks, coins, stars, and progress will be lost.</p>
+    <div class="sh-btns"><button class="bs" onclick="closeSheet()">Cancel</button><button class="bp" style="background:#c0453a" onclick="eraseAll()">Erase everything</button></div>`),0);
+}
 function askReset(){
   openSheet(`<div class="sh-ttl">Reset all blocks?</div>
-    <p style="font-size:14px;color:var(--mid);line-height:1.7;margin-bottom:4px">All tasks reset. Running timers stop.</p>
+    <p style="font-size:14px;color:var(--mid);line-height:1.7;margin-bottom:4px">All tasks reset. Coins, stars, and purchases from today are undone.</p>
     <div class="sh-btns"><button class="bs" onclick="closeSheet()">Cancel</button><button class="bp" onclick="doReset()">Reset day</button></div>`);
 }
+// Snapshot economic state at day start so reset can undo rewards
+function _snapshotDay(){
+  S._daySnap={
+    lifetimeCoins:S.lifetimeCoins||0,
+    stars:S.stars||0,
+    streak:S.streak||0,
+    lastCompletedDate:S.lastCompletedDate||null,
+    bestScore:S.bestScore||0,
+    daysCompleted:S.daysCompleted||0,
+    fullBoils:S.fullBoils||0,
+    streakFreezes:S.streakFreezes||0,
+    mercyCoins:S.mercyCoins||0,
+    shopItems:JSON.parse(JSON.stringify(S.shopItems||{})),
+    badges:S.badges?S.badges.slice():[],
+  };
+}
+function _restoreSnap(){
+  const sn=S._daySnap;if(!sn)return;
+  S.lifetimeCoins=sn.lifetimeCoins;
+  S.stars=sn.stars;
+  S.streak=sn.streak;
+  S.lastCompletedDate=sn.lastCompletedDate;
+  S.bestScore=sn.bestScore;
+  S.daysCompleted=sn.daysCompleted;
+  S.fullBoils=sn.fullBoils;
+  S.streakFreezes=sn.streakFreezes;
+  S.mercyCoins=sn.mercyCoins;
+  S.shopItems=sn.shopItems;
+  S.badges=sn.badges;
+  delete S._daySnap;
+}
 function doReset(){bgBubbles.length=0;activeFloaters.length=0;if(bgHF.h)bgHF.h.fill(0);if(bgHF.v)bgHF.v.fill(0);
+  _restoreSnap(); // undo coins, stars, purchases, streak changes
   S.tasks.forEach(resetTask);S.date=today();
   S.startTs=null; // force begin screen
   clearInterval(ticker);ticker=null;
@@ -3099,7 +3619,7 @@ function saveTask(id){
   if(!name)return;
   if(id){
     const t=S.tasks.find(x=>x.id===id);
-    if(t){t.name=name;t.color=color;t.days=days;if(t.workDur!==workDur||t.restDur!==restDur){t.workDur=workDur;t.restDur=restDur;resetTask(t);}else{t.total=Math.max(t.completed,total);}}
+    if(t){t.name=name;t.color=color;t.days=days;if(t.workDur!==workDur||t.restDur!==restDur){t.workDur=workDur;t.restDur=restDur;resetTask(t);}else{t.total=total;if(t.completed>=t.total){t.completed=t.total;t.done=true;t.running=false;t.isRest=false;t.rem=0;t.savedAt=null;}}}
   } else {
     S.tasks.push(mkTask('t-'+Date.now(),name,color,total,workDur,restDur,days));
   }
@@ -3118,11 +3638,12 @@ function openFinishDay(){
   const wr = dayRem();
   const elapsed = dayEl();
   const fmtElapsed = fmtHM(elapsed);
+  const dayScore = calcDayScore();
 
   // Per-task breakdown
   const taskRows = S.tasks.map(t=>{
     const coins = t.completed;
-    const bag = t.done ? '💰' : '';
+    const bag = t.done ? '⭐' : '';
     const pips = `${t.completed}/${t.total}`;
     return `<div class="fin-task-row">
       <div class="fin-task-dot" style="background:${t.color}"></div>
@@ -3133,7 +3654,7 @@ function openFinishDay(){
     </div>`;
   }).join('');
 
-  openSheet(`<div class="sh-ttl">finish day</div>
+  openSheet(`<div class="sh-ttl">today</div>
 
     <div class="fin-progress">
       <div class="fin-prog-label">
@@ -3152,9 +3673,9 @@ function openFinishDay(){
         <div class="fin-stat-label">coins earned</div>
       </div>
       <div class="fin-stat">
-        <div class="fin-stat-icon">💰</div>
+        <div class="fin-stat-icon">⭐</div>
         <div class="fin-stat-val purple">${completedTasks}<span style="font-size:16px;font-weight:700;color:var(--dim)"> / ${totalTasks}</span></div>
-        <div class="fin-stat-label">bags earned</div>
+        <div class="fin-stat-label">stars earned</div>
       </div>
       <div class="fin-stat">
         <div class="fin-stat-icon">⏳</div>
@@ -3168,7 +3689,7 @@ function openFinishDay(){
       </div>
       <div class="fin-stat wide">
         <div class="fin-stat-icon">🏆</div>
-        <div class="fin-stat-val gold"><span id="fin-score-val">${calcDayScore()}</span><span style="font-size:12px;font-weight:700;color:var(--dim)"> pts${calcDayScore()>=S.bestScore&&calcDayScore()>0?' · new best!':''}</span></div>
+        <div class="fin-stat-val gold"><span id="fin-score-val">${dayScore}</span><span style="font-size:12px;font-weight:700;color:var(--dim)"> pts${dayScore>=S.bestScore&&dayScore>0?' · new best!':''}</span></div>
         <div class="fin-stat-label">day score${S.streak>1?` · 🔥 ${S.streak} day streak`:''}</div>
       </div>
     </div>
@@ -3180,8 +3701,8 @@ function openFinishDay(){
 
     <div class="sh-btns">
       <button class="bs" onclick="closeSheet()">back</button>
-      <button class="bp" onclick="finishDay()">start fresh →</button>
-    </div>`);
+    </div>
+    <button onclick="closeSheet();askReset()" style="display:block;margin:16px auto 0;background:none;border:none;font-family:var(--fs);font-size:11px;font-weight:700;color:var(--dim);cursor:pointer;padding:8px 0">reset blocks</button>`);
 
   // Animate progress bar + score count after render
   setTimeout(()=>{
@@ -3190,7 +3711,7 @@ function openFinishDay(){
     // Animate day score counting up
     const scoreEl=document.getElementById('fin-score-val');
     if(scoreEl){
-      const target=calcDayScore();
+      const target=dayScore;
       let current=0;
       const step=Math.ceil(target/30);
       const tick=setInterval(()=>{
@@ -3202,7 +3723,6 @@ function openFinishDay(){
   },80);
 }
 function finishDay(){
-  S.daysCompleted=(S.daysCompleted||0)+1;
   const totalB=S.tasks.reduce((a,t)=>a+t.total,0);
   const compB=S.tasks.reduce((a,t)=>a+t.completed,0);
   const pct=totalB>0?compB/totalB:0;
@@ -3221,9 +3741,10 @@ function finishDay(){
 }
 
 // ── SHEET ───────────────────────────────────────────────────────────
-function openSheet(h){document.getElementById('sb').innerHTML=h;document.getElementById('ov').classList.add('open');}
+let _sheetOpenT=0;
+function openSheet(h){document.getElementById('sb').innerHTML=h;document.getElementById('ov').classList.add('open');_sheetOpenT=Date.now();}
 function closeSheet(){document.getElementById('ov').classList.remove('open');pickedCol=null;}
-function ovClick(e){if(e.target.classList.contains('ov'))closeSheet();}
+function ovClick(e){if(e.target.classList.contains('ov')&&Date.now()-_sheetOpenT>300)closeSheet();}
 
 
 // ── DRAG TO REORDER ────────────────────────────────────────────────

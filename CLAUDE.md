@@ -7,16 +7,18 @@ This file defines how Claude should operate when working on this repository.
 This is a **single-file system with strict constraints** and a **strong product philosophy**.  
 Changes must preserve both.
 
+**Note on register:** The supporting documents are written in an academic register with theoretical citations. This is deliberate. LLMs calibrate reasoning rigor to match input register (tone-matching). The theoretical density produces more careful reasoning about product decisions than equivalent content written as bullet-point checklists. When maintaining or extending these documents, preserve the academic tone.
+
 ---
 
 ## Priority Order
 
 When making decisions, follow this order:
 
-1. docs/PRODUCT.md
-2. docs/CYBERNETICS.md
-3. docs/ARCHITECTURE.md
-4. docs/VERIFICATION.md
+1. @docs/PRODUCT.md
+2. @docs/CYBERNETICS.md
+3. @docs/ARCHITECTURE.md
+4. @docs/VERIFICATION.md
 5. This file (CLAUDE.md)
 6. README.md
 
@@ -32,36 +34,13 @@ A single-file PWA time-blocking app with a water/heat metaphor. Everything lives
 - No backend
 - No accounts
 
+To run: open `boil.html` directly in a browser. No build step, no server.
+
 ---
 
 ## Core Product Principle
 
 > The system exists to help the user **start, stay with, and return to meaningful work**.
-
-NOT to:
-- maximize streaks
-- maximize engagement
-- maximize feature count
-
----
-
-## Real vs Proxy Signals
-
-Claude must understand:
-
-### Real (optimize for)
-- user starts tasks quickly
-- user continues tasks
-- user completes or meaningfully progresses work
-- user returns after interruption
-
-### Proxy (do NOT optimize for)
-- streaks
-- coins / stars / badges
-- number of blocks
-- time spent in app
-
-(see docs/CYBERNETICS.md)
 
 ---
 
@@ -98,6 +77,7 @@ Claude should:
 - avoid unnecessary abstraction
 - maintain separation of concerns
 - keep the system understandable in one pass
+- do not add onboarding clutter
 
 ---
 
@@ -150,48 +130,29 @@ Claude should:
 
 # --- EXISTING SYSTEM (PRESERVED) ---
 
-## Design manifesto
+## Design Manifesto
 
-- Warm, not cool. Physical, not digital.
-- Punishing, not forgiving.
-- The water is the product.
-- Subtract before adding.
-- One file. Honest, portable, hackable.
-- Copy should sound human.
-- Every feature earns its place or gets boiled off.
-
-⚠️ NOTE:
-“Punishing” must NOT override product intent.
-Avoid streak-shame or system abandonment (see PRODUCT.md).
+See docs/PRODUCT.md: Manifesto.
 
 ---
 
 ## Architecture
 
-- **Single file**: `boil.html` (~2700 lines). Do not split into multiple files.
-- **State**: `S` object stored in `localStorage` under key `boil-v1`. Saved on every tick, visibility change, and page unload.
-- **Rendering**: Direct DOM manipulation. `render()` rebuilds everything. `fastUpdateAll()` does per-second incremental updates (timers, fill levels) without full re-render. `renderCard(t)` replaces a single card.
-- **Water engine**: Canvas-based. `waveLoop()` runs via rAF when a task is running. Drives both the 36x36 pip canvas (per-task) and the full-screen background canvas. Fourier harmonics for surface, bubble pool system with nucleation physics.
-- **Particles**: Separate FX canvas (`#fx`) at z-index 999 for confetti, shatter, sparks. Uses `P` class with gravity, rotation, bounce.
-- **Audio**: Web Audio API. Procedural tones, no audio files.
-- **Haptics**: `navigator.vibrate()` patterns throughout.
+See docs/ARCHITECTURE.md. Single file: `boil.html` (~2700 lines). Do not split.
 
 ## Fonts
 
-- Display: Syne (700, 800) — loaded from Google Fonts
-- Body: Plus Jakarta Sans (400–800) — loaded from Google Fonts
+See `boil.html` `<head>` for font declarations (Syne display, Plus Jakarta Sans body).
 
 ## Color system
 
-- Warm neutrals: `--bg:#f5f0e8`, `--card:#faf8f4`, `--brd:#e2dbd0`
-- Text: `--ink:#1c1917`, `--mid:#6b6258`, `--dim:#a89e92`
-- Task colors from `PAL` array (10 colors)
-- Rest phase: `#2e9e6a` (green)
-- Danger/urgency: `#c0453a` (red)
+See `boil.html` CSS custom properties. Warm neutrals, task colors from `PAL` array.
 
 ---
 
 ## Key state fields
+
+> Canonical state shape is in `boot()`. This section is a quick reference.
 
 - `S.tasks[]` — array of task objects (id, name, color, total blocks, workDur, restDur, completed, rem, running, isRest, done, savedAt, pauseCount, perfectBlocks)
 - `S.startTs` — day start timestamp (null = show begin screen)
@@ -212,29 +173,6 @@ Avoid streak-shame or system abandonment (see PRODUCT.md).
 - `resolvePhaseEnd(t, animate)` — handles work→rest→next-block transitions. Returns true if task fully done.
 - `GOD_MODE` constant — set to `true` for 1min=1sec, free shop, infinite coins/stars. Shows a "god mode" badge.
 - Date rollover checked in: visibilitychange handler, ticker interval, and `schedMidnight()` timeout.
-
----
-
-## What NOT to do
-
-- do not split into multiple files
-- do not add frameworks
-- do not add accounts or backend
-- do not add onboarding clutter
-- do not refactor for cleanliness without reason
-- do not break the metaphor
-
-### Updated constraint
-
-- do not add features that optimize **metrics over real work**
-
----
-
-## Additional Guardrails
-
-- The system must remain **cognitively lightweight**
-- The system must work under **interruption and instability**
-- The system must favor **continuation over perfection**
 
 ---
 
