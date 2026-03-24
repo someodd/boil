@@ -1026,14 +1026,7 @@ function boot(){
   // Reopen toast
   if(_reopenTask&&_elapsedBeforeSave>=1){
     const _el=_elapsedBeforeSave;
-    setTimeout(()=>{
-      const d=document.createElement('div');
-      d.style.cssText='position:fixed;top:60px;left:50%;transform:translateX(-50%);background:rgba(28,25,23,.88);color:#fff;font-family:var(--fs);font-size:12px;font-weight:700;padding:9px 18px;border-radius:100px;z-index:998;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap;backdrop-filter:blur(8px)';
-      d.textContent=`welcome back — ${_el} min elapsed`;
-      document.body.appendChild(d);
-      requestAnimationFrame(()=>{d.style.opacity='1';});
-      setTimeout(()=>{d.style.opacity='0';setTimeout(()=>d.remove(),400);},2200);
-    },600);
+    setTimeout(()=>showToast(`welcome back — ${_el} min elapsed`,'#3d3530',2200),600);
   }
 }
 function resetTask(t){t.completed=0;t.isRest=false;t.rem=t.workDur;t.running=false;t.done=false;t.savedAt=null;if(bubblePools[t.id])bubblePools[t.id]=[];delete window['_sf_'+t.id];}
@@ -1528,10 +1521,10 @@ function seenToast(key,msg,color,delay){
   setTimeout(()=>showToast(msg,color||'#6b6258',2800),delay||600);
 }
 let _curToast=null,_curToastTimer=null;
-function showToast(msg,color='#1c1917',duration=2000){
+function showToast(msg,color='#3d3530',duration=2000){
   if(_curToast){_curToast.remove();clearTimeout(_curToastTimer);}
   const d=document.createElement('div');
-  d.style.cssText=`position:fixed;top:60px;left:50%;transform:translateX(-50%) translateY(-8px);background:${color};color:#fff;font-family:var(--fs);font-size:13px;font-weight:800;padding:9px 20px;border-radius:100px;z-index:999;pointer-events:none;opacity:0;transition:opacity .25s,transform .25s;white-space:nowrap;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)`;
+  d.style.cssText=`position:fixed;top:60px;left:50%;transform:translateX(-50%) translateY(-8px);background:${color};color:#fff;font-family:var(--fs);font-size:13px;font-weight:800;padding:9px 20px;border-radius:100px;z-index:1001;pointer-events:none;opacity:0;transition:opacity .25s,transform .25s;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,0.25)`;
   d.textContent=msg;
   _curToast=d;
   document.body.appendChild(d);
@@ -2054,7 +2047,7 @@ function onTaskDone(id){
     S.isTrial=false;
     save();
     setTimeout(()=>{
-      showToast("That's it. Add your own blocks.",'#1c1917',3500);
+      showToast("That's it. Add your own blocks.",'#3d3530',3500);
       setTimeout(()=>openAdd(),1800);
     },1200);
     renderCards();
@@ -2187,7 +2180,7 @@ function checkRuntimeBadges(t){
   }
   const h=new Date().getHours();
   if(h>=22&&t.completed>0&&!S.badges.includes('night_owl')){
-    S.badges.push('night_owl');showToast('🦉 Night Owl badge!','#1c1917',3000);
+    S.badges.push('night_owl');showToast('🦉 Night Owl badge!','#3d3530',3000);
   }
 }
 function triggerDayCeremony(){
@@ -2257,9 +2250,20 @@ function renderDaybar(){
 
   const overflow=Math.max(0,cursor-100);
   const hatchW=overflow>0?Math.min(100-nowPct,overflow):0;
-  const slack=Math.round(wr-totalB); // round to avoid -0 float
+  const slack=Math.round(wr-totalB);
   const isOver=slack<0;
-  const showSlack=totalB>=900; // only show slack stat when ≥15min scheduled
+
+  // Left stat: remaining work time
+  const leftText=totalB<=0
+    ?`<div class="db-stat go"><b>done</b> ✓</div>`
+    :`<div class="db-stat"><b>${fmtHM(totalB)}</b> of work</div>`;
+
+  // Right stat: free time or overbooked
+  const free=Math.max(0,Math.round(wr-totalB));
+  const streakBit=S.streak>1?`<span style="margin-left:6px;font-size:10px;font-weight:800;color:#c8841a">🔥${S.streak}</span>`:'';
+  const rightText=isOver
+    ?`<div class="db-stat warn"><span style="font-size:14px">💀</span> <b>${fmtHM(Math.abs(slack))}</b> over${streakBit}</div>`
+    :`<div class="db-stat${totalB<=0?' go':''}"><b>${fmtHM(free)}</b> free${streakBit}</div>`;
 
   // Dynamic tick labels based on actual start time and DAY_S() (respects midnight cap)
   const dbTicks=(()=>{
@@ -2277,8 +2281,8 @@ function renderDaybar(){
   })();
   document.getElementById('daybar').innerHTML=`
     <div class="db-top">
-      <div class="db-stat go"><b>${fmtHM(wr)}</b> left</div>
-      ${showSlack?`<div class="db-stat${isOver?' warn':''}">${isOver?`<span style="font-size:14px">💀</span> <b>${fmtHM(Math.abs(slack))}</b> over`:`<b>${slack===0?'±0m':('+'+fmtHM(slack))}</b> slack`}${S.streak>1?`<span style="margin-left:6px;font-size:10px;font-weight:800;color:#c8841a">🔥${S.streak}</span>`:''}</div>`:`${S.streak>1?`<div class="db-stat"><span style="font-size:10px;font-weight:800;color:#c8841a">🔥${S.streak}</span></div>`:''}`}
+      ${leftText}
+      ${rightText}
     </div>
     <div class="db-track">
       <div class="db-el" style="width:${elPct}%"></div>
