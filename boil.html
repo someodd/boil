@@ -30,6 +30,9 @@
       --dim:   #a89e92;
       --dimmer:#d4cdc4;
       --ink:   #1c1917;
+      --glass: rgba(250,248,244,0.72);
+      --glass-hi: rgba(250,248,244,0.58);
+      --glass-border: rgba(226,219,208,0.6);
       --fs: 'Plus Jakarta Sans', system-ui, sans-serif;
       --fd: 'Syne', sans-serif;
     }
@@ -45,6 +48,9 @@
       padding:14px 16px 0;
       display:flex;align-items:center;justify-content:space-between;
       flex-shrink:0;gap:8px;
+      background:var(--glass);
+      backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+      position:relative;z-index:2;
     }
     /* Profile pill — sits between logo and streak */
     .profile-pill{
@@ -120,7 +126,7 @@
     .pill:active{background:var(--brd);color:var(--ink);transform:scale(.95)}
 
     /* ── TIMELINE ─────────────────────── */
-    .daybar{margin:10px 13px 0;background:var(--card);border:1.5px solid var(--brd);border-radius:12px;padding:11px 14px 10px;flex-shrink:0}
+    .daybar{margin:10px 13px 0;background:var(--glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1.5px solid var(--glass-border);border-radius:12px;padding:11px 14px 10px;flex-shrink:0}
     .db-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
     .db-stat{font-size:11px;font-weight:600;color:var(--dim)}
     .db-stat b{font-weight:800;font-size:15px;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
@@ -129,7 +135,6 @@
     .db-stat.warn b{color:#c0453a}
     .db-track{height:18px;background:var(--bg);border-radius:7px;position:relative;overflow:hidden;margin-bottom:4px}
     .db-el{position:absolute;left:0;top:0;bottom:0;background:var(--dimmer);border-radius:7px 0 0 7px;transition:width 1s linear;z-index:1}
-    .db-slack{position:absolute;top:0;bottom:0;background:#d4edda;z-index:2;transition:all .5s}
     .db-seg{position:absolute;top:0;bottom:0;transition:all .5s;z-index:3;opacity:.88}
     .db-hatch{position:absolute;right:0;top:0;bottom:0;z-index:4;background:linear-gradient(90deg,rgba(192,69,58,.4),rgba(220,80,40,.85));transition:width .5s;border-radius:0 7px 7px 0;animation:lava-pulse 1.8s ease-in-out infinite}
     @keyframes lava-pulse{0%,100%{opacity:1}50%{opacity:.65}}
@@ -155,22 +160,34 @@
     .scroll .card:nth-child(n+5){animation-delay:.2s}
 
     .card{
-      background:var(--card);border:2px solid var(--brd);border-radius:16px;
+      background:var(--glass);
+      backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+      border:1.5px solid var(--glass-border);border-radius:16px;
+      box-shadow:0 1px 2px rgba(0,0,0,0.04),0 4px 12px rgba(0,0,0,0.03),inset 0 1px 0 rgba(255,255,255,0.5);
       overflow:hidden;cursor:pointer;position:relative;
-      transition:transform .18s cubic-bezier(.34,1.2,.64,1),box-shadow .25s,border-color .25s,opacity .35s,filter .35s;
+      transition:transform .18s cubic-bezier(.34,1.2,.64,1),box-shadow .25s,border-color .25s,opacity .35s,filter .35s,background .35s;
       user-select:none;-webkit-user-select:none;
     }
     @media(hover:hover){.card:hover:not(.running):not(.resting){box-shadow:0 4px 16px rgba(0,0,0,.09);transform:translateY(-1px)}}
     .card:active{transform:scale(.972)!important}
-    .card.running,.card.resting{
+    .card.running{
+      background:var(--glass-hi);
+      backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
       border-color:var(--tc);
-      box-shadow:0 8px 32px rgba(0,0,0,.15),0 0 0 1px color-mix(in srgb,var(--tc) 20%,transparent);
+      box-shadow:0 2px 4px rgba(0,0,0,0.06),0 8px 24px rgba(0,0,0,0.10),0 0 0 1px color-mix(in srgb,var(--tc) 25%,transparent),inset 0 1px 0 rgba(255,255,255,0.6);
       transform:translateY(-3px);
     }
-    .card.done-all{border-style:dashed;border-color:var(--dimmer)}
+    .card.resting{
+      background:rgba(232,250,242,0.65);
+      backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+      border-color:var(--tc);
+      box-shadow:0 2px 4px rgba(0,0,0,0.06),0 8px 24px rgba(0,0,0,0.10),0 0 0 1px color-mix(in srgb,var(--tc) 25%,transparent),inset 0 1px 0 rgba(255,255,255,0.6);
+      transform:translateY(-3px);
+    }
+    .card.done-all{background:rgba(250,248,244,0.82);border-style:dashed;border-color:var(--dimmer)}
     .card.warn{border-color:#f0c060}
-    .card.danger{border-color:#f09090}
-    .card.critical{border-color:#e05050;box-shadow:0 0 0 3px rgba(224,80,80,.2)!important}
+    .card.danger{background:rgba(250,240,238,0.72);border-color:#f09090}
+    .card.critical{background:rgba(250,236,234,0.72);border-color:#e05050;box-shadow:0 0 0 3px rgba(224,80,80,.2),inset 0 1px 0 rgba(255,255,255,0.4)!important}
     .card.critical .c-time-cur{color:#c0453a!important;animation:danger-pulse .45s ease-in-out infinite!important}
 
     /* top color bar */
@@ -182,6 +199,7 @@
     .c-name{font-family:var(--fd);font-size:18px;font-weight:800;letter-spacing:-.025em;color:var(--ink);flex:1;margin-right:8px;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
     .c-edit{background:none;border:none;color:var(--dimmer);font-size:22px;line-height:1;cursor:pointer;padding:0 2px;transition:color .14s;flex-shrink:0}
     .c-edit:hover{color:var(--dim)}
+    .c-desc{font-size:12px;font-weight:500;color:var(--dim);letter-spacing:.01em;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:-4px;margin-bottom:4px}
 
     /* ── BLOCK SQUARES ────────────────── */
     /* Inline-styled in JS — these classes are visual-only */
@@ -394,9 +412,9 @@
     }
 
     @keyframes allDoneFlash{
-      0%{transform:translateY(-2px);background:var(--card)}
-      25%{transform:translateY(-6px) scale(1.02);background:#e8faf2;border-color:var(--tc)}
-      100%{transform:translateY(0);background:var(--card)}
+      0%{transform:translateY(-2px);background:var(--glass)}
+      25%{transform:translateY(-6px) scale(1.02);background:rgba(232,250,242,0.8);border-color:var(--tc)}
+      100%{transform:translateY(0);background:var(--glass)}
     }
     .card.all-done-flash{animation:allDoneFlash .7s ease forwards;pointer-events:none}
 
@@ -415,6 +433,7 @@
       font-family:var(--fd);font-size:46px;font-weight:800;color:var(--ink);
       text-align:center;line-height:1.2;letter-spacing:-.03em;
       text-shadow:0 2px 20px rgba(255,255,255,.9);
+      text-wrap:balance;
       animation:dayDone 3.8s ease forwards;
     }
     .day-done-sub{font-size:22px;opacity:.65;font-weight:700;display:block;margin-top:4px}
@@ -448,22 +467,22 @@
       border-radius:50%;background:var(--ink);color:#fff;border:none;
       font-size:30px;cursor:pointer;
       display:flex;align-items:center;justify-content:center;
-      box-shadow:0 4px 22px rgba(28,25,23,.28);
+      box-shadow:0 2px 4px rgba(28,25,23,.12),0 8px 24px rgba(28,25,23,.16);
       transition:transform .45s cubic-bezier(.34,1.56,.64,1),box-shadow .2s;
     }
     @media(min-width:680px){
       .fab{right:calc(50% - 340px + 16px)}
     }
-    .fab:hover{transform:scale(1.08);box-shadow:0 6px 28px rgba(28,25,23,.36)}
+    .fab:hover{transform:scale(1.08);box-shadow:0 4px 8px rgba(28,25,23,.12),0 12px 32px rgba(28,25,23,.2)}
     .fab:active{transform:scale(.86)!important;transition:transform .1s ease!important;box-shadow:0 2px 8px rgba(28,25,23,.2)}
 
     /* ── SHEET ─────────────────────────── */
     .ov{position:fixed;inset:0;background:rgba(0,0,0,0);z-index:200;display:flex;align-items:flex-end;transition:background .25s;pointer-events:none}
     .ov.open{background:rgba(0,0,0,.42);pointer-events:all}
-    .sheet{background:#fff;border:1.5px solid var(--brd);border-bottom:none;border-radius:22px 22px 0 0;padding:6px 16px 52px;width:100%;max-width:680px;margin:0 auto;max-height:90dvh;overflow-y:auto;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1)}
+    .sheet{background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1.5px solid var(--glass-border);border-bottom:none;border-radius:22px 22px 0 0;padding:6px 16px 52px;width:100%;max-width:680px;margin:0 auto;max-height:90dvh;overflow-y:auto;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1)}
     .ov.open .sheet{transform:translateY(0)}
     .sh-hnd{width:36px;height:4px;background:var(--brd);border-radius:2px;margin:10px auto 18px}
-    .sh-ttl{font-family:var(--fd);font-size:20px;font-weight:800;letter-spacing:-.03em;margin-bottom:18px}
+    .sh-ttl{font-family:var(--fd);font-size:20px;font-weight:800;letter-spacing:-.03em;margin-bottom:18px;text-wrap:balance}
 
     /* form */
     .field{margin-bottom:14px}
@@ -485,7 +504,7 @@
     .bp:active{opacity:.8}
     .bs{flex:1;background:none;color:var(--mid);border:2px solid var(--brd);padding:14px;border-radius:12px;font-size:14px;font-family:var(--fs);font-weight:700;cursor:pointer}
     .bd{background:none;color:#c0453a;border:2px solid rgba(192,69,58,.25);padding:14px 16px;border-radius:12px;font-size:14px;font-family:var(--fs);font-weight:700;cursor:pointer}
-    .conf-ask{background:#fff8f8;border:2px solid rgba(192,69,58,.2);border-radius:12px;padding:13px;margin-top:12px}
+    .conf-ask{background:rgba(255,248,248,0.85);border:2px solid rgba(192,69,58,.2);border-radius:12px;padding:13px;margin-top:12px}
     .conf-ask p{font-size:13px;color:#c0453a;font-weight:700;margin-bottom:10px}
     .conf-ask .sh-btns{margin-top:0}
 
@@ -513,6 +532,7 @@
     .begin-sub{
       font-size:15px;font-weight:600;color:var(--dim);
       text-align:center;line-height:1.6;max-width:260px;
+      text-wrap:balance;
     }
     .begin-btn{
       background:var(--ink);color:#fff;border:none;
@@ -565,9 +585,9 @@
 
     /* ── REST MODE ─────────────────────────────────────────────────────── */
     @keyframes restPulse{
-      0%{background:var(--card)}
-      30%{background:#d4f0e4}
-      100%{background:var(--card)}
+      0%{background:var(--glass)}
+      30%{background:rgba(212,240,228,0.75)}
+      100%{background:var(--glass)}
     }
     .card.rest-flash{animation:restPulse .8s ease forwards}
 
@@ -761,6 +781,10 @@
     <span class="begin-h-label">hours</span>
     <input class="begin-h-input" id="begin-h" type="number" value="14" min="1" max="24" inputmode="numeric">
   </div>
+  <div class="begin-hours" id="begin-bed-row">
+    <span class="begin-h-label">bedtime</span>
+    <input type="time" class="begin-h-input" id="begin-bed" style="width:120px;font-size:16px">
+  </div>
   <button class="begin-btn" onclick="beginDay()">begin the day</button>
   <button class="quick-boil-btn" onclick="quickBoil()">just 5 minutes</button>
 </div>
@@ -839,16 +863,82 @@
 })();
 // ── CONSTANTS ──────────────────────────────────────────────────────
 // Day window: min(dayHours, time until midnight from startTs)
+function timeToDecimal(s){if(!s)return null;const[h,m]=s.split(':').map(Number);return h+m/60;}
+function decimalToTime(d){if(d==null)return'';const h=Math.floor(d),m=Math.round((d%1)*60);return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');}
 function DAY_S(){
   const raw=(S?.dayHours??14)*3600;
   if(!S?.startTs)return raw;
   const start=new Date(S.startTs);
   const midnight=new Date(start);midnight.setHours(24,0,0,0);
   const secsToMid=Math.floor((midnight-start)/1000);
-  return Math.min(raw,secsToMid);
+  let cap=Math.min(raw,secsToMid);
+  if(S.bedtime!=null){
+    const bed=new Date(start);bed.setHours(Math.floor(S.bedtime),Math.round((S.bedtime%1)*60),0,0);
+    if(bed<=start)bed.setDate(bed.getDate()+1);
+    const secsToBed=Math.floor((bed-start)/1000);
+    cap=Math.min(cap,secsToBed);
+  }
+  return cap;
 }
 function dayEl(){if(!S?.startTs)return 0;return Math.min(DAY_S(),Math.max(0,Math.floor((Date.now()-S.startTs)/1000)));}
 function dayRem(){return Math.max(0,DAY_S()-dayEl());}
+// ── NIGHT SKY TRANSITION ──────────────────────────────────────────
+function nightT(){
+  if(!S||!S.startTs)return 0;
+  const rem=dayRem(),win=7200;
+  return Math.max(0,Math.min(1,(win-rem)/win));
+}
+let _lastNightT=-1,_stars=[];
+function applyNightTheme(){
+  const t=nightT();
+  if(Math.abs(t-_lastNightT)<0.005)return;
+  _lastNightT=t;
+  const lr=(a,b,t)=>Math.round(a+(b-a)*t);
+  const lh=(day,night,t)=>{
+    const d=[parseInt(day.slice(1,3),16),parseInt(day.slice(3,5),16),parseInt(day.slice(5,7),16)];
+    const n=[parseInt(night.slice(1,3),16),parseInt(night.slice(3,5),16),parseInt(night.slice(5,7),16)];
+    return'#'+[0,1,2].map(i=>lr(d[i],n[i],t).toString(16).padStart(2,'0')).join('');
+  };
+  const bgT=Math.pow(t,1.5),txtT=Math.pow(t,2);
+  const root=document.documentElement.style;
+  root.setProperty('--bg',lh('#f5f0e8','#0e1420',bgT));
+  root.setProperty('--card',lh('#faf8f4','#161c2c',bgT));
+  root.setProperty('--brd',lh('#e2dbd0','#252a38',bgT));
+  root.setProperty('--text',lh('#1c1917','#e2ddd4',txtT));
+  root.setProperty('--mid',lh('#6b6258','#8a8690',txtT));
+  root.setProperty('--dim',lh('#a89e92','#5a5660',txtT));
+  root.setProperty('--dimmer',lh('#d4cdc4','#2a2e3a',bgT));
+  root.setProperty('--ink',lh('#1c1917','#e2ddd4',txtT));
+  const gr=lr(250,18,bgT),gg=lr(248,22,bgT),gb=lr(244,34,bgT);
+  root.setProperty('--glass',`rgba(${gr},${gg},${gb},0.72)`);
+  root.setProperty('--glass-hi',`rgba(${gr},${gg},${gb},0.58)`);
+  root.setProperty('--glass-border',`rgba(${lr(226,37,bgT)},${lr(219,42,bgT)},${lr(208,56,bgT)},0.6)`);
+  const meta=document.querySelector('meta[name="theme-color"]');
+  if(meta)meta.content=lh('#f5f0e8','#0e1420',bgT);
+}
+function resetNightTheme(){
+  _lastNightT=-1;_stars=[];
+  const root=document.documentElement.style;
+  ['--bg','--card','--brd','--text','--mid','--dim','--dimmer','--ink','--glass','--glass-hi','--glass-border'].forEach(p=>root.removeProperty(p));
+  const meta=document.querySelector('meta[name="theme-color"]');
+  if(meta)meta.content='#f5f0e8';
+}
+function initStars(W,H){
+  _stars=[];
+  for(let i=0;i<65;i++)_stars.push({x:Math.random()*W,y:Math.random()*H*0.85,r:0.5+Math.random()*1.5,phase:Math.random()*Math.PI*2,speed:0.3+Math.random()*0.7,bright:0.5+Math.random()*0.5});
+}
+function drawStars(ctx,W,H,t,nA){
+  if(nA<0.01)return;
+  if(!_stars.length)initStars(W,H);
+  ctx.save();
+  for(const s of _stars){
+    const tw=0.3+0.7*((Math.sin(t*s.speed+s.phase)+1)/2);
+    ctx.globalAlpha=nA*s.bright*tw;
+    ctx.fillStyle='#fff';
+    ctx.beginPath();ctx.arc(s.x,s.y,s.r*(window.devicePixelRatio||1),0,Math.PI*2);ctx.fill();
+  }
+  ctx.restore();
+}
 const PAL=['#c0453a','#d4782a','#b59a1a','#3a9e6a','#2a8a8a','#4a78c0','#5b5cd6','#9b6bb5','#c06090','#8a6548'];
 const KEY='boil-v1'; // renamed from blocks-v7
 
@@ -864,6 +954,7 @@ function defaults(){
     date:today(),
     startTs:null,
     dayHours:14,
+    bedtime:null,
     continuous:false,
     streak:0,
     lastCompletedDate:'',
@@ -879,8 +970,8 @@ function defaults(){
     isTrial:isFirstRun
   };
 }
-function mkTask(id,name,color,total,workDur,restDur,days){
-  return{id,name,color,total,workDur,restDur,days:days||null,completed:0,isRest:false,rem:workDur,running:false,done:false,savedAt:null};
+function mkTask(id,name,color,total,workDur,restDur,days,desc){
+  return{id,name,color,total,workDur,restDur,days:days||null,desc:desc||'',completed:0,isRest:false,rem:workDur,running:false,done:false,savedAt:null};
 }
 
 let S, ticker=null;
@@ -917,13 +1008,14 @@ function boot(){
   if(S.isTrial===undefined)S.isTrial=false;
   if(S.fullBoils===undefined)S.fullBoils=0;
   if(S.ballRecord===undefined)S.ballRecord=0;
-  S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;});
+  if(S.bedtime===undefined)S.bedtime=null;
+  S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;if(t.desc===undefined)t.desc='';});
   const now=Date.now(),td=today();
   if(S.date!==td){
     S.tasks.forEach(resetTask);
     S.date=td;S.startTs=null;
     delete S._daySnap; // day ended naturally — rewards earned
-    bgBubbles.length=0;
+    resetNightTheme();bgBubbles.length=0;
   } else {
     S.tasks.forEach(t=>reconcileTask(t,now));
   }
@@ -1016,13 +1108,20 @@ document.addEventListener('visibilitychange',()=>{
     S.tasks.forEach(t=>{if(t.running){t.running=false;t.savedAt=null;}});
     stopAmbient();S.tasks.forEach(resetTask);S.date=td;S.startTs=null;
     delete S._daySnap; // day ended naturally — rewards earned
-    clearInterval(ticker);ticker=null;bgBubbles.length=0;
+    resetNightTheme();clearInterval(ticker);ticker=null;bgBubbles.length=0;
     save();render();return;
   }
   // Same day — reconcile elapsed time for running tasks
   const now=Date.now();
+  const _preComp=S.tasks.reduce((a,t)=>a+t.completed,0);
+  const _preDone=S.tasks.filter(t=>t.done).length;
   S.tasks.forEach(t=>reconcileTask(t,now));
+  const _postComp=S.tasks.reduce((a,t)=>a+t.completed,0);
+  const _postDone=S.tasks.filter(t=>t.done).length;
   save();render();
+  // Audio feedback for blocks completed while away
+  if(_postDone>_preDone)sndTask();
+  else if(_postComp>_preComp)sndSub();
   if(S.tasks.some(t=>t.running)){
     ensureTicker();
     // Re-acquire wake lock (released when page went hidden)
@@ -1051,7 +1150,7 @@ function ensureTicker(){
     if(S.date!==today()){
       S.tasks.forEach(t=>{if(t.running){t.running=false;t.savedAt=null;}});
       stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;
-      delete S._daySnap; // day ended naturally — rewards earned
+      delete S._daySnap;resetNightTheme(); // day ended naturally — rewards earned
       clearInterval(ticker);ticker=null;bgBubbles.length=0;
       save();render();return;
     }
@@ -1069,6 +1168,8 @@ function ensureTicker(){
       }
     });
     if(any){save();fastUpdateAll();}
+    // Bedtime approaching warning (once, at ~15min mark)
+    if(any&&S.bedtime!=null){const _dr=dayRem();if(_dr<=900&&_dr>895&&document.hidden)notify('15 minutes to bedtime','Start winding down.');}
     if(!S.tasks.some(t=>t.running)){clearInterval(ticker);ticker=null;}
   },1000);
 }
@@ -1338,11 +1439,11 @@ function openProfile(){
         <div style="font-size:9px;font-weight:800;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-top:2px">streak</div>
       </div>
       <div style="background:var(--bg);border-radius:12px;padding:10px 12px;text-align:center">
-        <div style="font-size:20px;font-weight:800;font-family:var(--fd);color:#c8841a">${S.stars||0} ⭐</div>
+        <div style="font-size:20px;font-weight:800;font-family:var(--fd);color:#c8841a">${GOD_MODE?'∞':(S.stars||0)} ⭐</div>
         <div style="font-size:9px;font-weight:800;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-top:2px">stars</div>
       </div>
       <div style="background:var(--bg);border-radius:12px;padding:10px 12px;text-align:center">
-        <div style="font-size:20px;font-weight:800;font-family:var(--fd);color:#c8841a">${S.fullBoils||0} ♨️</div>
+        <div style="font-size:20px;font-weight:800;font-family:var(--fd);color:#c8841a">${GOD_MODE?'∞':(S.fullBoils||0)} ♨️</div>
         <div style="font-size:9px;font-weight:800;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-top:2px">full boils</div>
       </div>
       <div style="background:var(--bg);border-radius:12px;padding:10px 12px;text-align:center">
@@ -1358,6 +1459,16 @@ function openProfile(){
     </div>`:''}
 
 
+    <!-- Bedtime setting -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin-bottom:8px">bedtime</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="time" id="profile-bed" value="${decimalToTime(S.bedtime)}" onchange="S.bedtime=timeToDecimal(this.value);save();renderDaybar();showToast(S.bedtime!=null?'Bedtime saved':'Bedtime cleared','#6b6258',1500)" style="background:var(--bg);border:2px solid var(--brd);color:var(--ink);font-size:16px;font-weight:600;font-family:var(--fs);padding:9px 12px;border-radius:12px;outline:none;width:140px">
+        <button onclick="document.getElementById('profile-bed').value='';S.bedtime=null;save();renderDaybar();showToast('Bedtime cleared','#6b6258',1500)" style="background:none;border:none;font-family:var(--fs);font-size:12px;font-weight:700;color:var(--dim);cursor:pointer;padding:4px 8px">clear</button>
+      </div>
+      <div style="font-size:10px;color:var(--dim);margin-top:4px">Day ends here. Never sacrificed.</div>
+    </div>
+
     <div class="sh-btns">
       <button class="bs" onclick="closeSheet()">close</button>
       <button class="bp" onclick="closeSheet();openShop()">🪙 shop</button>
@@ -1367,9 +1478,9 @@ function openProfile(){
 }
 function openShop(){
   seenToast('shop','Spend coins on water toys.','#6b6258',200);
-  const coins=S.lifetimeCoins||0;
-  const stars=S.stars||0;
-  const fb=S.fullBoils||0;
+  const coins=GOD_MODE?'∞':(S.lifetimeCoins||0);
+  const stars=GOD_MODE?'∞':(S.stars||0);
+  const fb=GOD_MODE?'∞':(S.fullBoils||0);
   const ownedThemes=S.shopItems.ownedBoilThemes||[];
   const equippedTheme=S.shopItems.boilTheme||'default';
   const rows=SHOP_ITEMS.map(item=>{
@@ -1386,7 +1497,7 @@ function openShop(){
     } else if(item.type!=='consumable'&&item.type!=='star_consumable'){
       owned=(S.shopItems.avatar===item.emoji||(item.type==='floater'&&S.shopItems.floaters&&S.shopItems.floaters.includes(item.id))||(item.type==='unlock'&&S.shopItems[item.id]))?'<span style="color:#2e9e6a;font-weight:800;font-size:11px">owned ✓</span>':'';
     }
-    const canBuy=bal>=item.cost&&!owned;
+    const canBuy=(GOD_MODE||bal>=item.cost)&&!owned;
     const costIcon=currency==='stars'?'⭐':currency==='fullBoils'?'♨️':'🪙';
     return`<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--brd)">
       <span style="font-size:22px">${item.emoji}</span>
@@ -1416,17 +1527,20 @@ function seenToast(key,msg,color,delay){
   S.seen[key]=true;_seenThisSession=true;save();
   setTimeout(()=>showToast(msg,color||'#6b6258',2800),delay||600);
 }
+let _curToast=null,_curToastTimer=null;
 function showToast(msg,color='#1c1917',duration=2000){
+  if(_curToast){_curToast.remove();clearTimeout(_curToastTimer);}
   const d=document.createElement('div');
-  d.style.cssText=`position:fixed;top:60px;left:50%;transform:translateX(-50%) translateY(-8px);background:${color};color:#fff;font-family:var(--fs);font-size:13px;font-weight:800;padding:9px 20px;border-radius:100px;z-index:999;pointer-events:none;opacity:0;transition:opacity .25s,transform .25s;white-space:nowrap`;
+  d.style.cssText=`position:fixed;top:60px;left:50%;transform:translateX(-50%) translateY(-8px);background:${color};color:#fff;font-family:var(--fs);font-size:13px;font-weight:800;padding:9px 20px;border-radius:100px;z-index:999;pointer-events:none;opacity:0;transition:opacity .25s,transform .25s;white-space:nowrap;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)`;
   d.textContent=msg;
+  _curToast=d;
   document.body.appendChild(d);
   requestAnimationFrame(()=>{d.style.opacity='1';d.style.transform='translateX(-50%) translateY(0)';});
-  setTimeout(()=>{d.style.opacity='0';d.style.transform='translateX(-50%) translateY(-8px)';setTimeout(()=>d.remove(),300);},duration);
+  _curToastTimer=setTimeout(()=>{d.style.opacity='0';d.style.transform='translateX(-50%) translateY(-8px)';setTimeout(()=>{d.remove();if(_curToast===d)_curToast=null;},300);},duration);
 }
 function schedMidnight(){
   const now=new Date(),mid=new Date(now);mid.setHours(24,0,2,0);
-  setTimeout(()=>{stopAmbient();if(ticker){clearInterval(ticker);ticker=null;}bgBubbles.length=0;boot();render();schedMidnight();},mid-now);
+  setTimeout(()=>{stopAmbient();if(ticker){clearInterval(ticker);ticker=null;}bgBubbles.length=0;resetNightTheme();boot();render();schedMidnight();},mid-now);
 }
 
 // ── HAPTICS ────────────────────────────────────────────────────────
@@ -1856,7 +1970,7 @@ function useMercy(id){
 
 function notify(title,body){
   if('Notification' in window&&Notification.permission==='granted'&&document.hidden){
-    try{new Notification(title,{body,icon:'',silent:true});}catch(e){}
+    try{new Notification(title,{body,icon:'',vibrate:[200,100,200]});}catch(e){}
   }
 }
 function onSubBlockDone(id){
@@ -1867,6 +1981,11 @@ function onSubBlockDone(id){
     const blocksLeft2=t.total-t.completed-1;
     if(blocksLeft2>0)notify(`${t.name} block done ✓`,`${blocksLeft2} block${blocksLeft2!==1?'s':''} left`);
     else notify(`${t.name} — last block done!`,'Task completing…');
+    // Nudge if non-continuous and backgrounded — "come back when ready"
+    if(!S.continuous&&document.hidden&&blocksLeft2>0){
+      const _tn=t.name;
+      setTimeout(()=>{if(document.hidden&&!S.tasks.some(x=>x.running&&!x.done))notify('Come back when ready',`${_tn} is waiting.`);},120000);
+    }
     // Contextual one-liners
     seenToast('coin','🪙 You earned a coin. One per block.','#c8841a',1200);
   }
@@ -1926,7 +2045,7 @@ function onTaskDone(id){
     haptic([8,30,8,30,60]);
   }
   // Reset bg wave
-  bgWaveState.targetFill=0;bgWaveState.fill=0;bgWaveState.active=false;activeFloaters.length=0;if(bgHF.h)bgHF.h.fill(0);if(bgHF.v)bgHF.v.fill(0);
+  bgWaveState.targetFill=0;bgWaveState.fill=0;bgWaveState.active=false;bgWaveState.ambient=false;activeFloaters.length=0;if(bgHF.h)bgHF.h.fill(0);if(bgHF.v)bgHF.v.fill(0);
   const bgc=document.getElementById('bg-canvas');if(bgc)bgc.classList.remove('active');
   const t=S.tasks.find(x=>x.id===id);
   // Trial task: delete it and prompt user to add their own
@@ -2137,33 +2256,32 @@ function renderDaybar(){
   });
 
   const overflow=Math.max(0,cursor-100);
-  const slackPct=overflow>0?0:Math.min(100-cursor,15); // show up to 15% slack in green
-  const slackLeft=cursor;
   const hatchW=overflow>0?Math.min(100-nowPct,overflow):0;
   const slack=Math.round(wr-totalB); // round to avoid -0 float
   const isOver=slack<0;
+  const showSlack=totalB>=900; // only show slack stat when ≥15min scheduled
 
-  // Dynamic tick labels based on actual start time
+  // Dynamic tick labels based on actual start time and DAY_S() (respects midnight cap)
   const dbTicks=(()=>{
     if(!S.startTs)return['8 am','12 pm','6 pm','midnight'];
     const start=new Date(S.startTs);
     const fmtT=h=>{const ap=h>=12?'pm':'am';const h12=h%12||12;return`${h12}${ap}`;};
-    const s0=start.getHours();
-    // 4 evenly spaced ticks across dayHours window
-    const step=S.dayHours/3;
+    const s0=start.getHours()+start.getMinutes()/60;
+    const actualHours=DAY_S()/3600;
+    const step=actualHours/3;
     return [0,1,2,3].map(i=>{
       const h=(s0+i*step)%24;
+      if(i===3&&Math.round(h)%24===0)return'midnight';
       return fmtT(Math.round(h));
     });
   })();
   document.getElementById('daybar').innerHTML=`
     <div class="db-top">
       <div class="db-stat go"><b>${fmtHM(wr)}</b> left</div>
-      <div class="db-stat${isOver?' warn':''}">${isOver?`<span style="font-size:14px">💀</span> <b>${fmtHM(Math.abs(slack))}</b> over`:`<b>${slack===0?'±0m':('+'+fmtHM(slack))}</b> slack`}${S.streak>1?`<span style="margin-left:6px;font-size:10px;font-weight:800;color:#c8841a">🔥${S.streak}</span>`:''}</div>
+      ${showSlack?`<div class="db-stat${isOver?' warn':''}">${isOver?`<span style="font-size:14px">💀</span> <b>${fmtHM(Math.abs(slack))}</b> over`:`<b>${slack===0?'±0m':('+'+fmtHM(slack))}</b> slack`}${S.streak>1?`<span style="margin-left:6px;font-size:10px;font-weight:800;color:#c8841a">🔥${S.streak}</span>`:''}</div>`:`${S.streak>1?`<div class="db-stat"><span style="font-size:10px;font-weight:800;color:#c8841a">🔥${S.streak}</span></div>`:''}`}
     </div>
     <div class="db-track">
       <div class="db-el" style="width:${elPct}%"></div>
-      ${slackPct>0?`<div class="db-slack" style="left:${slackLeft.toFixed(2)}%;width:${slackPct.toFixed(2)}%"></div>`:''}
       ${segs.map((s,i)=>`<div class="db-seg" style="left:${s.left.toFixed(2)}%;width:${s.width.toFixed(2)}%;background:${s.color};${i===segs.length-1?'border-radius:0 7px 7px 0':''}"></div>`).join('')}
       ${hatchW>0?`<div class="db-hatch" style="width:${Math.min(hatchW,100-nowPct).toFixed(2)}%;right:0"></div>`:''}
       <div class="db-now" style="left:${nowPct}%"></div>
@@ -2181,8 +2299,8 @@ function updateHeader(){
   // Coin count — lifetimeCoins is now real-time (incremented per block)
   const cv=document.getElementById('hdr-coins-val');
   if(cv){
-    const total=S.lifetimeCoins||0;
-    cv.textContent=total>=1000?`${(total/1000).toFixed(1)}k`:total;
+    if(GOD_MODE){cv.textContent='∞';}
+    else{const total=S.lifetimeCoins||0;cv.textContent=total>=1000?`${(total/1000).toFixed(1)}k`:total;}
   }
   // Profile pill: heat level emoji + level number
   const lvl=getHeatLevel();
@@ -2210,10 +2328,22 @@ function updateScrollState(){
   sc.classList.toggle('has-running',!!rt);
   const bgc=document.getElementById('bg-canvas');
   if(!rt){
-    bgWaveState.active=false;
-    if(bgc)bgc.classList.remove('active');
+    // Ambient water: gentle sway when day is active but no task running
+    if(S.startTs&&S.date===today()){
+      bgWaveState.ambient=true;
+      bgWaveState.active=true;
+      bgWaveState.targetFill=8;
+      bgWaveState.targetColor='#a89e92';
+      if(bgc)bgc.classList.add('active');
+      startWaveLoop();
+    } else {
+      bgWaveState.active=false;
+      bgWaveState.ambient=false;
+      if(bgc)bgc.classList.remove('active');
+    }
     activeFloaters.length=0;
   } else {
+    bgWaveState.ambient=false;
     // Immediately activate bg wave — don't wait for ticker
     if(!bgWaveState.active){
       const pd=rt.isRest?rt.restDur:rt.workDur;
@@ -2301,6 +2431,7 @@ function cardHTML(t){
         <div class="c-name">${esc(t.name)}</div>
         <button class="c-edit" onclick="event.stopPropagation();openEdit('${t.id}')">⋯</button>
       </div>
+      ${t.desc?`<div class="c-desc">${esc(t.desc)}</div>`:''}
       <div class="pips-wrap">
         <div style="display:block;line-height:0;font-size:0;padding-bottom:46px">${pips}</div>
         ${t.isRest?`
@@ -2416,7 +2547,7 @@ function fastUpdateAll(){S.tasks.filter(t=>t.running&&!t.done).forEach(t=>fastUp
 
 // ── WATER ENGINE ─────────────────────────────────────────────────────
 
-const bgWaveState={fill:0,color:'#4a9eba',active:false,targetFill:0,targetColor:'#4a9eba'};
+const bgWaveState={fill:0,color:'#4a9eba',active:false,targetFill:0,targetColor:'#4a9eba',ambient:false};
 let waveRaf=null;
 let waveT=0;
 let lastFrame=0;
@@ -2979,8 +3110,8 @@ function waveLoop(now){
   // ── Bg canvas ─────────────────────────────────────────────────────
   const bgc=document.getElementById('bg-canvas');
   const isResting=rt&&rt.isRest;
-  if(bgc&&bgWaveState.active&&anyRunning){
-    bgWaveState.fill+=(bgWaveState.targetFill-bgWaveState.fill)*Math.min(dt*3,0.18);
+  if(bgc&&bgWaveState.active&&(anyRunning||bgWaveState.ambient)){
+    bgWaveState.fill+=(bgWaveState.targetFill-bgWaveState.fill)*Math.min(dt*(bgWaveState.ambient?1:3),bgWaveState.ambient?0.06:0.18);
     if(bgWaveState.fill<2&&bgWaveState.targetFill>0)bgWaveState.fill=2; // never fully zero while active
     // Lerp bg color toward target for smooth task-color transitions
     if(bgWaveState.targetColor&&bgWaveState.color!==bgWaveState.targetColor){
@@ -3000,6 +3131,10 @@ function waveLoop(now){
     }
     const ctx=bgc.getContext('2d');
     ctx.clearRect(0,0,W,H);
+
+    // Night sky: stars behind water
+    applyNightTheme();
+    drawStars(ctx,W,H,waveT,nightT());
 
     if(isResting){
       // ── REST: steam dissipating ──────────────────────────────────
@@ -3049,6 +3184,14 @@ function waveLoop(now){
         ctx.fillText(sub,W/2,H*0.44+Math.round(90*dprBgT));
         ctx.restore();
       }
+    } else if(bgWaveState.ambient&&bgWaveState.fill>0.3){
+      // ── AMBIENT: calm pool, no bubbles/floaters/noodles ─────────
+      const bgStep=3;
+      const bgN=Math.min(Math.ceil(W/bgStep)+1,1024);
+      ensureBgHF(bgN);
+      const hfSteps=Math.max(2,Math.round(dt*60));
+      for(let si=0;si<hfSteps;si++)stepHF(bgHF,0.35,0.995); // higher damping = calmer
+      drawWater(ctx,W,H,bgWaveState.fill,bgWaveState.color,waveT*0.2,[],true,bgHF);
     } else if(bgWaveState.fill>0.3){
       // ── WORK: water + floaters + noodles ─────────────────────────
       // Step heightfield physics
@@ -3262,6 +3405,9 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
     ri=Math.min(255,Math.round(ri+boil*10*_hm));
     bi=Math.max(0,Math.round(bi-boil*6*_hm));
   }
+  // Night cooling — moonlit water
+  const _nt=nightT();
+  if(_nt>0&&isBg){ri=Math.max(0,Math.round(ri-_nt*40));gi=Math.max(0,Math.round(gi-_nt*20));bi=Math.min(255,Math.round(bi+_nt*30));}
 
   // Build surface
   const step=isBg?3:1;
@@ -3394,10 +3540,20 @@ function updateSiteWave(t,pct){
     bgWaveState.targetColor=t.color;
     if(!bgWaveState.color)bgWaveState.color=bgWaveState.targetColor;
     bgWaveState.active=true;
+    bgWaveState.ambient=false;
+    bgc.classList.add('active');
+    startWaveLoop();
+  } else if(S.startTs&&S.date===today()){
+    // Fall back to ambient water
+    bgWaveState.ambient=true;
+    bgWaveState.active=true;
+    bgWaveState.targetFill=8;
+    bgWaveState.targetColor='#a89e92';
     bgc.classList.add('active');
     startWaveLoop();
   } else {
     bgWaveState.active=false;
+    bgWaveState.ambient=false;
     bgc.classList.remove('active');
   }
 }
@@ -3434,6 +3590,7 @@ function beginDay(){
   if(!_sensorsAttached)requestMotionPermission();
   const h=parseInt(document.getElementById('begin-h').value)||14;
   S.startTs=Date.now();S.dayHours=h;
+  S.bedtime=timeToDecimal(document.getElementById('begin-bed').value);
   _snapshotDay();
   save();
   document.getElementById('begin-screen').style.display='none';
@@ -3538,18 +3695,25 @@ function checkBeginScreen(){
   // First-run: simplified begin screen
   const sub=document.getElementById('begin-sub');
   const bh=document.querySelector('.begin-hours');
+  const bedRow=document.getElementById('begin-bed-row');
   if(S.isTrial){
     if(sub)sub.innerHTML='Tap play. Watch it boil.';
     if(bh)bh.style.display='none';
+    if(bedRow)bedRow.style.display='none';
   } else {
     if(bh)bh.style.display='';
+    if(bedRow)bedRow.style.display='';
   }
+  // Restore saved values
+  const hInput=document.getElementById('begin-h');
+  if(hInput)hInput.value=S.dayHours||14;
+  const bedInput=document.getElementById('begin-bed');
+  if(bedInput)bedInput.value=decimalToTime(S.bedtime);
   setTimeout(checkBeginWater,50);
 }
 
 function toggleGodMode(){
   GOD_MODE=!GOD_MODE;
-  if(GOD_MODE){S.fullBoils=99;}
   save();
   render();
   showToast(GOD_MODE?'⚡ God mode on':'God mode off',GOD_MODE?'#c8841a':'#6b6258',1200);
@@ -3585,7 +3749,7 @@ function render(){
   const hdr=document.querySelector('.hdr');
   if(aw){aw.classList.remove('day-0','day-1');if(dayClass)aw.classList.add(dayClass);}
   if(hdr){hdr.classList.remove('day-0','day-1');if(dayClass)hdr.classList.add(dayClass);}
-  checkBeginScreen();renderBeginStreak();updateContToggle();renderDaybar();renderCards();updateSteamBanner();updateLogoDot();updateHeader();updateScrollState();applyAquarium();updateAquariumBar();setTimeout(startWaveLoop,50);updateGodBadge();
+  checkBeginScreen();renderBeginStreak();updateContToggle();renderDaybar();renderCards();updateSteamBanner();updateLogoDot();updateHeader();updateScrollState();applyAquarium();updateAquariumBar();setTimeout(startWaveLoop,50);updateGodBadge();applyNightTheme();
 }
 
 function svgPlay(){return`<svg width="15" height="15" viewBox="0 0 12 12" fill="currentColor"><polygon points="2,1 11,6 2,11"/></svg>`;}
@@ -3668,6 +3832,7 @@ function taskForm(t){
   const sw=PAL.map(p=>`<div class="sw${p===ic?' on':''}" style="background:${p}" data-p="${p}" onclick="pickCol('${p}')"></div>`).join('');
   return`
     <div class="field"><label>Name</label><input id="fn" type="text" value="${esc(t?.name??'')}" placeholder="e.g. Work, Chinese, Exercise" autocomplete="off"></div>
+    <div class="field"><label>Description <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--dimmer)">optional</span></label><input id="fdesc" type="text" value="${esc(t?.desc??'')}" placeholder="what specifically? where you left off?" autocomplete="off"></div>
     <div class="field"><label>Color</label><div class="cr">${sw}</div></div>
     <div class="field"><label>Number of blocks</label><input id="ftot" type="number" value="${t?.total??4}" min="1" max="20" inputmode="numeric"></div>
     <div class="field"><label>Block duration (minutes)</label><input id="fwork" type="number" value="${t?Math.round(t.workDur/60):60}" min="1" max="480" inputmode="numeric"></div>
@@ -3728,6 +3893,7 @@ function confirmDel(id){
 }
 function saveTask(id){
   const name=document.getElementById('fn').value.trim();
+  const desc=document.getElementById('fdesc').value.trim();
   const total=parseInt(document.getElementById('ftot').value)||1;
   const workDur=parseInt(document.getElementById('fwork').value)*60||3600;
   const restDur=pomoOn?(parseInt(document.getElementById('frest').value)*60||600):0;
@@ -3736,9 +3902,9 @@ function saveTask(id){
   if(!name)return;
   if(id){
     const t=S.tasks.find(x=>x.id===id);
-    if(t){t.name=name;t.color=color;t.days=days;t.total=total;if(t.workDur!==workDur||t.restDur!==restDur){t.workDur=workDur;t.restDur=restDur;resetTask(t);}if(t.completed>=t.total){t.completed=t.total;t.done=true;t.running=false;t.isRest=false;t.rem=0;t.savedAt=null;}else if(t.done){t.done=false;t.isRest=false;t.rem=t.workDur;}}
+    if(t){t.name=name;t.desc=desc;t.color=color;t.days=days;t.total=total;if(t.workDur!==workDur||t.restDur!==restDur){t.workDur=workDur;t.restDur=restDur;resetTask(t);}if(t.completed>=t.total){t.completed=t.total;t.done=true;t.running=false;t.isRest=false;t.rem=0;t.savedAt=null;}else if(t.done){t.done=false;t.isRest=false;t.rem=t.workDur;}}
   } else {
-    S.tasks.push(mkTask('t-'+Date.now(),name,color,total,workDur,restDur,days));
+    S.tasks.push(mkTask('t-'+Date.now(),name,color,total,workDur,restDur,days,desc));
   }
   pickedCol=null;save();closeSheet();render();
 }
