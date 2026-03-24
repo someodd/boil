@@ -30,8 +30,8 @@
       --dim:   #a89e92;
       --dimmer:#d4cdc4;
       --ink:   #1c1917;
-      --glass: rgba(250,248,244,0.72);
-      --glass-hi: rgba(250,248,244,0.58);
+      --glass: rgba(250,248,244,0.45);
+      --glass-hi: rgba(250,248,244,0.32);
       --glass-border: rgba(226,219,208,0.6);
       --fs: 'Plus Jakarta Sans', system-ui, sans-serif;
       --fd: 'Syne', sans-serif;
@@ -143,7 +143,7 @@
     .db-tick{font-size:9px;font-weight:700;color:var(--dimmer);letter-spacing:.03em}
 
     /* ── SCROLL ────────────────────────── */
-    .scroll{flex:1;overflow-y:auto;padding:8px 12px 88px;display:flex;flex-direction:column;gap:8px;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--brd) transparent;-webkit-overflow-scrolling:touch}
+    .scroll{flex:1;overflow-y:auto;padding:8px 12px 100px;display:flex;flex-direction:column;gap:8px;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--brd) transparent;-webkit-overflow-scrolling:touch}
 
     /* dim inactive cards when something running */
     .scroll.has-running .card:not(.running):not(.resting):not(.done-all){
@@ -164,7 +164,7 @@
       backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
       border:1.5px solid var(--glass-border);border-radius:16px;
       box-shadow:0 1px 2px rgba(0,0,0,0.04),0 4px 12px rgba(0,0,0,0.03),inset 0 1px 0 rgba(255,255,255,0.5);
-      overflow:hidden;cursor:pointer;position:relative;
+      cursor:pointer;position:relative;
       transition:transform .18s cubic-bezier(.34,1.2,.64,1),box-shadow .25s,border-color .25s,opacity .35s,filter .35s,background .35s;
       user-select:none;-webkit-user-select:none;
     }
@@ -191,15 +191,16 @@
     .card.critical .c-time-cur{color:#c0453a!important;animation:danger-pulse .45s ease-in-out infinite!important}
 
     /* top color bar */
-    .c-bar{height:4px;background:var(--tc);width:100%}
+    .c-bar{height:4px;background:var(--tc);width:100%;border-radius:16px 16px 0 0}
 
-    .c-body{padding:14px 15px 13px}
+    .c-body{padding:14px 15px 16px}
 
-    .c-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    .c-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+    .c-desc+.pips-wrap{margin-top:0}
     .c-name{font-family:var(--fd);font-size:18px;font-weight:800;letter-spacing:-.025em;color:var(--ink);flex:1;margin-right:8px;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
     .c-edit{background:none;border:none;color:var(--dimmer);font-size:22px;line-height:1;cursor:pointer;padding:0 2px;transition:color .14s;flex-shrink:0}
     .c-edit:hover{color:var(--dim)}
-    .c-desc{font-size:12px;font-weight:500;color:var(--dim);letter-spacing:.01em;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:-4px;margin-bottom:4px}
+    .c-desc{font-size:12px;font-weight:500;color:var(--dim);letter-spacing:.01em;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px}
 
     /* ── BLOCK SQUARES ────────────────── */
     /* Inline-styled in JS — these classes are visual-only */
@@ -910,8 +911,8 @@ function applyNightTheme(){
   root.setProperty('--dimmer',lh('#d4cdc4','#2a2e3a',bgT));
   root.setProperty('--ink',lh('#1c1917','#e2ddd4',txtT));
   const gr=lr(250,18,bgT),gg=lr(248,22,bgT),gb=lr(244,34,bgT);
-  root.setProperty('--glass',`rgba(${gr},${gg},${gb},0.72)`);
-  root.setProperty('--glass-hi',`rgba(${gr},${gg},${gb},0.58)`);
+  root.setProperty('--glass',`rgba(${gr},${gg},${gb},0.45)`);
+  root.setProperty('--glass-hi',`rgba(${gr},${gg},${gb},0.32)`);
   root.setProperty('--glass-border',`rgba(${lr(226,37,bgT)},${lr(219,42,bgT)},${lr(208,56,bgT)},0.6)`);
   const meta=document.querySelector('meta[name="theme-color"]');
   if(meta)meta.content=lh('#f5f0e8','#0e1420',bgT);
@@ -2336,7 +2337,7 @@ function updateScrollState(){
     if(S.startTs&&S.date===today()){
       bgWaveState.ambient=true;
       bgWaveState.active=true;
-      bgWaveState.targetFill=8;
+      bgWaveState.targetFill=10;
       bgWaveState.targetColor='#a89e92';
       if(bgc)bgc.classList.add('active');
       startWaveLoop();
@@ -3195,6 +3196,8 @@ function waveLoop(now){
       ensureBgHF(bgN);
       const hfSteps=Math.max(2,Math.round(dt*60));
       for(let si=0;si<hfSteps;si++)stepHF(bgHF,0.35,0.995); // higher damping = calmer
+      updateTiltLayer(bgN);
+      if(shakeF>0.1)injectBoilEnergy(bgHF,shakeF*0.1,dt);
       drawWater(ctx,W,H,bgWaveState.fill,bgWaveState.color,waveT*0.2,[],true,bgHF);
     } else if(bgWaveState.fill>0.3){
       // ── WORK: water + floaters + noodles ─────────────────────────
@@ -3551,7 +3554,7 @@ function updateSiteWave(t,pct){
     // Fall back to ambient water
     bgWaveState.ambient=true;
     bgWaveState.active=true;
-    bgWaveState.targetFill=8;
+    bgWaveState.targetFill=10;
     bgWaveState.targetColor='#a89e92';
     bgc.classList.add('active');
     startWaveLoop();
