@@ -36,6 +36,7 @@
       --fs: 'Plus Jakarta Sans', system-ui, sans-serif;
       --fd: 'Syne', sans-serif;
     }
+    html.battery-saver .card,html.battery-saver .hdr,html.battery-saver .daybar,html.battery-saver .sheet{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
     html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
     :focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:4px}
@@ -798,6 +799,7 @@
       <span class="profile-heat" id="profile-heat">Lv 1</span>
     </button>
     <div class="streak-badge" id="hdr-streak"></div>
+    <span id="bs-indicator" style="font-size:12px;color:var(--dim);display:none">⚡</span>
   </div>
   <div class="hdr-acts">
     <button class="coin-pill" onclick="openShop()" title="Shop" id="hdr-coins">
@@ -929,7 +931,7 @@ function initStars(W,H){
   for(let i=0;i<65;i++)_stars.push({x:Math.random()*W,y:Math.random()*H*0.85,r:0.5+Math.random()*1.5,phase:Math.random()*Math.PI*2,speed:0.3+Math.random()*0.7,bright:0.5+Math.random()*0.5});
 }
 function drawStars(ctx,W,H,t,nA){
-  if(nA<0.01)return;
+  if(nA<0.01||isBatterySaver())return;
   if(!_stars.length)initStars(W,H);
   ctx.save();
   for(const s of _stars){
@@ -956,6 +958,7 @@ function defaults(){
     startTs:null,
     dayHours:14,
     bedtime:null,
+    batterySaver:false,
     continuous:false,
     streak:0,
     lastCompletedDate:'',
@@ -1010,6 +1013,7 @@ function boot(){
   if(S.fullBoils===undefined)S.fullBoils=0;
   if(S.ballRecord===undefined)S.ballRecord=0;
   if(S.bedtime===undefined)S.bedtime=null;
+  if(S.batterySaver===undefined)S.batterySaver=false;
   S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;if(t.desc===undefined)t.desc='';});
   const now=Date.now(),td=today();
   if(S.date!==td){
@@ -1453,6 +1457,12 @@ function openProfile(){
     </div>`:''}
 
 
+    <!-- Battery saver -->
+    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:2px solid var(--brd);padding:11px 13px;border-radius:12px;margin-bottom:12px">
+      <div><div style="font-size:15px;font-weight:600;color:var(--ink)">⚡ Battery saver</div><div style="font-size:11px;color:var(--dim);margin-top:1px">Disables water, blur, sensors</div></div>
+      <button class="tog${S.batterySaver?' on':''}" onclick="toggleBatterySaver();closeSheet()"></button>
+    </div>
+
     <!-- Bedtime setting -->
     <div style="margin-bottom:20px">
       <div style="font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin-bottom:8px">bedtime</div>
@@ -1631,18 +1641,21 @@ function releaseWakeLock(){
 // Ambient focus drone — very faint 40hz sine while block runs
 let _ambOsc=null,_ambGain=null;
 function startAmbient(){
-  try{
-    if(_ambOsc)return;
-    const c=ac();
-    _ambOsc=c.createOscillator();_ambGain=c.createGain();
-    _ambOsc.type='sine';_ambOsc.frequency.value=40;
-    _ambGain.gain.setValueAtTime(0,c.currentTime);
-    _ambGain.gain.linearRampToValueAtTime(0.008,c.currentTime+2);
-    _ambOsc.connect(_ambGain);_ambGain.connect(c.destination);
-    _ambOsc.start();
-  }catch(e){}
+  if(!isBatterySaver()){
+    try{
+      if(!_ambOsc){
+        const c=ac();
+        _ambOsc=c.createOscillator();_ambGain=c.createGain();
+        _ambOsc.type='sine';_ambOsc.frequency.value=40;
+        _ambGain.gain.setValueAtTime(0,c.currentTime);
+        _ambGain.gain.linearRampToValueAtTime(0.008,c.currentTime+2);
+        _ambOsc.connect(_ambGain);_ambGain.connect(c.destination);
+        _ambOsc.start();
+      }
+    }catch(e){}
+    acquireWakeLock();
+  }
   startKeepAlive();
-  acquireWakeLock();
 }
 function stopAmbient(){
   try{
@@ -1778,6 +1791,7 @@ const CPAL=['#f5c842','#e05898','#42a8e0','#68d090','#e06840','#9b6bb5','#4a9eba
 
 // Burst from point — used for sub-block done
 function burstAt(x,y,col,n=20){
+  if(isBatterySaver())return;
   const cols=['#fff',col,lc(col,60),lc(col,-30),'#fffbe8'];
   for(let i=0;i<n;i++){
     const a=Math.PI*2*i/n+(Math.random()-.5)*.6;
@@ -1793,6 +1807,7 @@ function burstAt(x,y,col,n=20){
 
 // Shatter: sharp angular shards flying outward (glass break)
 function shatterAt(x,y,col,n=28){
+  if(isBatterySaver())return;
   for(let i=0;i<n;i++){
     const a=Math.PI*2*i/n+(Math.random()-.5)*.4;
     const sp=4+Math.random()*14;
@@ -1808,7 +1823,7 @@ function shatterAt(x,y,col,n=28){
 }
 
 // Big shockwave ring of squares expanding from point
-function shockwave(x,y,col,n=32){
+function shockwave(x,y,col,n=32){if(isBatterySaver())return;
   for(let i=0;i<n;i++){
     const a=Math.PI*2*i/n;
     const sp=6+Math.random()*5;
@@ -1823,6 +1838,7 @@ function shockwave(x,y,col,n=32){
 
 // Streak of squares shooting upward from point (like sparks)
 function sparks(x,y,col,n=18){
+  if(isBatterySaver())return;
   for(let i=0;i<n;i++){
     const spread=(Math.random()-.5)*4;
     const sp=5+Math.random()*12;
@@ -2298,6 +2314,9 @@ function renderDaybar(){
 
 // ── CARDS ───────────────────────────────────────────────────────────
 function updateHeader(){
+  // Battery saver indicator
+  const bsi=document.getElementById('bs-indicator');
+  if(bsi)bsi.style.display=S.batterySaver?'':'none';
   // Streak badge — hidden from header, shown on finish screen
   const sb=document.getElementById('hdr-streak');
   if(sb){sb.classList.remove('visible');}
@@ -2562,20 +2581,19 @@ let lastShakeAccel={x:0,y:0,z:0};
 let shakeF=0;
 let _sensorsAttached=false;
 let _tiltRaw=null;
+let _orientHandler=null,_motionHandler=null;
+function isBatterySaver(){return S&&S.batterySaver;}
 function _attachSensors(){
-  if(_sensorsAttached)return;
+  if(_sensorsAttached||isBatterySaver())return;
   _sensorsAttached=true;
-  const onOrient=(e)=>{
+  _orientHandler=(e)=>{
     _tiltRaw=e.gamma;
     if(e.gamma!==null){
       const g=Math.max(-30,Math.min(30,e.gamma));
       tiltSmooth+=(g-tiltSmooth)*0.15;
     }
   };
-  window.addEventListener('deviceorientation',onOrient);
-  // Some browsers/devices only fire the absolute variant
-  window.addEventListener('deviceorientationabsolute',onOrient);
-  window.addEventListener('devicemotion',(e)=>{
+  _motionHandler=(e)=>{
     const a=e.accelerationIncludingGravity;
     if(!a)return;
     const dx=a.x-(lastShakeAccel.x||0),dy=a.y-(lastShakeAccel.y||0),dz=a.z-(lastShakeAccel.z||0);
@@ -2589,7 +2607,10 @@ function _attachSensors(){
       sndShake(mag);
       haptic([5]);
     }
-  });
+  };
+  window.addEventListener('deviceorientation',_orientHandler);
+  window.addEventListener('deviceorientationabsolute',_orientHandler);
+  window.addEventListener('devicemotion',_motionHandler);
 }
 function requestMotionPermission(){
   // iOS 13+ requires explicit permission request from a user gesture
@@ -2603,6 +2624,25 @@ function requestMotionPermission(){
 }
 // Try attaching immediately (works on Android/desktop)
 // iOS will silently fail — permission requested on first tap via tapCard
+function _detachSensors(){
+  if(!_sensorsAttached)return;
+  if(_orientHandler){window.removeEventListener('deviceorientation',_orientHandler);window.removeEventListener('deviceorientationabsolute',_orientHandler);}
+  if(_motionHandler)window.removeEventListener('devicemotion',_motionHandler);
+  _sensorsAttached=false;_orientHandler=null;_motionHandler=null;tiltSmooth=0;shakeF=0;
+}
+function toggleBatterySaver(){
+  S.batterySaver=!S.batterySaver;
+  document.documentElement.classList.toggle('battery-saver',S.batterySaver);
+  if(S.batterySaver){
+    _detachSensors();releaseWakeLock();stopWaveLoop();
+    if(_ambOsc){try{_ambOsc.stop();}catch(e){}_ambOsc=null;_ambGain=null;}
+  } else {
+    _attachSensors();startWaveLoop();
+    if(S.tasks.some(t=>t.running))startAmbient();
+  }
+  save();render();
+  showToast(S.batterySaver?'⚡ Battery saver on':'⚡ Battery saver off','#3d3530',1500);
+}
 (function(){try{requestMotionPermission();}catch(e){}})();
 
 // Per-pip bubble pools keyed by task id
@@ -3041,6 +3081,7 @@ document.addEventListener('pointerdown',(e)=>{
 
 let _waveAlive=0;
 function startWaveLoop(){
+  if(isBatterySaver())return;
   // Detect dead loop: waveRaf is set but loop hasn't run in 500ms
   if(waveRaf&&performance.now()-_waveAlive<500)return;
   if(waveRaf){cancelAnimationFrame(waveRaf);waveRaf=null;}
@@ -3756,6 +3797,7 @@ function render(){
   const hdr=document.querySelector('.hdr');
   if(aw){aw.classList.remove('day-0','day-1');if(dayClass)aw.classList.add(dayClass);}
   if(hdr){hdr.classList.remove('day-0','day-1');if(dayClass)hdr.classList.add(dayClass);}
+  document.documentElement.classList.toggle('battery-saver',!!S.batterySaver);
   checkBeginScreen();renderBeginStreak();updateContToggle();renderDaybar();renderCards();updateSteamBanner();updateLogoDot();updateHeader();updateScrollState();applyAquarium();updateAquariumBar();setTimeout(startWaveLoop,50);updateGodBadge();applyNightTheme();
 }
 
