@@ -779,13 +779,9 @@
   <div class="begin-logo">boil.</div>
   <div id="begin-streak"></div>
   <div class="begin-sub" id="begin-sub">Time-blocking with heat.<br>Your blocks heat up, boil, and finish as you focus.</div>
-  <div class="begin-hours">
-    <span class="begin-h-label">hours</span>
-    <input class="begin-h-input" id="begin-h" type="number" value="14" min="1" max="24" inputmode="numeric">
-  </div>
   <div class="begin-hours" id="begin-bed-row">
     <span class="begin-h-label">bedtime</span>
-    <input type="time" class="begin-h-input" id="begin-bed" style="width:120px;font-size:16px">
+    <input type="time" class="begin-h-input" id="begin-bed" style="width:160px;font-size:18px">
   </div>
   <button class="begin-btn" onclick="beginDay()">begin the day</button>
   <button class="quick-boil-btn" onclick="quickBoil()">just 5 minutes</button>
@@ -2678,8 +2674,10 @@ function stepHF(hf,tension,damping){
     h[i]+=v[i];
     if(h[i]>150)h[i]=150; if(h[i]<-150)h[i]=-150;
   }
-  // Smoothing pass — prevents jagged surface from per-column noise
-  for(let i=1;i<cols-1;i++)h[i]=h[i]*0.7+(h[i-1]+h[i+1])*0.15;
+  // Smoothing pass — alternating direction prevents directional drift
+  if(hf._smoothDir){for(let i=cols-2;i>0;i--)h[i]=h[i]*0.7+(h[i-1]+h[i+1])*0.15;}
+  else{for(let i=1;i<cols-1;i++)h[i]=h[i]*0.7+(h[i-1]+h[i+1])*0.15;}
+  hf._smoothDir=!hf._smoothDir;
 }
 function applyForce(hf,col,force,radius){
   const lo=Math.max(0,Math.floor(col-radius*3)),hi=Math.min(hf.cols,Math.ceil(col+radius*3));
@@ -3251,7 +3249,7 @@ function waveLoop(now){
       }
     } else if(bgWaveState.ambient&&bgWaveState.fill>0.3){
       // ── AMBIENT: calm pool, no bubbles/floaters/noodles ─────────
-      const bgStep=3;
+      const bgStep=Math.max(3,Math.ceil(W/1023));
       const bgN=Math.min(Math.ceil(W/bgStep)+1,1024);
       ensureBgHF(bgN);
       const hfSteps=Math.max(2,Math.round(dt*60));
@@ -3262,7 +3260,7 @@ function waveLoop(now){
     } else if(bgWaveState.fill>0.3){
       // ── WORK: water + floaters + noodles ─────────────────────────
       // Step heightfield physics
-      const bgStep=3;
+      const bgStep=Math.max(3,Math.ceil(W/1023));
       const bgN=Math.min(Math.ceil(W/bgStep)+1,1024);
       ensureBgHF(bgN);
       const boil2=(bgWaveState.fill/100)*(bgWaveState.fill/100);
@@ -3477,7 +3475,7 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
   if(_nt>0&&isBg){ri=Math.max(0,Math.round(ri-_nt*40));gi=Math.max(0,Math.round(gi-_nt*20));bi=Math.min(255,Math.round(bi+_nt*30));}
 
   // Build surface
-  const step=isBg?3:1;
+  const step=isBg?Math.max(3,Math.ceil(W/1023)):1;
   const N=Math.min(Math.ceil(W/step)+1,1024);
   let minY=H;
   for(let i=0;i<N;i++){
@@ -3507,7 +3505,7 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
   g.addColorStop(1,   `rgba(${clr(ri-25)},${clr(gi-25)},${clr(bi-25)},${Math.min(1,(isBg?0.28:0.82)*_om*_bp)})`);
   ctx.beginPath();
   ctx.moveTo(0,_surf[0]);
-  for(let i=1;i<N;i++)ctx.lineTo(i*step,_surf[i]);
+  for(let i=1;i<N;i++)ctx.lineTo(Math.min(i*step,W),_surf[i]);
   ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();
   ctx.fillStyle=g;ctx.fill();
 
@@ -3517,7 +3515,7 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
     ctx.globalAlpha=boil*0.22;
     ctx.beginPath();
     ctx.moveTo(0,_surf[0]+A*0.6);
-    for(let i=1;i<N;i++)ctx.lineTo(i*step,_surf[i]+A*0.6);
+    for(let i=1;i<N;i++)ctx.lineTo(Math.min(i*step,W),_surf[i]+A*0.6);
     ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();
     ctx.fillStyle=`rgb(${clr(ri+100)},${clr(gi+100)},${clr(bi+100)})`;
     ctx.fill();
@@ -3528,7 +3526,7 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
   ctx.save();
   ctx.beginPath();
   ctx.moveTo(0,_surf[0]);
-  for(let i=1;i<N;i++)ctx.lineTo(i*step,_surf[i]);
+  for(let i=1;i<N;i++)ctx.lineTo(Math.min(i*step,W),_surf[i]);
   ctx.lineWidth=isBg?2.0:1.3;
   ctx.strokeStyle=`rgba(255,255,255,${isBg?0.75:0.92})`;
   ctx.stroke();
@@ -3655,8 +3653,7 @@ function onRestStart(id){
 
 function beginDay(){
   if(!_sensorsAttached)requestMotionPermission();
-  const h=parseInt(document.getElementById('begin-h').value)||14;
-  S.startTs=Date.now();S.dayHours=h;
+  S.startTs=Date.now();S.dayHours=24;
   S.bedtime=timeToDecimal(document.getElementById('begin-bed').value);
   _snapshotDay();
   save();
@@ -3761,19 +3758,14 @@ function checkBeginScreen(){
   bs.style.display=needsBegin?'flex':'none';
   // First-run: simplified begin screen
   const sub=document.getElementById('begin-sub');
-  const bh=document.querySelector('.begin-hours');
   const bedRow=document.getElementById('begin-bed-row');
   if(S.isTrial){
     if(sub)sub.innerHTML='Tap play. Watch it boil.';
-    if(bh)bh.style.display='none';
     if(bedRow)bedRow.style.display='none';
   } else {
-    if(bh)bh.style.display='';
     if(bedRow)bedRow.style.display='';
   }
   // Restore saved values
-  const hInput=document.getElementById('begin-h');
-  if(hInput)hInput.value=S.dayHours||14;
   const bedInput=document.getElementById('begin-bed');
   if(bedInput)bedInput.value=decimalToTime(S.bedtime);
   setTimeout(checkBeginWater,50);
