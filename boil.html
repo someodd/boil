@@ -27,7 +27,7 @@
       --brd:   #e2dbd0;
       --text:  #1c1917;
       --mid:   #6b6258;
-      --dim:   #a89e92;
+      --dim:   #7d7368;
       --dimmer:#d4cdc4;
       --ink:   #1c1917;
       --glass: rgba(250,248,244,0.45);
@@ -2576,6 +2576,8 @@ let waveRaf=null;
 let waveT=0;
 let lastFrame=0;
 // Phone tilt + shake — combined sensor init
+const _isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
+const _hasTouch='ontouchstart'in window||navigator.maxTouchPoints>0;
 let tiltSmooth=0;
 let lastShakeAccel={x:0,y:0,z:0};
 let shakeF=0;
@@ -2592,9 +2594,11 @@ function _attachSensors(){
   _motionHandler=(e)=>{
     const a=e.accelerationIncludingGravity;
     if(!a)return;
-    // Tilt from gravity: a.x is sideways gravity component (stable regardless of forward/back lean)
-    if(a.x!==null&&a.x!==undefined){
-      const gx=Math.max(-6,Math.min(6,-a.x));
+    // Tilt from gravity: only on touch devices (phones/tablets that can actually tilt)
+    // iOS inverts accelerationIncludingGravity relative to W3C spec
+    if(_hasTouch&&a.x!==null&&a.x!==undefined){
+      const raw=_isIOS?a.x:-a.x;
+      const gx=Math.max(-6,Math.min(6,raw));
       tiltSmooth+=(gx-tiltSmooth)*0.15;
     }
     const dx=a.x-(lastShakeAccel.x||0),dy=a.y-(lastShakeAccel.y||0),dz=a.z-(lastShakeAccel.z||0);
@@ -2759,7 +2763,8 @@ function spawnFloaters(W,fillY){
 function stepFloaters(W,H,fillY,hf,step,dt,boil){
   activeFloaters.forEach(f=>{
     const col=Math.round(f.x/step);
-    const surfY=(hf&&col>=0&&col<hf.cols)?fillY+hf.h[col]:fillY;
+    const tOff=(tiltH&&col>=0&&col<tiltH.length)?tiltH[col]:0;
+    const surfY=(hf&&col>=0&&col<hf.cols)?fillY+hf.h[col]+tOff:fillY+tOff;
     // Fish: swim through the water with sinusoidal path
     if(f.underwater){
       // Target: middle of the water column
@@ -2847,7 +2852,7 @@ function stepFloaters(W,H,fillY,hf,step,dt,boil){
     if(!f.underwater&&hf&&col>0&&col<hf.cols-1){
       f.vx+=(hf.h[col+1]-hf.h[col-1])*0.08;
     }
-    f.vx+=tiltSmooth*0.0008;
+    f.vx+=tiltSmooth*0.004;
     if(!f.underwater){f.vx*=f.drag;f.x+=f.vx;}
     else f.x+=f.vx;
     // Walls
@@ -2869,15 +2874,28 @@ function stepFloaters(W,H,fillY,hf,step,dt,boil){
     }
   });
 }
+const _emojiCache={};
+function getEmojiImg(emoji,size){
+  const key=emoji+size;
+  if(_emojiCache[key])return _emojiCache[key];
+  const s=size*2;
+  const c=document.createElement('canvas');
+  c.width=s;c.height=s;
+  const cx=c.getContext('2d');
+  cx.font=`${size*1.6}px serif`;
+  cx.textAlign='center';cx.textBaseline='middle';
+  cx.fillText(emoji,s/2,s/2);
+  _emojiCache[key]=c;
+  return c;
+}
 function drawFloaters(ctx){
   activeFloaters.forEach(f=>{
     ctx.save();
     ctx.translate(f.x,f.y);
     if(f.flipX)ctx.scale(-1,1);
     ctx.rotate(f.rot);
-    ctx.font=`${f.size}px sans-serif`;
-    ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(f.emoji,0,0);
+    const img=getEmojiImg(f.emoji,f.size);
+    ctx.drawImage(img,-f.size,-f.size,f.size*2,f.size*2);
     ctx.restore();
     // Juggle combo counter above ball
     if(f.bouncy&&f.juggleCount>1){
