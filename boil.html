@@ -10,13 +10,13 @@
   <meta name="apple-mobile-web-app-title" content="boil">
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23f5f0e8'/><text y='.85em' font-size='75' text-anchor='middle' x='50'>🫧</text></svg>">
   <title>boil</title>
-  <meta name="description" content="Time-blocking with heat. Focus blocks that boil as you work.">
+  <meta name="description" content="Water rises while you work. When it boils, rest.">
   <meta property="og:title" content="boil">
-  <meta property="og:description" content="Time-blocking with heat. Focus blocks that boil as you work.">
+  <meta property="og:description" content="Water rises while you work. When it boils, rest.">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="boil">
-  <meta name="twitter:description" content="Time-blocking with heat. Focus blocks that boil as you work.">
+  <meta name="twitter:description" content="Water rises while you work. When it boils, rest.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -27,7 +27,7 @@
       --brd:   #e2dbd0;
       --text:  #1c1917;
       --mid:   #6b6258;
-      --dim:   #7d7368;
+      --dim:   #8a8078;
       --dimmer:#d4cdc4;
       --ink:   #1c1917;
       --glass: rgba(250,248,244,0.45);
@@ -131,9 +131,9 @@
     .db-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
     .db-stat{font-size:11px;font-weight:600;color:var(--dim)}
     .db-stat b{font-weight:800;font-size:15px;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
-    .db-stat.go b{color:#2e9e6a}
-    .db-stat.hi b{color:#c8841a}
-    .db-stat.warn b{color:#c0453a}
+    .db-stat.go b{color:var(--text)}
+    .db-stat.hi b{color:var(--text)}
+    .db-stat.warn b{color:var(--text)}
     .db-track{height:18px;background:var(--bg);border-radius:7px;position:relative;overflow:hidden;margin-bottom:4px}
     .db-el{position:absolute;left:0;top:0;bottom:0;background:var(--dimmer);border-radius:7px 0 0 7px;transition:width 1s linear;z-index:1}
     .db-seg{position:absolute;top:0;bottom:0;transition:all .5s;z-index:3;opacity:.88}
@@ -179,16 +179,16 @@
       transform:translateY(-3px);
     }
     .card.resting{
-      background:rgba(232,250,242,0.65);
+      background:color-mix(in srgb,#2e9e6a 10%,var(--glass));
       backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
       border-color:var(--tc);
       box-shadow:0 2px 4px rgba(0,0,0,0.06),0 8px 24px rgba(0,0,0,0.10),0 0 0 1px color-mix(in srgb,var(--tc) 25%,transparent),inset 0 1px 0 rgba(255,255,255,0.6);
       transform:translateY(-3px);
     }
-    .card.done-all{background:rgba(250,248,244,0.82);border-style:dashed;border-color:var(--dimmer)}
-    .card.warn{border-color:#f0c060}
-    .card.danger{background:rgba(250,240,238,0.72);border-color:#f09090}
-    .card.critical{background:rgba(250,236,234,0.72);border-color:#e05050;box-shadow:0 0 0 3px rgba(224,80,80,.2),inset 0 1px 0 rgba(255,255,255,0.4)!important}
+    .card.done-all{background:color-mix(in srgb,var(--card) 82%,transparent);border-style:dashed;border-color:var(--dimmer)}
+    .card.warn{border-color:color-mix(in srgb,#f0c060 70%,var(--brd))}
+    .card.danger{background:color-mix(in srgb,#c0453a 12%,var(--glass));border-color:color-mix(in srgb,#f09090 60%,var(--brd))}
+    .card.critical{background:color-mix(in srgb,#c0453a 18%,var(--glass));border-color:#e05050;box-shadow:0 0 0 3px rgba(224,80,80,.2),inset 0 1px 0 rgba(255,255,255,0.4)!important}
     .card.critical .c-time-cur{color:#c0453a!important;animation:danger-pulse .45s ease-in-out infinite!important}
 
     /* top color bar */
@@ -215,7 +215,7 @@
       100%{transform:scale(1)}
     }
     .pip.done.popped{animation:pip-pop .38s cubic-bezier(.34,1.56,.64,1)}
-    .pip.empty{background:transparent;border:2px solid var(--brd)}
+    .pip.empty{background:transparent;border:2px solid var(--mid)}
     .pip.active{background:color-mix(in srgb,var(--tc) 5%,transparent);border:2px solid var(--tc)}
     .pip.rest-active{background:transparent;border:2px solid #2e9e6a}
     @keyframes active-glow{
@@ -293,7 +293,7 @@
     .prog-wrap{height:6px;background:var(--bg);border-radius:100px;overflow:hidden;margin-bottom:7px}
     .prog{height:100%;border-radius:100px;background:var(--tc);opacity:.6;transition:width 1s linear}
     .card.running .prog,.card.resting .prog{opacity:1}
-    .card.resting .prog{background:#2e9e6a}
+    .card.resting .prog{background:var(--tc)}
 
     .c-sub{font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.01em;margin-top:6px;transition:opacity .3s}
     .card.running .c-sub,.card.resting .c-sub{opacity:0.35}
@@ -324,7 +324,7 @@
       position:absolute;
       left:0;bottom:0;
       /* sits on top of pip grid */
-      background:rgba(245,240,232,.88);
+      background:color-mix(in srgb,var(--card) 88%,transparent);
       backdrop-filter:blur(4px);
       -webkit-backdrop-filter:blur(4px);
       border-radius:8px;
@@ -338,10 +338,10 @@
       color:var(--mid);transition:color .25s;display:block;
     }
     .card.running  .pto-cur{color:var(--tc)}
-    .card.resting  .pto-cur{color:#2e9e6a}
-    .card.warn     .pto-cur{color:#c07820!important}
-    .card.danger   .pto-cur{color:#c0453a!important}
-    .card.critical .pto-cur{color:#c0453a!important;animation:danger-pulse .45s ease-in-out infinite}
+    .card.resting  .pto-cur{color:var(--tc)}
+    .card.warn     .pto-cur{color:var(--text)!important}
+    .card.danger   .pto-cur{color:var(--text)!important}
+    .card.critical .pto-cur{color:var(--text)!important;animation:danger-pulse .45s ease-in-out infinite}
     .pto-tot{
       font-size:11px;font-weight:700;letter-spacing:.01em;
       font-variant-numeric:tabular-nums;
@@ -365,10 +365,10 @@
     /* shrink timer when showing H:MM:SS (longer string) */
     .c-time-cur.has-hours{font-size:30px;letter-spacing:-.03em}
     .card.running  .c-time-cur{color:var(--tc)}
-    .card.resting  .c-time-cur{color:#2e9e6a}
+    .card.resting  .c-time-cur{color:var(--tc)}
     .card.done-all .c-time-cur{color:var(--dimmer)}
-    .card.warn     .c-time-cur{color:#c07820!important}
-    .card.danger   .c-time-cur{color:#c0453a!important}
+    .card.warn     .c-time-cur{color:var(--text)!important}
+    .card.danger   .c-time-cur{color:var(--text)!important}
     /* urgency pulse on danger */
     @keyframes danger-pulse{0%,100%{opacity:1}50%{opacity:.55}}
     @keyframes tick-pulse{0%{transform:scale(1)}30%{transform:scale(1.04)}100%{transform:scale(1)}}
@@ -513,8 +513,8 @@
     .bp:active{opacity:.8}
     .bs{flex:1;background:none;color:var(--mid);border:2px solid var(--brd);padding:14px;border-radius:12px;font-size:14px;font-family:var(--fs);font-weight:700;cursor:pointer}
     .bd{background:none;color:#c0453a;border:2px solid rgba(192,69,58,.25);padding:14px 16px;border-radius:12px;font-size:14px;font-family:var(--fs);font-weight:700;cursor:pointer}
-    .conf-ask{background:rgba(255,248,248,0.85);border:2px solid rgba(192,69,58,.2);border-radius:12px;padding:13px;margin-top:12px}
-    .conf-ask p{font-size:13px;color:#c0453a;font-weight:700;margin-bottom:10px}
+    .conf-ask{background:color-mix(in srgb,#c0453a 8%,var(--card));border:2px solid color-mix(in srgb,#c0453a 20%,var(--brd));border-radius:12px;padding:13px;margin-top:12px}
+    .conf-ask p{font-size:13px;color:var(--text);font-weight:700;margin-bottom:10px}
     .conf-ask .sh-btns{margin-top:0}
 
     @keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
@@ -562,8 +562,8 @@
     }
     .quick-boil-btn:hover{background:var(--card);color:var(--ink)}
     .quick-boil-btn:active{transform:scale(.92)!important}
-    .skip-tut{font-size:11px;color:var(--dimmer);text-decoration:underline;margin-top:16px;background:none;border:none;cursor:pointer;font-family:var(--fs);transition:color .14s}
-    .skip-tut:hover{color:var(--dim)}
+    .skip-tut{font-size:12px;color:var(--mid);text-decoration:underline;text-underline-offset:3px;margin-top:16px;background:none;border:none;cursor:pointer;font-family:var(--fs);font-weight:600;transition:color .14s}
+    .skip-tut:hover{color:var(--text)}
     .begin-hours{
       display:flex;align-items:center;gap:12px;
     }
@@ -616,7 +616,7 @@
     /* Rest overlay inside pips-wrap — covers pips with a chill vibe */
     .rest-overlay{
       position:absolute;inset:0;
-      background:linear-gradient(160deg,#e8faf2 0%,#d0f0e4 100%);
+      background:color-mix(in srgb,#2e9e6a 12%,var(--card));
       border-radius:10px;
       display:flex;flex-direction:column;
       align-items:center;justify-content:center;
@@ -627,15 +627,15 @@
     @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
     .rest-label{
       font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
-      color:#2e9e6a;
+      color:var(--mid);
     }
     .rest-timer-big{
       font-family:var(--fd);font-size:38px;font-weight:800;
-      letter-spacing:-.04em;line-height:1;color:#2e9e6a;
+      letter-spacing:-.04em;line-height:1;color:var(--text);
       font-variant-numeric:tabular-nums;
     }
     .rest-bar-wrap{
-      width:80%;height:5px;background:rgba(46,158,106,.15);
+      width:80%;height:5px;background:color-mix(in srgb,#2e9e6a 15%,var(--card));
       border-radius:100px;overflow:hidden;margin-top:2px;
     }
     .rest-bar{
@@ -797,7 +797,7 @@
   <canvas id="begin-water" style="position:absolute;bottom:0;left:0;width:100%;height:45%;pointer-events:none;opacity:0.48"></canvas>
   <div class="begin-logo">boil.</div>
   <div id="begin-streak"></div>
-  <div class="begin-sub" id="begin-sub">A timer that fills with water as you work.<br>When it boils, you're done.</div>
+  <div class="begin-sub" id="begin-sub">Water rises while you work.<br>When it boils, rest.</div>
   <div class="begin-hours" id="begin-bed-row">
     <span class="begin-h-label">bedtime</span>
     <input type="time" class="begin-h-input" id="begin-bed" style="width:160px;font-size:18px">
@@ -805,7 +805,7 @@
   <div id="sister-begin" style="font-style:italic;font-size:14px;font-weight:600;color:var(--mid);margin-bottom:16px"></div>
   <button class="begin-btn" onclick="beginDay()">begin</button>
   <button class="quick-boil-btn" onclick="quickBoil()">just one block</button>
-  <button class="skip-tut" onclick="skipTutorial()" id="skip-tut" style="display:none">skip — I'll figure it out</button>
+  <button class="skip-tut" onclick="skipTutorial()" id="skip-tut" style="display:none">skip tutorial</button>
 </div>
 
 <div class="hdr">
@@ -924,7 +924,7 @@ function nightT(){
   }
   return wall;
 }
-let _lastNightT=-1,_stars=[];
+let _lastNightT=-1,_stars=[],_bedtimeNudged=false;
 function applyNightTheme(){
   const t=nightT();
   if(Math.abs(t-_lastNightT)<0.005)return;
@@ -938,27 +938,32 @@ function applyNightTheme(){
   // 3-stop interpolation: day → sunset → night (avoids grey dead zone)
   const lh3=(day,sun,night,t,p)=>t<=p?lh(day,sun,t/p):lh(sun,night,(t-p)/(1-p));
   const lr3=(a,m,b,t,p)=>t<=p?lr(a,m,t/p):lr(m,b,(t-p)/(1-p));
-  const bgT=Math.pow(t,1.5),txtT=Math.pow(t,2);
+  const bgT=Math.pow(t,1.5),txtT=1/(1+Math.exp(-20*(t-0.5))); // steep sigmoid: text snaps dark→light through the mid-luminance dead zone
   const P=0.2; // sunset pivot — brief warm flash, then long cooling to night
+  // Morning: skip sunset brown, interpolate night↔day directly (cool dawn)
+  const _h=new Date().getHours()+new Date().getMinutes()/60;
+  const _am=_h>=6&&_h<7.5;
+  const c3=(day,sun,night,t,p)=>_am?lh(day,night,t):lh3(day,sun,night,t,p);
+  const n3=(a,m,b,t,p)=>_am?lr(a,b,t):lr3(a,m,b,t,p);
   const root=document.documentElement.style;
   // Background properties: cream → warm dusk → dark blue
-  root.setProperty('--bg',    lh3('#f5f0e8','#b89070','#0e1420',bgT,P));
-  root.setProperty('--card',  lh3('#faf8f4','#c09575','#161c2c',bgT,P));
-  root.setProperty('--brd',   lh3('#e2dbd0','#a07858','#252a38',bgT,P));
-  root.setProperty('--dimmer',lh3('#d4cdc4','#8a6848','#2a2e3a',bgT,P));
+  root.setProperty('--bg',    c3('#f5f0e8','#b89070','#0e1420',bgT,P));
+  root.setProperty('--card',  c3('#faf8f4','#c09575','#161c2c',bgT,P));
+  root.setProperty('--brd',   c3('#e2dbd0','#a07858','#252a38',bgT,P));
+  root.setProperty('--dimmer',c3('#d4cdc4','#8a6848','#2a2e3a',bgT,P));
   // Text properties: dark brown → warm dark → light cream
-  root.setProperty('--text',lh3('#1c1917','#2a1810','#e2ddd4',txtT,P));
-  root.setProperty('--mid', lh3('#6b6258','#7a5a40','#8a8690',txtT,P));
-  root.setProperty('--dim', lh3('#a89e92','#8a7060','#5a5660',txtT,P));
-  root.setProperty('--ink', lh3('#1c1917','#2a1810','#e2ddd4',txtT,P));
+  root.setProperty('--text',c3('#1c1917','#2a1810','#e2ddd4',txtT,P));
+  root.setProperty('--mid', c3('#6b6258','#7a5a40','#a5a0a8',txtT,P));
+  root.setProperty('--dim', c3('#8a8078','#7a6050','#908c94',txtT,P));
+  root.setProperty('--ink', c3('#1c1917','#2a1810','#e2ddd4',txtT,P));
   // Glass: cream-tinted → dusk-tinted → dark blue-tinted
-  const gr=lr3(250,160,18,bgT,P),gg=lr3(248,120,22,bgT,P),gb=lr3(244,90,34,bgT,P);
+  const gr=n3(250,160,18,bgT,P),gg=n3(248,120,22,bgT,P),gb=n3(244,90,34,bgT,P);
   root.setProperty('--glass',`rgba(${gr},${gg},${gb},0.45)`);
   root.setProperty('--glass-hi',`rgba(${gr},${gg},${gb},0.32)`);
   root.setProperty('--glass-border',
-    `rgba(${lr3(226,140,37,bgT,P)},${lr3(219,100,42,bgT,P)},${lr3(208,70,56,bgT,P)},0.6)`);
+    `rgba(${n3(226,140,37,bgT,P)},${n3(219,100,42,bgT,P)},${n3(208,70,56,bgT,P)},0.6)`);
   const meta=document.querySelector('meta[name="theme-color"]');
-  if(meta)meta.content=lh3('#f5f0e8','#b89070','#0e1420',bgT,P);
+  if(meta)meta.content=c3('#f5f0e8','#b89070','#0e1420',bgT,P);
 }
 function resetNightTheme(){
   _lastNightT=-1;_stars=[];
@@ -991,7 +996,7 @@ function defaults(){
   const isFirstRun=!localStorage.getItem(KEY)&&!localStorage.getItem('blocks-v7');
   return{
     tasks:isFirstRun
-      ?[mkTask('trial','Your first boil','#4a9eba',1,GOD_MODE?2*60:2*60,0)]
+      ?[mkTask('trial','Your first boil','#4a9eba',1,2*60,0,null,'Tap play. Water rises while you work. When it boils, rest.')]
       :[mkTask('work','Work','#4a9eba',8,50*60,10*60),
         mkTask('chinese','Chinese','#c8841a',1,50*60,10*60),
         mkTask('life','Life','#9b6bb5',1,50*60,10*60)],
@@ -1000,6 +1005,7 @@ function defaults(){
     dayHours:14,
     bedtime:22,
     batterySaver:false,
+    muteWater:false,
     continuous:true,
     streak:0,
     lastCompletedDate:'',
@@ -1097,11 +1103,12 @@ function boot(){
   if(S.ballRecord===undefined)S.ballRecord=0;
   if(S.bedtime===undefined)S.bedtime=null;
   if(S.batterySaver===undefined)S.batterySaver=false;
+  if(S.muteWater===undefined)S.muteWater=false;
   S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;if(t.desc===undefined)t.desc='';});
   const now=Date.now(),td=today();
   if(S.date!==td){
     S.tasks.forEach(resetTask);
-    S.date=td;S.startTs=null;
+    S.date=td;S.startTs=null;_bedtimeNudged=false;
     delete S._daySnap; // day ended naturally — rewards earned
     resetNightTheme();bgBubbles.length=0;
   } else {
@@ -1191,7 +1198,7 @@ document.addEventListener('visibilitychange',()=>{
   const td=today();
   if(S.date!==td){
     S.tasks.forEach(t=>{if(t.running){t.running=false;t.savedAt=null;}});
-    stopAmbient();S.tasks.forEach(resetTask);S.date=td;S.startTs=null;
+    stopAmbient();S.tasks.forEach(resetTask);S.date=td;S.startTs=null;_bedtimeNudged=false;
     delete S._daySnap; // day ended naturally — rewards earned
     resetNightTheme();clearInterval(ticker);ticker=null;bgBubbles.length=0;
     save();render();return;
@@ -1234,7 +1241,7 @@ function ensureTicker(){
     // Date rollover guard (foreground past midnight)
     if(S.date!==today()){
       S.tasks.forEach(t=>{if(t.running){t.running=false;t.savedAt=null;}});
-      stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;
+      stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;_bedtimeNudged=false;
       delete S._daySnap;resetNightTheme(); // day ended naturally — rewards earned
       clearInterval(ticker);ticker=null;bgBubbles.length=0;
       save();render();return;
@@ -1259,7 +1266,7 @@ function ensureTicker(){
     });
     if(any){save();fastUpdateAll();}
     // Bedtime approaching warning (once, at ~15min mark)
-    if(any&&S.bedtime!=null){const _dr=dayRem();if(_dr<=900&&_dr>895&&document.hidden)notify('15 minutes to bedtime',sisterSays('bedtimeNudge'));}
+    if(any&&S.bedtime!=null&&!_bedtimeNudged){const _dr=dayRem();if(_dr<=900&&document.hidden){_bedtimeNudged=true;notify('15 minutes to bedtime',sisterSays('bedtimeNudge'));}}
     if(!S.tasks.some(t=>t.running)){clearInterval(ticker);ticker=null;}
   },1000);
 }
@@ -1486,7 +1493,7 @@ function openProfile(){
         <div style="font-size:13px;font-weight:800;color:var(--ink)">${b.name}</div>
         <div style="font-size:11px;color:var(--dim)">${b.desc}</div>
       </div>
-      <div style="font-size:12px;color:#2e9e6a;font-weight:800">✓</div>
+      <div style="font-size:12px;color:var(--mid);font-weight:800">✓</div>
     </div>`;
 
   openSheet(`
@@ -1574,11 +1581,11 @@ function openShop(){
       const tk=item.id.replace('theme_','');
       if(ownedThemes.includes(tk)){
         owned=equippedTheme===tk
-          ?'<span style="color:#2e9e6a;font-weight:800;font-size:11px">equipped ✓</span>'
+          ?'<span style="font-weight:800;font-size:11px;color:var(--mid)">equipped ✓</span>'
           :`<button onclick="equipBoilTheme('${tk}')" style="background:var(--bg);color:var(--ink);border:1.5px solid var(--brd);border-radius:100px;padding:5px 12px;font-size:11px;font-weight:800;cursor:pointer;font-family:var(--fs)">equip</button>`;
       }
     } else if(item.type!=='consumable'&&item.type!=='star_consumable'){
-      owned=(S.shopItems.avatar===item.emoji||(item.type==='floater'&&S.shopItems.floaters&&S.shopItems.floaters.includes(item.id))||(item.type==='unlock'&&S.shopItems[item.id]))?'<span style="color:#2e9e6a;font-weight:800;font-size:11px">owned ✓</span>':'';
+      owned=(S.shopItems.avatar===item.emoji||(item.type==='floater'&&S.shopItems.floaters&&S.shopItems.floaters.includes(item.id))||(item.type==='unlock'&&S.shopItems[item.id]))?'<span style="font-weight:800;font-size:11px;color:var(--mid)">owned ✓</span>':'';
     }
     const canBuy=(GOD_MODE||bal>=item.cost)&&!owned;
     const costIcon=currency==='stars'?'⭐':currency==='fullBoils'?'♨️':'🪙';
@@ -1718,6 +1725,53 @@ function releaseWakeLock(){
 }
 // Ambient focus drone — very faint 40hz sine while block runs
 let _ambOsc=null,_ambGain=null;
+// Procedural water audio — filtered noise that scales with fill (Buxton 2021: water sounds #1 for positive affect)
+let _waterNoise=null,_waterGain=null,_waterFilter=null,_waterLfo=null,_waterLfoGain=null;
+function _startWaterAudio(){
+  if(isBatterySaver()||S.muteWater)return;
+  try{
+    if(_waterNoise)return;
+    const c=ac();
+    // White noise source
+    const buf=c.createBuffer(1,c.sampleRate*2,c.sampleRate);
+    const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+    _waterNoise=c.createBufferSource();_waterNoise.buffer=buf;_waterNoise.loop=true;
+    // Bandpass filter — center frequency rises with fill level
+    _waterFilter=c.createBiquadFilter();_waterFilter.type='bandpass';_waterFilter.frequency.value=300;_waterFilter.Q.value=1.5;
+    // LFO for organic burble modulation
+    _waterLfo=c.createOscillator();_waterLfoGain=c.createGain();
+    _waterLfo.type='sine';_waterLfo.frequency.value=0.4+Math.random()*0.3;
+    _waterLfoGain.gain.value=80;
+    _waterLfo.connect(_waterLfoGain);_waterLfoGain.connect(_waterFilter.frequency);
+    // Master gain — starts silent, updateWaterAudio sets level
+    _waterGain=c.createGain();_waterGain.gain.setValueAtTime(0,c.currentTime);
+    _waterNoise.connect(_waterFilter);_waterFilter.connect(_waterGain);_waterGain.connect(c.destination);
+    _waterNoise.start();_waterLfo.start();
+  }catch(e){}
+}
+function _stopWaterAudio(){
+  try{
+    if(!_waterNoise)return;
+    const c=ac();
+    _waterGain.gain.linearRampToValueAtTime(0,c.currentTime+1.5);
+    const n=_waterNoise,l=_waterLfo;
+    setTimeout(()=>{try{n.stop();l.stop();}catch(e){}},1600);
+    _waterNoise=null;_waterGain=null;_waterFilter=null;_waterLfo=null;_waterLfoGain=null;
+  }catch(e){}
+}
+function updateWaterAudio(fillPct){
+  if(!_waterGain||!_waterFilter)return;
+  try{
+    const c=ac(),t=c.currentTime;
+    const f=fillPct/100;
+    // Volume: scales with fill, very quiet (max 0.035)
+    _waterGain.gain.linearRampToValueAtTime(f*0.035,t+0.5);
+    // Filter center: 250Hz at empty → 500Hz at full (higher = more active boiling)
+    _waterFilter.frequency.linearRampToValueAtTime(250+f*250,t+0.5);
+    // LFO speed: faster modulation at higher fill
+    if(_waterLfo)_waterLfo.frequency.linearRampToValueAtTime(0.3+f*0.8,t+0.5);
+  }catch(e){}
+}
 function startAmbient(){
   if(!isBatterySaver()){
     try{
@@ -1731,18 +1785,21 @@ function startAmbient(){
         _ambOsc.start();
       }
     }catch(e){}
+    _startWaterAudio();
     acquireWakeLock();
   }
   startKeepAlive();
 }
 function stopAmbient(){
   try{
-    if(!_ambOsc)return;
-    const c=ac();
-    _ambGain.gain.linearRampToValueAtTime(0,c.currentTime+1.5);
-    const o=_ambOsc;setTimeout(()=>{try{o.stop();}catch(e){}},1600);
-    _ambOsc=null;_ambGain=null;
+    if(_ambOsc){
+      const c=ac();
+      _ambGain.gain.linearRampToValueAtTime(0,c.currentTime+1.5);
+      const o=_ambOsc;setTimeout(()=>{try{o.stop();}catch(e){}},1600);
+      _ambOsc=null;_ambGain=null;
+    }
   }catch(e){}
+  _stopWaterAudio();
   stopKeepAlive();
   releaseWakeLock();
 }
@@ -1766,11 +1823,16 @@ function sndShake(mag){
   tone(300+Math.random()*200,.08,v*0.5,t);
 }
 // Sub-block done: glass break SFX
+// Micro-variation helpers: prevent hedonic adaptation (Schultz RPE, Frederick & Loewenstein)
+function _jHz(hz){return hz*(1+(Math.random()-.5)*.06);} // ±3% pitch jitter
+function _jDt(dt){return Math.max(0,dt+(Math.random()-.5)*.03);} // ±15ms timing jitter, clamped to 0
 function sndSub(){
   const now=ac().currentTime;
   // punchy attack transient then ascending chime
-  tone(1760,.04,.05,now,'square'); // sharp click at start
-  [[0,880,.065],[.06,1108,.06],[.13,1318,.055],[.21,1760,.05],[.32,2093,.045]].forEach(([dt,hz,v])=>tone(hz,.35,v,now+dt));
+  tone(_jHz(1760),.04,.05,now,'square'); // sharp click at start
+  [[0,880,.065],[.06,1108,.06],[.13,1318,.055],[.21,1760,.05],[.32,2093,.045]].forEach(([dt,hz,v])=>tone(_jHz(hz),.35,v,now+_jDt(dt)));
+  // 1-in-5: bonus sparkle — consonant fifth above top note
+  if(Math.random()<0.2)tone(_jHz(3136),.25,.03,now+.42);
   // glass shatter: descending noise sweep
   try{
     const c=ac();
@@ -1779,21 +1841,22 @@ function sndSub(){
       const buf=c.createBuffer(1,c.sampleRate*.18,c.sampleRate);
       const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*(1-i/(d.length));
       const src=c.createBufferSource(),g=c.createGain(),f=c.createBiquadFilter();
-      f.type='highpass';f.frequency.value=pass===1?3000:6000;
+      f.type='highpass';f.frequency.value=pass===1?2800+Math.random()*400:5500+Math.random()*1000;
       src.buffer=buf;src.connect(f);f.connect(g);g.connect(c.destination);
       const t0=now+(pass-1)*.04;
       g.gain.setValueAtTime(.06,t0);g.gain.exponentialRampToValueAtTime(.001,t0+.18);
       src.start(t0);src.stop(t0+.2);
     });
     // low thud
-    tone(80,.25,.06,now);tone(60,.3,.04,now+.05);
+    tone(_jHz(80),.25,.06,now);tone(_jHz(60),.3,.04,now+.05);
   }catch(e){}
   haptic([15,80,15]);
 }
-const sndTask  =()=>{const t=ac().currentTime;[0,.1,.2,.32,.48].forEach((dt,i)=>tone([523,659,784,1047,1319][i],.32,.05,t+dt));tone(523,.6,.03,t+.48);haptic([20,30,20,30,80]);};
-const sndDay   =()=>{
+const sndTask=()=>{const t=ac().currentTime;[0,.1,.2,.32,.48].forEach((dt,i)=>tone(_jHz([523,659,784,1047,1319][i]),.32,.05,t+_jDt(dt)));tone(_jHz(523),.6,.03,t+_jDt(.48));if(Math.random()<0.2)tone(_jHz(1976),.3,.025,t+.56);haptic([20,30,20,30,80]);};
+const sndDay=()=>{
   const now=ac().currentTime;
-  [0,.1,.2,.32,.46,.62].forEach((dt,i)=>tone([523,659,784,1047,1319,1568][i],.4,.06,now+dt));
+  [0,.1,.2,.32,.46,.62].forEach((dt,i)=>tone(_jHz([523,659,784,1047,1319,1568][i]),.4,.06,now+_jDt(dt)));
+  if(Math.random()<0.3)tone(_jHz(2349),.35,.03,now+.72); // bonus sparkle on day completion
   haptic([40,20,40,20,40,20,200]);
 };
 
@@ -1988,10 +2051,13 @@ function tapCard(id){
   t.running=!wasRunning;
   if(t.running){
     t.savedAt=Date.now();sndTap();startAmbient();ensureTicker();showToast('Heating up. ↑','var(--tc)',1200);if(!_sensorsAttached)requestMotionPermission();
-    // Water kick-start: brief surge for instant feedback
-    if(bgWaveState)bgWaveState.kick=1;
-    // Sister: first block of the day
-    if(!S.tasks.some(x=>x.completed>0&&x.id!==id))setTimeout(()=>sisterMsg(sisterSays('firstBlock'),2500),1500);
+    // First block of the day: enhanced ceremony (Bandura — self-efficacy seeds the spiral)
+    const _isFirst=!S.tasks.some(x=>x.completed>0||x.running&&x.id!==id);
+    // Water kick-start: brief surge for instant feedback (1.5× for first block)
+    if(bgWaveState)bgWaveState.kick=_isFirst?1.5:1;
+    // Sister: guaranteed on first block (not 30% chance), standard otherwise
+    if(_isFirst){setTimeout(()=>sisterMsg(sisterSays('firstBlock'),2500),1500);haptic([30,40,30,40,80]);}
+    else if(!S.tasks.some(x=>x.completed>0&&x.id!==id))setTimeout(()=>sisterMsg(sisterSays('firstBlock'),2500),1500);
   }
   else{t.savedAt=null;sndStop();stopAmbient();showToast('The water cools.','#6b6258',1800);}
   save();renderCard(t);renderDaybar();updateLogoDot();
@@ -2070,9 +2136,12 @@ function notify(title,body){
     try{new Notification(title,{body,icon:'',vibrate:[200,100,200]});}catch(e){}
   }
 }
+// Cross-modal emphasis rotation (sensory-specific satiety prevention — Rolls, HAP model)
+function _completionMode(){const r=Math.random();return r<0.4?'audio':r<0.7?'haptic':'visual';}
 function onSubBlockDone(id){
   if(S.aquariumOn){S.aquariumOn=false;save();applyAquarium();}
-  sndSub();
+  const _cm=_completionMode();
+  sndSub(); // always plays (with built-in micro-variation), volume adjusted by mode handled in visual/haptic
   const t=S.tasks.find(x=>x.id===id);
   if(t){
     const blocksLeft2=t.total-t.completed-1;
@@ -2093,16 +2162,20 @@ function onSubBlockDone(id){
   const r=el.getBoundingClientRect();
   const cx=r.left+r.width/2, cy=r.top+r.height*.4;
 
+  // Cross-modal: visual-heavy mode gets 1.5× particles, others get standard
+  const _vm=_cm==='visual'?1.5:1;
   // 1. Shatter shards — glass breaking outward
-  shatterAt(cx,cy,t.color,32);
+  shatterAt(cx,cy,t.color,Math.round(32*_vm));
   // 2. Big radial burst behind shards
-  burstAt(cx,cy,t.color,55);
+  burstAt(cx,cy,t.color,Math.round(55*_vm));
   // 3. Shockwave ring
   shockwave(cx,cy,t.color,40);
   // 4. Sparks up
-  sparks(cx,cy,t.color,28);
+  sparks(cx,cy,t.color,Math.round(28*_vm));
   // 5. Second delayed burst for linger
-  setTimeout(()=>burstAt(cx,cy+10,t.color,30),180);
+  setTimeout(()=>burstAt(cx,cy+10,t.color,Math.round(30*_vm)),180);
+  // Haptic-heavy mode: enhanced vibration pattern
+  if(_cm==='haptic')haptic([30,20,30,20,60,30,120]);
 
   // 4. Screen flash — brighter, double pulse
   [0,220].forEach(delay=>{
@@ -2485,7 +2558,7 @@ function cardHTML(t){
         <div class="done-row">
           <div class="done-trophy">${getTheme().emoji}</div>
           <div class="done-name">${esc(t.name)}</div>
-          <div class="done-count" style="display:flex;align-items:center;gap:5px">${t.total}×${fmtHM(t.workDur)}<span style="color:#2e9e6a;font-size:12px">✓</span></div>
+          <div class="done-count" style="display:flex;align-items:center;gap:5px">${t.total}×${fmtHM(t.workDur)}<span style="color:var(--mid);font-size:12px">✓</span></div>
           <button class="c-edit" onclick="event.stopPropagation();openEdit('${t.id}')">⋯</button>
         </div>
       </div>
@@ -2511,7 +2584,7 @@ function cardHTML(t){
         <canvas class="pip-canvas" id="pf-${t.id}" data-fill="${liqH}" data-color="${bc}" data-running="${t.running}"></canvas>
       </div>`;
     }
-    return`<div style="${baseStyle}border:2px solid #e2dbd0;overflow:hidden;"></div>`;
+    return`<div style="${baseStyle}border:2px solid var(--mid);overflow:hidden;"></div>`;
   }).join("");
 
   // show total only if more than 1 block remaining
@@ -2537,7 +2610,7 @@ function cardHTML(t){
           <div class="rest-label" id="rest-label-${t.id}">${(()=>{const bl=t.total-t.completed;if(bl<=1)return'last bit of steam';if(bl===2)return'almost cooked';if((S.streak||0)>=7)return'well earned';return['let some steam out','cooling off','rest is sacred','letting it settle','grace between blocks'][t.completed%5];})()}</div>
           <div class="rest-timer-big" id="ptc-${t.id}">${fmtTime(t.rem)}</div>
           <div class="rest-bar-wrap"><div class="rest-bar" id="rb-${t.id}" style="width:${((t.restDur-t.rem)/t.restDur*100).toFixed(1)}%"></div></div>
-          <button onclick="event.stopPropagation();skipRest('${t.id}')" style="margin-top:6px;background:none;border:1.5px solid rgba(46,158,106,.3);border-radius:100px;font-family:var(--fs);font-size:10px;font-weight:700;color:#2e9e6a;padding:4px 14px;cursor:pointer">skip rest →</button>
+          <button onclick="event.stopPropagation();skipRest('${t.id}')" style="margin-top:6px;background:none;border:1.5px solid var(--brd);border-radius:100px;font-family:var(--fs);font-size:10px;font-weight:700;color:var(--mid);padding:4px 14px;cursor:pointer">skip rest →</button>
         </div>
         `:`<div class="pip-timer-overlay">
           <span class="pto-cur" id="ptc-${t.id}">${fmtTime(t.rem)}</span>
@@ -2646,7 +2719,7 @@ function updateSteamBanner(){
   // Rest indicator handled by card overlay (normal) or canvas text (aquarium)
   sb.style.display='none';
 }
-function fastUpdateAll(){S.tasks.filter(t=>t.running&&!t.done).forEach(t=>fastUpdateCard(t.id));updateSteamBanner();updateLogoDot();updateHeader();updateAquariumBar();}
+function fastUpdateAll(){S.tasks.filter(t=>t.running&&!t.done).forEach(t=>fastUpdateCard(t.id));updateSteamBanner();updateLogoDot();updateHeader();updateAquariumBar();updateWaterAudio(bgWaveState?bgWaveState.fill:0);}
 
 // ── WATER ENGINE ─────────────────────────────────────────────────────
 
@@ -3436,7 +3509,9 @@ function tickBubbles(pool,W,H,fp,dt,color,isBg){
   const fillY=H*(1-fp/100);
   const hm=heatMultiplier();
   const fizzM=1+shakeF*4;
-  const baseRate=(isBg?(fp<8?0:b2*120*hm):(fp<15?0:b2*18*hm))*fizzM+(shakeF>0&&fp>0.5?(isBg?shakeF*80:shakeF*12):0);
+  // Anticipatory crescendo: +50% bubble rate in final 20% (Salimpoor — caudate anticipation)
+  const _cresc=fp>80?1+0.5*Math.pow((fp-80)/20,2):1;
+  const baseRate=((isBg?(fp<8?0:b2*120*hm):(fp<15?0:b2*18*hm))*fizzM+(shakeF>0&&fp>0.5?(isBg?shakeF*80:shakeF*12):0))*_cresc;
   const n=Math.floor(baseRate*dt+(Math.random()<(baseRate*dt%1)?1:0));
   for(let s=0;s<n;s++){
     // Nucleation-site spawning: bubbles form near bottom and edges
@@ -3530,11 +3605,13 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
 
   const boil=(fp/100)*(fp/100);
   const fillY=H*(1-fp/100);
+  // Anticipatory crescendo: quadratic ramp in final 20% (Salimpoor — caudate anticipation)
+  const cresc=fp>80?Math.pow((fp-80)/20,2):0;
 
   // Sine wave params (used for pip canvas; bg uses heightfield)
-  const A   = boil*7.0;
-  const Arip= boil*2.0;
-  const sp  = Math.min(0.25+boil*0.55, 0.80);
+  const A   = boil*7.0*(1+cresc*0.3);
+  const Arip= boil*2.0*(1+cresc*0.3);
+  const sp  = Math.min(0.25+boil*0.55, 0.80)*(1+cresc*0.15);
   const lam = W/1.4;
   const lamR= lam*0.5;
   const sprip= sp*2.0;
@@ -3616,8 +3693,9 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
   ctx.beginPath();
   ctx.moveTo(0,_surf[0]);
   for(let i=1;i<N;i++)ctx.lineTo(Math.min(i*step,W),_surf[i]);
-  ctx.lineWidth=isBg?2.0:1.3;
-  ctx.strokeStyle=`rgba(255,255,255,${isBg?0.75:0.92})`;
+  const _cg=fp>80?Math.pow((fp-80)/20,2):0; // crescendo glow
+  ctx.lineWidth=(isBg?2.0:1.3)*(1+_cg*0.5);
+  ctx.strokeStyle=`rgba(255,255,255,${Math.min(1,(isBg?0.75:0.92)+_cg*0.15)})`;
   ctx.stroke();
   // Soft glow below line — heat level amplifies
   const glowMul=0.8+(_hm-1)*0.5;
@@ -3861,14 +3939,17 @@ function checkBeginScreen(){
   const sub=document.getElementById('begin-sub');
   const bedRow=document.getElementById('begin-bed-row');
   const skipBtn=document.getElementById('skip-tut');
+  const quickBtn=document.querySelector('.quick-boil-btn');
   if(S.isTrial){
-    if(sub)sub.innerHTML='Tap play. Watch it boil.';
+    if(sub)sub.innerHTML='A 2-minute guided block.<br>Tap begin, then press play.';
     if(bedRow)bedRow.style.display='none';
     if(skipBtn)skipBtn.style.display='';
+    if(quickBtn)quickBtn.style.display='none';
   } else {
     // Hide bedtime on early days to reduce pre-action decisions
     if(bedRow)bedRow.style.display=(S.daysCompleted||0)<=1?'none':'';
     if(skipBtn)skipBtn.style.display='none';
+    if(quickBtn)quickBtn.style.display='';
   }
   // Restore saved values
   const bedInput=document.getElementById('begin-bed');

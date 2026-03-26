@@ -19,8 +19,9 @@ When making decisions, follow this order:
 2. @docs/CYBERNETICS.md
 3. @docs/ARCHITECTURE.md
 4. @docs/VERIFICATION.md
-5. This file (CLAUDE.md)
-6. README.md
+5. @docs/NEUROSCIENCE.md
+6. This file (CLAUDE.md)
+7. README.md
 
 ---
 
