@@ -61,6 +61,8 @@ Therefore:
 
 ## Anti-Patterns
 
+For the neurochemical mechanisms underlying these drifts, see NEUROSCIENCE.md: Anti-Patterns.
+
 ### Metric Capture (Fisher)
 Metrics reshape behavior to match the metric rather than the underlying goal. The system teaches to the test.
 

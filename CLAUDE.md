@@ -139,7 +139,7 @@ See docs/PRODUCT.md: Manifesto.
 
 ## Architecture
 
-See docs/ARCHITECTURE.md. Single file: `boil.html` (~2700 lines). Do not split.
+See docs/ARCHITECTURE.md. Single file: `boil.html` (~4400 lines). Do not split.
 
 ## Fonts
 
@@ -155,15 +155,25 @@ See `boil.html` CSS custom properties. Warm neutrals, task colors from `PAL` arr
 
 > Canonical state shape is in `boot()`. This section is a quick reference.
 
-- `S.tasks[]` — array of task objects (id, name, color, total blocks, workDur, restDur, completed, rem, running, isRest, done, savedAt, pauseCount, perfectBlocks)
+- `S.tasks[]` — array of task objects (id, name, color, total blocks, workDur, restDur, completed, rem, running, isRest, done, savedAt)
 - `S.startTs` — day start timestamp (null = show begin screen)
+- `S.date` — current day string (YYYY-MM-DD), used for rollover detection
 - `S.continuous` — auto-advance through blocks without pausing
+- `S.dayHours` — planned day length in hours (default 14)
+- `S.bedtime` — bedtime as decimal hours (e.g., 22.5 = 10:30 PM), null = no bedtime
 - `S.streak`, `S.lastCompletedDate`, `S.bestScore`, `S.lifetimeCoins`, `S.stars`
-- `S.shopItems` — purchased customizations (avatar, theme)
+- `S.fullBoils` — count of fully completed days (all tasks done)
+- `S.shopItems` — purchased customizations (avatar, theme, floaters, unlocks)
 - `S.mercyCoins` — consumable mercy coins (skip a block)
 - `S.daysCompleted` — counter for progressive disclosure (0=first day, hides coins/shop/streak)
 - `S.seen` — object tracking first-occurrence contextual toasts
 - `S.isTrial` — true during first-run trial task flow
+- `S.badges` — earned achievement badges
+- `S.batterySaver` — battery saver mode toggle
+- `S.muteWater` — mute procedural water audio
+- `S.aquariumOn` — aquarium focus mode active
+- `S.streakFreezes` — available streak freeze count
+- `S.ballRecord` — beach ball juggle high score
 - `t.days` — optional array of day numbers (0=Sun..6=Sat), null = every day
 
 ---

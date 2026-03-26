@@ -87,7 +87,7 @@ These are representations that, when targeted, cease to measure what they were i
 
 Baudrillard's orders of simulacra describe the progression: a metric first **reflects** reality (you completed three blocks of real work), then **masks** reality (you completed three easy blocks to see the number rise), then **masks the absence** of reality (you open the app to maintain the streak, doing no real work), then **bears no relation** to reality (the streak *is* the accomplishment, and the question of underlying work no longer arises). Each stage is harder to detect than the last.
 
-Note: Small rewards contingent on real work (e.g. a coin per completed block) are not themselves anti-signals. The risk begins when those rewards are quantified as scores, compared across sessions, or placed at risk of loss. See Embodied Delight: The delight taxonomy and CYBERNETICS.md: Delight vs. Drift.
+Note: Small rewards contingent on real work (e.g. a coin per completed block) are not themselves anti-signals. The risk begins when those rewards are quantified as scores, compared across sessions, or placed at risk of loss. See Embodied Delight: The delight taxonomy, CYBERNETICS.md: Delight vs. Drift, and NEUROSCIENCE.md: Wanting vs. Liking for the neurochemical mechanism.
 
 ---
 

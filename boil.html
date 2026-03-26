@@ -797,7 +797,7 @@
   <canvas id="begin-water" style="position:absolute;bottom:0;left:0;width:100%;height:45%;pointer-events:none;opacity:0.48"></canvas>
   <div class="begin-logo">boil.</div>
   <div id="begin-streak"></div>
-  <div class="begin-sub" id="begin-sub">Water rises while you work.<br>When it boils, rest.</div>
+  <div class="begin-sub" id="begin-sub">Pick a task, set a timer.<br>Water rises while you work. When it boils, rest.</div>
   <div class="begin-hours" id="begin-bed-row">
     <span class="begin-h-label">bedtime</span>
     <input type="time" class="begin-h-input" id="begin-bed" style="width:160px;font-size:18px">
@@ -1124,7 +1124,7 @@ function boot(){
     setTimeout(()=>{
       const msg=_el>4320?sisterSays('returnLong'):sisterSays('returnShort');
       sisterMsg(msg,2800);
-      showToast(`${_el} min elapsed`,'#3d3530',1800);
+      showToast(`${_el} min passed while you were away`,'#3d3530',1800);
     },600);
   }
 }
@@ -3941,7 +3941,7 @@ function checkBeginScreen(){
   const skipBtn=document.getElementById('skip-tut');
   const quickBtn=document.querySelector('.quick-boil-btn');
   if(S.isTrial){
-    if(sub)sub.innerHTML='A 2-minute guided block.<br>Tap begin, then press play.';
+    if(sub)sub.innerHTML='Pick a task, set a timer.<br>Water rises while you work. When it boils, rest.';
     if(bedRow)bedRow.style.display='none';
     if(skipBtn)skipBtn.style.display='';
     if(quickBtn)quickBtn.style.display='none';

@@ -249,6 +249,8 @@ Research-backed triggers that the system does not yet fully exploit:
 
 ## Anti-Patterns
 
+For the semiotic and philosophical analysis of these patterns, see CYBERNETICS.md: Anti-Patterns. This section provides the neurochemical mechanisms underlying those drifts.
+
 **Overstimulation.** The ADHD narrow-window research means that adding sensory richness has diminishing and eventually negative returns. More particles, more sounds, more haptics can push past the stimulation ceiling into overwhelm. Every addition must be weighed against the cumulative sensory load.
 
 **Habituation through repetition.** Frederick & Loewenstein's hedonic adaptation research means identical rewards lose impact. If the completion sound never varies, it will become neurally invisible within weeks. Variation is not a luxury but a maintenance requirement.
