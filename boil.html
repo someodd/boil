@@ -102,7 +102,7 @@
     .streak-badge.visible{display:flex}
     /* Right: action pills */
     .hdr-acts{display:flex;gap:5px;align-items:center}
-    /* Coin pill — shows total coins, taps to shop */
+    /* Coin pill — shows total coins, taps to gifts */
     .coin-pill{
       display:flex;align-items:center;gap:4px;
       background:var(--card);border:1.5px solid var(--brd);
@@ -277,9 +277,16 @@
     .scroll:not(.has-running) .card:not(.done-all) .play-btn{
       animation:invite 3.6s ease-in-out infinite;
     }
+    .scroll:not(.has-running) .card:first-child:not(.done-all) .play-btn{
+      animation:invite-lead 2.8s ease-in-out infinite;
+    }
     @keyframes invite{
       0%,100%{box-shadow:0 4px 14px rgba(0,0,0,.18)}
       50%{box-shadow:0 4px 22px rgba(0,0,0,.28),0 0 0 8px color-mix(in srgb,var(--tc) 14%,transparent)}
+    }
+    @keyframes invite-lead{
+      0%,100%{box-shadow:0 4px 14px rgba(0,0,0,.18);transform:scale(1)}
+      50%{box-shadow:0 4px 24px rgba(0,0,0,.30),0 0 0 10px color-mix(in srgb,var(--tc) 18%,transparent);transform:scale(1.05)}
     }
 
     /* progress bar */
@@ -555,6 +562,8 @@
     }
     .quick-boil-btn:hover{background:var(--card);color:var(--ink)}
     .quick-boil-btn:active{transform:scale(.92)!important}
+    .skip-tut{font-size:11px;color:var(--dimmer);text-decoration:underline;margin-top:16px;background:none;border:none;cursor:pointer;font-family:var(--fs);transition:color .14s}
+    .skip-tut:hover{color:var(--dim)}
     .begin-hours{
       display:flex;align-items:center;gap:12px;
     }
@@ -763,6 +772,16 @@
       0%{width:0;height:0;opacity:1}
       100%{width:100px;height:100px;opacity:0}
     }
+    /* Sister's voice — soft, lower, longer */
+    .sister-msg{
+      position:fixed;bottom:48%;left:50%;transform:translateX(-50%) translateY(4px);
+      font-family:var(--fs);font-size:14px;font-weight:600;font-style:italic;
+      color:var(--mid);text-align:center;z-index:1001;pointer-events:none;
+      opacity:0;transition:opacity .6s ease,transform .6s ease;
+      text-shadow:0 1px 8px rgba(255,255,255,.3);
+      max-width:260px;line-height:1.5;
+    }
+    .sister-msg.visible{opacity:1;transform:translateX(-50%) translateY(0);}
   </style>
 </head>
 <body>
@@ -775,16 +794,18 @@
 <div id="tilt-debug" style="display:none;position:fixed;bottom:110px;left:12px;z-index:998;background:rgba(0,0,0,.7);color:#0f0;font-family:monospace;font-size:10px;padding:4px 8px;border-radius:6px;pointer-events:none"></div>
 
 <div class="begin-screen" id="begin-screen" style="display:none">
-  <canvas id="begin-water" style="position:absolute;bottom:0;left:0;width:100%;height:35%;pointer-events:none;opacity:0.32"></canvas>
+  <canvas id="begin-water" style="position:absolute;bottom:0;left:0;width:100%;height:45%;pointer-events:none;opacity:0.48"></canvas>
   <div class="begin-logo">boil.</div>
   <div id="begin-streak"></div>
-  <div class="begin-sub" id="begin-sub">Time-blocking with heat.<br>Your blocks heat up, boil, and finish as you focus.</div>
+  <div class="begin-sub" id="begin-sub">A timer that fills with water as you work.<br>When it boils, you're done.</div>
   <div class="begin-hours" id="begin-bed-row">
     <span class="begin-h-label">bedtime</span>
     <input type="time" class="begin-h-input" id="begin-bed" style="width:160px;font-size:18px">
   </div>
-  <button class="begin-btn" onclick="beginDay()">begin the day</button>
-  <button class="quick-boil-btn" onclick="quickBoil()">just 5 minutes</button>
+  <div id="sister-begin" style="font-style:italic;font-size:14px;font-weight:600;color:var(--mid);margin-bottom:16px"></div>
+  <button class="begin-btn" onclick="beginDay()">begin</button>
+  <button class="quick-boil-btn" onclick="quickBoil()">just one block</button>
+  <button class="skip-tut" onclick="skipTutorial()" id="skip-tut" style="display:none">skip — I'll figure it out</button>
 </div>
 
 <div class="hdr">
@@ -798,7 +819,7 @@
     <span id="bs-indicator" style="font-size:12px;color:var(--dim);display:none">⚡</span>
   </div>
   <div class="hdr-acts">
-    <button class="coin-pill" onclick="openShop()" title="Shop" id="hdr-coins">
+    <button class="coin-pill" onclick="openShop()" title="Gifts" id="hdr-coins">
       <span class="coin-pill-icon">🪙</span>
       <span class="coin-pill-val" id="hdr-coins-val">0</span>
     </button>
@@ -882,10 +903,26 @@ function DAY_S(){
 function dayEl(){if(!S?.startTs)return 0;return Math.min(DAY_S(),Math.max(0,Math.floor((Date.now()-S.startTs)/1000)));}
 function dayRem(){return Math.max(0,DAY_S()-dayEl());}
 // ── NIGHT SKY TRANSITION ──────────────────────────────────────────
+function _wallClockNight(){
+  // Real-world night based on clock + bedtime
+  const h=new Date().getHours()+new Date().getMinutes()/60;
+  const bed=S&&S.bedtime!=null?S.bedtime:22;
+  const rise=6,sunsetStart=bed-2;
+  if(h>=bed||h<rise)return 1;
+  if(h>=sunsetStart)return(h-sunsetStart)/(bed-sunsetStart);
+  if(h<rise+1.5)return 1-(h-rise)/1.5;
+  return 0;
+}
 function nightT(){
-  if(!S||!S.startTs)return 0;
-  const rem=dayRem(),win=7200;
-  return Math.max(0,Math.min(1,(win-rem)/win));
+  const wall=_wallClockNight();
+  if(S&&S.startTs){
+    // Active day: use in-app timing (last 2 hours of day)
+    const rem=dayRem(),win=7200;
+    const app=Math.max(0,Math.min(1,(win-rem)/win));
+    // Use whichever is darker — real night always wins
+    return Math.max(app,wall);
+  }
+  return wall;
 }
 let _lastNightT=-1,_stars=[];
 function applyNightTheme(){
@@ -898,22 +935,30 @@ function applyNightTheme(){
     const n=[parseInt(night.slice(1,3),16),parseInt(night.slice(3,5),16),parseInt(night.slice(5,7),16)];
     return'#'+[0,1,2].map(i=>lr(d[i],n[i],t).toString(16).padStart(2,'0')).join('');
   };
+  // 3-stop interpolation: day → sunset → night (avoids grey dead zone)
+  const lh3=(day,sun,night,t,p)=>t<=p?lh(day,sun,t/p):lh(sun,night,(t-p)/(1-p));
+  const lr3=(a,m,b,t,p)=>t<=p?lr(a,m,t/p):lr(m,b,(t-p)/(1-p));
   const bgT=Math.pow(t,1.5),txtT=Math.pow(t,2);
+  const P=0.2; // sunset pivot — brief warm flash, then long cooling to night
   const root=document.documentElement.style;
-  root.setProperty('--bg',lh('#f5f0e8','#0e1420',bgT));
-  root.setProperty('--card',lh('#faf8f4','#161c2c',bgT));
-  root.setProperty('--brd',lh('#e2dbd0','#252a38',bgT));
-  root.setProperty('--text',lh('#1c1917','#e2ddd4',txtT));
-  root.setProperty('--mid',lh('#6b6258','#8a8690',txtT));
-  root.setProperty('--dim',lh('#a89e92','#5a5660',txtT));
-  root.setProperty('--dimmer',lh('#d4cdc4','#2a2e3a',bgT));
-  root.setProperty('--ink',lh('#1c1917','#e2ddd4',txtT));
-  const gr=lr(250,18,bgT),gg=lr(248,22,bgT),gb=lr(244,34,bgT);
+  // Background properties: cream → warm dusk → dark blue
+  root.setProperty('--bg',    lh3('#f5f0e8','#b89070','#0e1420',bgT,P));
+  root.setProperty('--card',  lh3('#faf8f4','#c09575','#161c2c',bgT,P));
+  root.setProperty('--brd',   lh3('#e2dbd0','#a07858','#252a38',bgT,P));
+  root.setProperty('--dimmer',lh3('#d4cdc4','#8a6848','#2a2e3a',bgT,P));
+  // Text properties: dark brown → warm dark → light cream
+  root.setProperty('--text',lh3('#1c1917','#2a1810','#e2ddd4',txtT,P));
+  root.setProperty('--mid', lh3('#6b6258','#7a5a40','#8a8690',txtT,P));
+  root.setProperty('--dim', lh3('#a89e92','#8a7060','#5a5660',txtT,P));
+  root.setProperty('--ink', lh3('#1c1917','#2a1810','#e2ddd4',txtT,P));
+  // Glass: cream-tinted → dusk-tinted → dark blue-tinted
+  const gr=lr3(250,160,18,bgT,P),gg=lr3(248,120,22,bgT,P),gb=lr3(244,90,34,bgT,P);
   root.setProperty('--glass',`rgba(${gr},${gg},${gb},0.45)`);
   root.setProperty('--glass-hi',`rgba(${gr},${gg},${gb},0.32)`);
-  root.setProperty('--glass-border',`rgba(${lr(226,37,bgT)},${lr(219,42,bgT)},${lr(208,56,bgT)},0.6)`);
+  root.setProperty('--glass-border',
+    `rgba(${lr3(226,140,37,bgT,P)},${lr3(219,100,42,bgT,P)},${lr3(208,70,56,bgT,P)},0.6)`);
   const meta=document.querySelector('meta[name="theme-color"]');
-  if(meta)meta.content=lh('#f5f0e8','#0e1420',bgT);
+  if(meta)meta.content=lh3('#f5f0e8','#b89070','#0e1420',bgT,P);
 }
 function resetNightTheme(){
   _lastNightT=-1;_stars=[];
@@ -946,16 +991,16 @@ function defaults(){
   const isFirstRun=!localStorage.getItem(KEY)&&!localStorage.getItem('blocks-v7');
   return{
     tasks:isFirstRun
-      ?[mkTask('trial','Try it','#4a9eba',1,GOD_MODE?2*60:2*60,0)]
+      ?[mkTask('trial','Your first boil','#4a9eba',1,GOD_MODE?2*60:2*60,0)]
       :[mkTask('work','Work','#4a9eba',8,50*60,10*60),
         mkTask('chinese','Chinese','#c8841a',1,50*60,10*60),
         mkTask('life','Life','#9b6bb5',1,50*60,10*60)],
     date:today(),
     startTs:null,
     dayHours:14,
-    bedtime:null,
+    bedtime:22,
     batterySaver:false,
-    continuous:false,
+    continuous:true,
     streak:0,
     lastCompletedDate:'',
     bestScore:0,
@@ -978,6 +1023,48 @@ let S, ticker=null;
 let GOD_MODE=false; // 1min=1sec, free shop, infinite currency
 function godTick(){return GOD_MODE?60:1;}
 
+// ── SISTER'S VOICE ────────────────────────────────────────────────
+const SISTER={
+  begin:['Shall we begin?','Ready when you are.','One small thing. That\'s all.'],
+  firstBlock:['One small thing with great love.','Just this one.'],
+  blockDone:['Good.','That\'s one.','The water knows.','Keep going.'],
+  restStart:['Rest is part of the work.','Let it settle.','Grace between blocks.'],
+  betweenBlocks:['Ready for the next?','Whenever you are.'],
+  halfway:['Halfway.'],
+  almostDone:['Almost.'],
+  returnShort:['Welcome back.','The water\'s still warm.'],
+  returnLong:['You came back. That\'s everything.','The door was open the whole time.'],
+  dayDone:[
+    ['Small things with great love.','That was today.'],
+    ['You were here.','That\'s what matters.'],
+    ['The water rests now.','So should you.'],
+    ['Your attention was an act of love.','Go gently.'],
+    ['All done.','Go be a person.'],
+    ['Faithful again.','Rest is sacred.'],
+  ],
+  bedtimeNudge:['It\'s almost time to rest.','You did enough today.'],
+  taskDone:['Finished. Go gently.','Done. Every block was a gift.'],
+  mercy:['It\'s okay. Some moments need grace.'],
+};
+function sisterSays(moment){
+  const pool=SISTER[moment];
+  if(!pool||!pool.length)return'';
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+let _sisterEl=null,_sisterTimer=null;
+function sisterMsg(msg,dur){
+  if(!msg)return;
+  dur=dur||3000;
+  if(_sisterEl){_sisterEl.remove();clearTimeout(_sisterTimer);}
+  const d=document.createElement('div');
+  d.className='sister-msg';
+  d.textContent=msg;
+  _sisterEl=d;
+  document.body.appendChild(d);
+  requestAnimationFrame(()=>d.classList.add('visible'));
+  _sisterTimer=setTimeout(()=>{d.classList.remove('visible');setTimeout(()=>{d.remove();if(_sisterEl===d)_sisterEl=null;},600);},dur);
+}
+
 // ── BOOT ───────────────────────────────────────────────────────────
 function boot(){
   // Migrate from old key if needed
@@ -991,7 +1078,7 @@ function boot(){
   if(!S.tasks)S=defaults();
   if(!S.dayHours)S.dayHours=14;
   if(S.startTs===undefined)S.startTs=null;
-  if(S.continuous===undefined)S.continuous=false;
+  if(S.continuous===undefined)S.continuous=true;
   if(S.streak===undefined)S.streak=0;
   if(S.lastCompletedDate===undefined)S.lastCompletedDate='';
   if(S.bestScore===undefined)S.bestScore=0;
@@ -1027,7 +1114,11 @@ function boot(){
   // Reopen toast
   if(_reopenTask&&_elapsedBeforeSave>=1){
     const _el=_elapsedBeforeSave;
-    setTimeout(()=>showToast(`welcome back — ${_el} min elapsed`,'#3d3530',2200),600);
+    setTimeout(()=>{
+      const msg=_el>4320?sisterSays('returnLong'):sisterSays('returnShort');
+      sisterMsg(msg,2800);
+      showToast(`${_el} min elapsed`,'#3d3530',1800);
+    },600);
   }
 }
 function resetTask(t){t.completed=0;t.isRest=false;t.rem=t.workDur;t.running=false;t.done=false;t.savedAt=null;if(bubblePools[t.id])bubblePools[t.id]=[];delete window['_sf_'+t.id];}
@@ -1039,7 +1130,7 @@ function resolvePhaseEnd(t,animate){
     t.isRest=false;t.completed++;
     S.lifetimeCoins=(S.lifetimeCoins||0)+1; // accumulate in real-time
     if(t.completed>=t.total){t.done=true;t.running=false;t.savedAt=null;return true;}
-    t.rem=t.workDur;
+    t.rem=t.workDur;t._halfShown=false;t._almostShown=false;
     if(cont){t.savedAt=animate?Date.now():null;}
     else{t.running=false;t.savedAt=null;}
   } else {
@@ -1052,7 +1143,7 @@ function resolvePhaseEnd(t,animate){
       t.completed++;
       S.lifetimeCoins=(S.lifetimeCoins||0)+1; // accumulate in real-time
       if(t.completed>=t.total){t.done=true;t.running=false;t.savedAt=null;return true;}
-      t.rem=t.workDur;
+      t.rem=t.workDur;t._halfShown=false;t._almostShown=false;
       if(cont){t.savedAt=animate?Date.now():null;}
       else{t.running=false;t.savedAt=null;}
     }
@@ -1152,6 +1243,11 @@ function ensureTicker(){
     S.tasks.forEach(t=>{
       if(!t.running||t.done)return;
       any=true;t.rem=Math.max(0,t.rem-godTick());
+      // Sister: sparse mid-block encouragement
+      if(!t.isRest&&t.running){
+        if(!t._halfShown&&t.rem<=t.workDur/2){t._halfShown=true;if(Math.random()<0.3)sisterMsg(sisterSays('halfway'),2000);}
+        if(!t._almostShown&&t.rem<=t.workDur*0.2){t._almostShown=true;if(Math.random()<0.3)sisterMsg(sisterSays('almostDone'),2000);}
+      }
       if(t.rem===0){
         const allDone=resolvePhaseEnd(t,true);
         save();
@@ -1163,11 +1259,11 @@ function ensureTicker(){
     });
     if(any){save();fastUpdateAll();}
     // Bedtime approaching warning (once, at ~15min mark)
-    if(any&&S.bedtime!=null){const _dr=dayRem();if(_dr<=900&&_dr>895&&document.hidden)notify('15 minutes to bedtime','Start winding down.');}
+    if(any&&S.bedtime!=null){const _dr=dayRem();if(_dr<=900&&_dr>895&&document.hidden)notify('15 minutes to bedtime',sisterSays('bedtimeNudge'));}
     if(!S.tasks.some(t=>t.running)){clearInterval(ticker);ticker=null;}
   },1000);
 }
-setInterval(renderDaybar,1000);
+setInterval(()=>{renderDaybar();applyNightTheme();},1000);
 
 const BOIL_THEMES={
   default:{
@@ -1326,15 +1422,7 @@ function getTheme(){
 }
 
 const SHOP_ITEMS=[
-  {id:'mercy',       name:'Mercy',         emoji:'🕊️', cost:30,  type:'consumable', desc:'Skip a block. Instant completion.'},
-  {id:'freeze',      name:'Streak Freeze', emoji:'🧊', cost:50,  type:'consumable', desc:'Protects your streak once'},
-  {id:'star_freeze', name:'Star Freeze',   emoji:'⭐🧊',cost:3,  type:'star_consumable', currency:'stars', desc:'Buy with 3 stars'},
-  // Profile avatar emojis (bought with coins)
-  {id:'avatar_chef',  name:'Chef',         emoji:'👨‍🍳', cost:80,  type:'avatar', desc:'A cook who takes the heat'},
-  {id:'avatar_fire',  name:'Fire',         emoji:'🔥',  cost:60,  type:'avatar', desc:'Pure heat'},
-  {id:'avatar_goose', name:'Goose',        emoji:'🪿',  cost:120, type:'avatar', desc:'The goose is loose'},
-  {id:'avatar_monk',  name:'Monk',         emoji:'🧘',  cost:100, type:'avatar', desc:'Disciplined. Faithful.'},
-  {id:'avatar_dragon',name:'Dragon',       emoji:'🐉',  cost:5,   type:'avatar', currency:'stars', desc:'Unlock with 5 stars'},
+  {id:'mercy',       name:'Mercy',         emoji:'🕊️', cost:30,  type:'consumable', desc:'Grace for a difficult moment.'},
   // Floating objects for the water
   {id:'float_ducky',  name:'Rubber Ducky',  emoji:'🦆', cost:80,  type:'floater', desc:'Bobs on the water'},
   {id:'float_boat',   name:'Paper Boat',    emoji:'⛵', cost:60,  type:'floater', desc:'Rocks with the waves'},
@@ -1350,10 +1438,9 @@ function shopBuy(id){
   if(!item)return;
   const currency=item.currency||'coins';
   const bal=currency==='stars'?(S.stars||0):currency==='fullBoils'?(S.fullBoils||0):(S.lifetimeCoins||0);
-  if(!GOD_MODE&&bal<item.cost){showToast(`Not enough ${currency==='fullBoils'?'full boils':currency}. Need ${item.cost}.`,'#c0453a');return;}
+  if(!GOD_MODE&&bal<item.cost){showToast('Not yet — keep working.','#6b6258');return;}
   if(!GOD_MODE){if(currency==='stars')S.stars-=item.cost;else if(currency==='fullBoils')S.fullBoils-=item.cost;else S.lifetimeCoins-=item.cost;}
   if(item.type==='consumable'||item.type==='star_consumable'){
-    if(id==='freeze'||id==='star_freeze')S.streakFreezes=(S.streakFreezes||0)+1;
     if(id==='mercy')S.mercyCoins=(S.mercyCoins||0)+1;
   } else if(item.type==='avatar'){
     S.shopItems.avatar=item.emoji;
@@ -1411,7 +1498,7 @@ function openProfile(){
         <div style="font-size:36px;line-height:1">${lvl[1]}</div>
         <div>
           <div style="font-family:var(--fd);font-size:18px;font-weight:800;letter-spacing:-.03em">${lvl[2]}</div>
-          <div style="font-size:11px;font-weight:700;color:var(--dim)">Heat Level ${lvlIdx+1}</div>
+          <div style="font-size:11px;font-weight:700;color:var(--dim)">heat level</div>
         </div>
         <div style="margin-left:auto;text-align:right">
           <div style="font-size:22px;font-weight:800;font-family:var(--fd)">${coins>=1000?(coins/1000).toFixed(1)+'k':coins} 🪙</div>
@@ -1422,15 +1509,15 @@ function openProfile(){
       <div style="height:5px;background:var(--brd);border-radius:100px;overflow:hidden">
         <div style="height:100%;width:${progressPct}%;background:var(--ink);border-radius:100px;transition:width 1s ease"></div>
       </div>
-      <div style="font-size:10px;color:var(--dim);font-weight:700;margin-top:4px">${coinsToNext} coins to ${nextLvl[2]} ${nextLvl[1]}</div>
+      <div style="font-size:10px;color:var(--dim);font-weight:700;margin-top:4px">${lvl[1]} → ${nextLvl[1]} ${nextLvl[2]}</div>
       `:'<div style="font-size:11px;color:#c8841a;font-weight:800;margin-top:4px">Maximum heat. 🌟</div>'}
     </div>
 
     <!-- Stats grid -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:16px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
       <div style="background:var(--bg);border-radius:12px;padding:10px 12px;text-align:center">
-        <div style="font-size:20px;font-weight:800;font-family:var(--fd);color:#c8841a">${S.streak||0}🔥</div>
-        <div style="font-size:9px;font-weight:800;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-top:2px">streak</div>
+        <div style="font-size:20px;font-weight:800;font-family:var(--fd);color:#c8841a">${S.streak||0}</div>
+        <div style="font-size:9px;font-weight:800;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-top:2px">days</div>
       </div>
       <div style="background:var(--bg);border-radius:12px;padding:10px 12px;text-align:center">
         <div style="font-size:20px;font-weight:800;font-family:var(--fd);color:#c8841a">${GOD_MODE?'∞':(S.stars||0)} ⭐</div>
@@ -1440,14 +1527,10 @@ function openProfile(){
         <div style="font-size:20px;font-weight:800;font-family:var(--fd);color:#c8841a">${GOD_MODE?'∞':(S.fullBoils||0)} ♨️</div>
         <div style="font-size:9px;font-weight:800;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-top:2px">full boils</div>
       </div>
-      <div style="background:var(--bg);border-radius:12px;padding:10px 12px;text-align:center">
-        <div style="font-size:20px;font-weight:800;font-family:var(--fd)">${S.daysCompleted||0}</div>
-        <div style="font-size:9px;font-weight:800;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-top:2px">full days</div>
-      </div>
     </div>
 
-    <!-- Badges -->
-    ${earned.length?`<div style="font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin-bottom:8px">${earned.length} badge${earned.length!==1?'s':''}</div>
+    <!-- Moments -->
+    ${earned.length?`<div style="font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin-bottom:8px">moments</div>
     <div style="margin-bottom:20px">
       ${earned.map(b=>badgeRow(b)).join('')}
     </div>`:''}
@@ -1471,13 +1554,13 @@ function openProfile(){
 
     <div class="sh-btns">
       <button class="bs" onclick="closeSheet()">close</button>
-      <button class="bp" onclick="closeSheet();openShop()">🪙 shop</button>
+      <button class="bp" onclick="closeSheet();openShop()">🪙 gifts</button>
     </div>
     <button onclick="event.stopPropagation();askEraseAll()" style="display:block;margin:24px auto 0;background:none;border:none;font-family:var(--fs);font-size:11px;font-weight:700;color:var(--dim);cursor:pointer;padding:8px 0">reset all data</button>
   `);
 }
 function openShop(){
-  seenToast('shop','Spend coins on water toys.','#6b6258',200);
+  seenToast('shop','The water has gifts for you.','#6b6258',200);
   const coins=GOD_MODE?'∞':(S.lifetimeCoins||0);
   const stars=GOD_MODE?'∞':(S.stars||0);
   const fb=GOD_MODE?'∞':(S.fullBoils||0);
@@ -1508,12 +1591,11 @@ function openShop(){
       ${owned||`<button onclick="shopBuy('${item.id}')" style="background:${canBuy?'var(--ink)':'var(--brd)'};color:${canBuy?'#fff':'var(--dim)'};border:none;border-radius:100px;padding:6px 14px;font-size:12px;font-weight:800;cursor:${canBuy?'pointer':'default'};font-family:var(--fs)">${item.cost}${costIcon}</button>`}
     </div>`;
   }).join('');
-  openSheet(`<div class="sh-ttl">shop</div>
+  openSheet(`<div class="sh-ttl">gifts</div>
     <div style="display:flex;gap:12px;margin-bottom:16px;background:var(--bg);border-radius:12px;padding:12px 14px;flex-wrap:wrap">
       <div><div style="font-size:20px;font-weight:800;font-family:var(--fd)">${coins} 🪙</div><div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:.06em;text-transform:uppercase">coins</div></div>
       <div><div style="font-size:20px;font-weight:800;font-family:var(--fd)">${stars} ⭐</div><div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:.06em;text-transform:uppercase">stars</div></div>
       <div><div style="font-size:20px;font-weight:800;font-family:var(--fd)">${fb} ♨️</div><div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:.06em;text-transform:uppercase">full boils</div></div>
-      <div><div style="font-size:20px;font-weight:800;font-family:var(--fd)">${S.streakFreezes||0} 🧊</div><div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:.06em;text-transform:uppercase">freezes</div></div>
       <div><div style="font-size:20px;font-weight:800;font-family:var(--fd)">${S.mercyCoins||0} 🕊️</div><div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:.06em;text-transform:uppercase">mercy</div></div>
     </div>
     ${rows}
@@ -1904,10 +1986,18 @@ function tapCard(id){
     if(o.id!==id&&o.running){o.running=false;o.savedAt=null;renderCard(o);}
   });
   t.running=!wasRunning;
-  if(t.running){t.savedAt=Date.now();sndTap();startAmbient();ensureTicker();showToast('Heating up. ↑','var(--tc)',1200);if(!_sensorsAttached)requestMotionPermission();}
+  if(t.running){
+    t.savedAt=Date.now();sndTap();startAmbient();ensureTicker();showToast('Heating up. ↑','var(--tc)',1200);if(!_sensorsAttached)requestMotionPermission();
+    // Water kick-start: brief surge for instant feedback
+    if(bgWaveState)bgWaveState.kick=1;
+    // Sister: first block of the day
+    if(!S.tasks.some(x=>x.completed>0&&x.id!==id))setTimeout(()=>sisterMsg(sisterSays('firstBlock'),2500),1500);
+  }
   else{t.savedAt=null;sndStop();stopAmbient();showToast('The water cools.','#6b6258',1800);}
   save();renderCard(t);renderDaybar();updateLogoDot();
   updateScrollState();
+  // Scroll running card into view
+  if(t.running){const el=document.getElementById('c-'+id);if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});}
 }
 
 // ── RETROACTIVE CREDIT / UNDO ─────────────────────────────────────
@@ -1971,6 +2061,7 @@ function useMercy(id){
   else if(!t.isRest)onSubBlockDone(t.id);
   else{renderCard(t);renderDaybar();}
   showToast('🕊️ Mercy granted.','#6b6258',1800);
+  setTimeout(()=>sisterMsg(sisterSays('mercy'),2500),300);
   haptic([15,30,60]);
 }
 
@@ -1985,15 +2076,16 @@ function onSubBlockDone(id){
   const t=S.tasks.find(x=>x.id===id);
   if(t){
     const blocksLeft2=t.total-t.completed-1;
-    if(blocksLeft2>0)notify(`${t.name} block done ✓`,`${blocksLeft2} block${blocksLeft2!==1?'s':''} left`);
-    else notify(`${t.name} — last block done!`,'Task completing…');
+    if(blocksLeft2>0)notify(`${t.name}: one more done`,`${blocksLeft2} to go.`);
+    else notify(`${t.name} — last block done!`,'All done. Go gently.');
     // Nudge if non-continuous and backgrounded — "come back when ready"
     if(!S.continuous&&document.hidden&&blocksLeft2>0){
       const _tn=t.name;
-      setTimeout(()=>{if(document.hidden&&!S.tasks.some(x=>x.running&&!x.done))notify('Come back when ready',`${_tn} is waiting.`);},120000);
+      setTimeout(()=>{if(document.hidden&&!S.tasks.some(x=>x.running&&!x.done))notify('The water\'s waiting when you are',`${_tn}`);},120000);
     }
     // Contextual one-liners
     seenToast('coin','🪙 You earned a coin. One per block.','#c8841a',1200);
+    if(S.seen.coin&&Math.random()<0.6)setTimeout(()=>sisterMsg(sisterSays('blockDone'),2000),800);
   }
   const el=document.getElementById('c-'+id);
   if(!el){renderCards();return;}
@@ -2036,6 +2128,8 @@ function onSubBlockDone(id){
     el.classList.remove('block-flash');
     renderCard(t);renderDaybar();updateLogoDot();
   },720);
+  // Sister: between blocks (non-continuous, task paused waiting for user)
+  if(t&&!t.running&&!t.done)setTimeout(()=>sisterMsg(sisterSays('betweenBlocks'),2500),1200);
 }
 
 function onTaskDone(id){
@@ -2043,11 +2137,12 @@ function onTaskDone(id){
   stopAmbient();sndTask();
   const _td=S.tasks.find(x=>x.id===id);
   if(_td){
-    notify(`${_td.name} complete! ⭐`,'All blocks done. What\'s next?');
+    notify(`${_td.name} complete ⭐`,'All done. Go gently.');
     S.stars=(S.stars||0)+1;save();updateHeader();
     const _dc=getTheme().doneCopy;
-    const _dm=_dc[Math.floor(Math.random()*_dc.length)];
-    showToast(`⭐ ${_dm} +1 star`,'#c8841a',2200);
+    const _dm=_dc?_dc[Math.floor(Math.random()*_dc.length)]:sisterSays('taskDone');
+    showToast(`⭐ ${_dm}`,'#c8841a',2200);
+    if(!_dc)setTimeout(()=>sisterMsg(_dm,2800),400);
     haptic([8,30,8,30,60]);
   }
   // Reset bg wave
@@ -2060,8 +2155,8 @@ function onTaskDone(id){
     S.isTrial=false;
     save();
     setTimeout(()=>{
-      showToast("That's it. Add your own blocks.",'#3d3530',3500);
-      setTimeout(()=>openAdd(),1800);
+      showToast("That's it. Now add your own.",'#3d3530',3000);
+      setTimeout(()=>openAdd(true),1500);
     },1200);
     renderCards();
     return;
@@ -2108,34 +2203,24 @@ function getHeatLevel(){
 }
 function updateStreak(){
   const td=today();
-  const yesterday=new Date(Date.now()-86400000);
-  const yd=`${yesterday.getFullYear()}-${p2(yesterday.getMonth()+1)}-${p2(yesterday.getDate())}`;
   if(S.lastCompletedDate===td){
     // Already updated today — no change
-  } else if(S.lastCompletedDate===yd){
-    S.streak=(S.streak||0)+1; // consecutive day
-  } else if(S.streakFreezes>0){
-    // Use a freeze instead of resetting!
-    S.streakFreezes--;
-    showToast('🧊 Streak freeze used. Back to it.','#4a78c0',3500);
-    haptic([0,50,0,50,200]);
-    // Don’t change streak, just update date
   } else {
-    S.streak=1; // gap or first time
+    // Every day you show up counts. The door is always open.
+    S.streak=(S.streak||0)+1;
   }
   S.lastCompletedDate=td;
-  // Lifetime coins accumulated per block in resolvePhaseEnd
   checkStreakMilestone(S.streak);
   checkBadges();
   save();updateHeader();
 }
 
 const STREAK_MILESTONES={
-  3:{msg:'Three days. The habit is forming.',emoji:'🌡️'},
-  7:{msg:'Seven days. Like it was meant to be.',emoji:'🔥'},
-  14:{msg:'Two weeks faithful. You’re something else.',emoji:'⚡'},
-  30:{msg:'Thirty days. Full boil.',emoji:'🏆'},
-  100:{msg:'A hundred days. This is who you are now.',emoji:'✨'},
+  3:{msg:"You came back three times. The habit is forming.",emoji:"\u{1F321}\uFE0F"},
+  7:{msg:"Seven days of showing up. Like it was meant to be.",emoji:"\u{1F525}"},
+  14:{msg:"Two weeks faithful. Something beautiful is happening.",emoji:"\u26A1"},
+  30:{msg:"Thirty days of small things with great love.",emoji:"\u{1F3C6}"},
+  100:{msg:"A hundred days. This is devotion.",emoji:"\u2728"},
 };
 function checkStreakMilestone(n){
   if(!STREAK_MILESTONES[n])return;
@@ -2143,7 +2228,7 @@ function checkStreakMilestone(n){
   setTimeout(()=>{
     const d=document.createElement('div');
     d.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);background:var(--card);border:2px solid var(--brd);border-radius:24px;padding:32px 40px;text-align:center;z-index:1000;box-shadow:0 20px 60px rgba(0,0,0,.2);transition:transform .5s cubic-bezier(.34,1.56,.64,1)';
-    d.innerHTML=`<div style="font-size:48px;margin-bottom:8px">${m.emoji}</div><div style="font-family:var(--fd);font-size:22px;font-weight:800;letter-spacing:-.03em;margin-bottom:6px">🔥 ${n}-day streak</div><div style="font-size:14px;color:var(--dim);font-weight:600;max-width:200px">${m.msg}</div>`;
+    d.innerHTML=`<div style="font-size:48px;margin-bottom:8px">${m.emoji}</div><div style="font-family:var(--fd);font-size:20px;font-weight:800;letter-spacing:-.03em;margin-bottom:6px;max-width:220px">${m.msg}</div><div style="font-size:13px;color:var(--dim);font-weight:700">${n} days</div>`;
     document.body.appendChild(d);
     requestAnimationFrame(()=>d.style.transform='translate(-50%,-50%) scale(1)');
     haptic([30,50,30,50,100]);
@@ -2152,14 +2237,14 @@ function checkStreakMilestone(n){
   },800);
 }
 const BADGE_DEFS=[
-  {id:'first_boil',    emoji:'🫧', name:'First Boil',       desc:'Complete your first block'},
-  {id:'full_boil',     emoji:'♨️', name:'Full Boil',         desc:'Complete all tasks in a day'},
-  {id:'faithful',      emoji:'🕊️', name:'Faithful',          desc:'7-day streak'},
-  {id:'heat_wave',     emoji:'🌊', name:'Heat Wave',          desc:'14-day streak'},
-  {id:'perfect',       emoji:'⭐', name:'Perfectionist',     desc:'5 perfect blocks earned'},
-  {id:'pressure',      emoji:'⏱️', name:'Pressure Cooker',   desc:'Finish a block with <60s left'},
-  {id:'early_bird',    emoji:'🌅', name:'Early Bird',         desc:'Start before 8am'},
-  {id:'night_owl',     emoji:'🦉', name:'Night Owl',          desc:'Finish a block after 10pm'},
+  {id:'first_boil',    emoji:'🫧', name:'Your First Block',  desc:'The first small thing'},
+  {id:'full_boil',     emoji:'♨️', name:'A Whole Day',        desc:'Every task, start to finish'},
+  {id:'faithful',      emoji:'🕊️', name:'Faithful',          desc:'7 days of showing up'},
+  {id:'heat_wave',     emoji:'🌊', name:'Heat Wave',          desc:'14 days of showing up'},
+  {id:'perfect',       emoji:'⭐', name:'Perfectionist',     desc:'5 stars earned'},
+  {id:'pressure',      emoji:'⏱️', name:'Under Pressure',    desc:'A block finished with <60s left'},
+  {id:'early_bird',    emoji:'🌅', name:'Early Morning',      desc:'Started before 8am'},
+  {id:'night_owl',     emoji:'🦉', name:'Late Night',          desc:'Finished a block after 10pm'},
 ];
 function checkBadges(){
   const newBadges=[];
@@ -2183,17 +2268,17 @@ function checkBadges(){
   newBadges.forEach((id,i)=>{
     const def=BADGE_DEFS.find(b=>b.id===id);
     if(!def)return;
-    setTimeout(()=>showToast(`${def.emoji} Badge unlocked: ${def.name}`,'#9b6bb5',3000),i*3500+500);
+    setTimeout(()=>showToast(`${def.emoji} ${def.name}`,'#9b6bb5',3000),i*3500+500);
   });
 }
 // Called from ticker for pressure cooker + night owl
 function checkRuntimeBadges(t){
   if(!S.badges.includes('pressure')&&t.rem>0&&t.rem<=60&&t.completed>0){
-    S.badges.push('pressure');showToast('⏱️ Pressure Cooker badge!','#c0453a',3000);
+    S.badges.push('pressure');showToast('⏱️ Under Pressure','#c0453a',3000);
   }
   const h=new Date().getHours();
   if(h>=22&&t.completed>0&&!S.badges.includes('night_owl')){
-    S.badges.push('night_owl');showToast('🦉 Night Owl badge!','#3d3530',3000);
+    S.badges.push('night_owl');showToast('🦉 Late Night','#3d3530',3000);
   }
 }
 function triggerDayCeremony(){
@@ -2210,15 +2295,8 @@ function triggerDayCeremony(){
   const div=document.createElement('div');
   div.className='day-done-msg';
   const _th=getTheme();
-  const dayMsgs=_th.dayCopy||[
-    ['Full boil.','Everything cooked.'],
-    ['All done.','Go be a person.'],
-    ['Faithful again.','Rest is sacred.'],
-    ['Nothing left to heat.','Good work.'],
-    ['Complete.','Your attention was an act of love.'],
-    ['Everything done.','See you tomorrow. 🌿'],
-  ];
-  const dm=dayMsgs[Math.floor(Math.random()*dayMsgs.length)];
+  const _dayPool=_th.dayCopy||SISTER.dayDone;
+  const dm=_dayPool[Math.floor(Math.random()*_dayPool.length)];
   div.innerHTML=`<div class="day-done-inner">${dm[0]}<span class="day-done-sub">${dm[1]}</span></div>`;
   document.body.appendChild(div);
   setTimeout(()=>{div.remove();renderCards();},4200);
@@ -2273,10 +2351,9 @@ function renderDaybar(){
 
   // Right stat: free time or overbooked
   const free=Math.max(0,Math.round(wr-totalB));
-  const streakBit=S.streak>1?`<span style="margin-left:6px;font-size:10px;font-weight:800;color:#c8841a">🔥${S.streak}</span>`:'';
   const rightText=isOver
-    ?`<div class="db-stat warn"><span style="font-size:14px">💀</span> <b>${fmtHM(Math.abs(slack))}</b> over${streakBit}</div>`
-    :`<div class="db-stat${totalB<=0?' go':''}"><b>${fmtHM(free)}</b> free${streakBit}</div>`;
+    ?`<div class="db-stat warn"><span style="font-size:14px">💀</span> <b>${fmtHM(Math.abs(slack))}</b> over</div>`
+    :`<div class="db-stat${totalB<=0?' go':''}"><b>${fmtHM(free)}</b> free</div>`;
 
   // Dynamic tick labels based on actual start time and DAY_S() (respects midnight cap)
   const dbTicks=(()=>{
@@ -2329,7 +2406,7 @@ function updateHeader(){
   if(pa)pa.textContent=S.shopItems&&S.shopItems.avatar?S.shopItems.avatar:lvl[1];
   if(ph){
     const idx=HEAT_LEVELS.findIndex(h=>h===lvl);
-    ph.textContent=`Lv ${idx+1}`;
+    ph.textContent=lvl[2];
   }
   const aqt=document.getElementById('aq-toggle');
   if(aqt)aqt.style.display=(S.shopItems&&S.shopItems.aquarium)||GOD_MODE?'inline-block':'none';
@@ -2457,7 +2534,7 @@ function cardHTML(t){
         ${t.isRest?`
         <div class="rest-overlay" id="ro-${t.id}">
           <div class="rest-emoji">${S.shopItems&&S.shopItems.restEmoji?S.shopItems.restEmoji:"☕"}</div>
-          <div class="rest-label" id="rest-label-${t.id}">${(()=>{const bl=t.total-t.completed;if(bl<=1)return'last bit of steam';if(bl===2)return'almost cooked';if((S.streak||0)>=7)return'well earned';return['let some steam out','cooling off','venting','letting it settle'][t.completed%4];})()}</div>
+          <div class="rest-label" id="rest-label-${t.id}">${(()=>{const bl=t.total-t.completed;if(bl<=1)return'last bit of steam';if(bl===2)return'almost cooked';if((S.streak||0)>=7)return'well earned';return['let some steam out','cooling off','rest is sacred','letting it settle','grace between blocks'][t.completed%5];})()}</div>
           <div class="rest-timer-big" id="ptc-${t.id}">${fmtTime(t.rem)}</div>
           <div class="rest-bar-wrap"><div class="rest-bar" id="rb-${t.id}" style="width:${((t.restDur-t.rem)/t.restDur*100).toFixed(1)}%"></div></div>
           <button onclick="event.stopPropagation();skipRest('${t.id}')" style="margin-top:6px;background:none;border:1.5px solid rgba(46,158,106,.3);border-radius:100px;font-family:var(--fs);font-size:10px;font-weight:700;color:#2e9e6a;padding:4px 14px;cursor:pointer">skip rest →</button>
@@ -2538,6 +2615,12 @@ function fastUpdateCard(id){
   // Update bg canvas wave — mirrors current sub-block fill percentage
   const bgPct=5+pct*0.95;
   updateSiteWave(t,bgPct);
+  // Trial milestone toasts — the water teaches the metaphor
+  if(S.isTrial&&id==='trial'&&t.running&&!t.isRest){
+    if(pct>=12&&pct<18)seenToast('trial_rise','Water rises as you work.','#4a9eba',2500);
+    if(pct>=45&&pct<52)seenToast('trial_warm','Getting warmer.','#d4782a',2000);
+    if(pct>=78&&pct<85)seenToast('trial_boil','Almost boiling...','#c0453a',2000);
+  }
   // Gentle haptic at 50% fill milestone (fires once per block)
   const halfKey='_half_'+t.id+'_'+t.completed;
   if(!window[halfKey]&&pct>=50&&pct<52){window[halfKey]=1;haptic([30]);}
@@ -2567,7 +2650,7 @@ function fastUpdateAll(){S.tasks.filter(t=>t.running&&!t.done).forEach(t=>fastUp
 
 // ── WATER ENGINE ─────────────────────────────────────────────────────
 
-const bgWaveState={fill:0,color:'#4a9eba',active:false,targetFill:0,targetColor:'#4a9eba',ambient:false};
+const bgWaveState={fill:0,color:'#4a9eba',active:false,targetFill:0,targetColor:'#4a9eba',ambient:false,kick:0};
 let waveRaf=null;
 let waveT=0;
 let lastFrame=0;
@@ -2973,6 +3056,10 @@ function _touchCol(tx){
   return Math.round(tx/W*bgHF.cols);
 }
 function popBubbleAt(tx,ty){
+  // Don't pop bubbles above the waterline
+  const _pH=window.innerHeight*_bgDpr();
+  const _pW=_pH*(1-bgWaveState.fill/100);
+  if(ty<_pW-20*_bgDpr())return;
   for(let j=bgBubbles.length-1;j>=0;j--){
     const b=bgBubbles[j];
     const dx=tx-b.x,dy=ty-b.y;
@@ -3174,6 +3261,8 @@ function waveLoop(now){
   const bgc=document.getElementById('bg-canvas');
   const isResting=rt&&rt.isRest;
   if(bgc&&bgWaveState.active&&(anyRunning||bgWaveState.ambient)){
+    // Water kick-start: brief surge on tap for instant feedback
+    if(bgWaveState.kick>0){bgWaveState.fill=Math.min(bgWaveState.fill+bgWaveState.kick*5,bgWaveState.targetFill+5);bgWaveState.kick*=0.85;if(bgWaveState.kick<0.05)bgWaveState.kick=0;}
     bgWaveState.fill+=(bgWaveState.targetFill-bgWaveState.fill)*Math.min(dt*(bgWaveState.ambient?1:3),bgWaveState.ambient?0.06:0.18);
     if(bgWaveState.fill<2&&bgWaveState.targetFill>0)bgWaveState.fill=2; // never fully zero while active
     // Lerp bg color toward target for smooth task-color transitions
@@ -3627,7 +3716,7 @@ function updateSiteWave(t,pct){
 function onRestStart(id){
   const t=S.tasks.find(x=>x.id===id);
   if(!t)return;
-  if(S.seen.rest)showToast('☕ Rest','#2e9e6a',1500);
+  if(S.seen.rest){sisterMsg(sisterSays('restStart'),2500);}
   else seenToast('rest','☕ Rest. The next block starts after.','#2e9e6a',800);
   // Gentle descending chime — work done, relax now
   const now=ac().currentTime;
@@ -3699,6 +3788,17 @@ function quickBoil(){
   setTimeout(()=>tapCard(qid),300);
 }
 
+function skipTutorial(){
+  S.isTrial=false;
+  S.tasks=[];
+  S.startTs=Date.now();S.dayHours=24;
+  S.bedtime=S.bedtime||22;
+  _snapshotDay();save();
+  document.getElementById('begin-screen').style.display='none';
+  if(beginWaveRaf){cancelAnimationFrame(beginWaveRaf);beginWaveRaf=null;}
+  render();
+}
+
 function toggleContinuous(){
   S.continuous=!S.continuous;
   save();
@@ -3739,17 +3839,18 @@ function renderBeginStreak(){
   const el=document.getElementById('begin-streak');
   if(!el)return;
   // Hide streak/level info on first run
-  if(S.daysCompleted===0&&!GOD_MODE){el.innerHTML='';return;}
-  const lvl=getHeatLevel();
-  const avatar=S.shopItems&&S.shopItems.avatar?S.shopItems.avatar:lvl[1];
-  const lvlIdx=HEAT_LEVELS.findIndex(h=>h===lvl);
-  const lvlLine=`<div style="font-size:13px;font-weight:700;color:var(--dim)">${avatar} ${lvl[2]} · Level ${lvlIdx+1}</div>`;
-  if(S.streak>0){
-    const freeze=S.streakFreezes>0?`<span style="margin-left:8px;font-size:13px;color:var(--dim)">🧊×${S.streakFreezes}</span>`:'';
-    el.innerHTML=`<div style="font-size:18px;font-weight:800;color:#c8841a;margin-bottom:4px">🔥 ${S.streak} day streak${freeze}</div>${lvlLine}`;
-  } else {
-    el.innerHTML=lvlLine;
+  if(S.daysCompleted===0&&!GOD_MODE){el.innerHTML='';} else {
+    const lvl=getHeatLevel();
+    const avatar=S.shopItems&&S.shopItems.avatar?S.shopItems.avatar:lvl[1];
+    if(S.streak>0){
+      el.innerHTML=`<div style="font-size:15px;font-weight:700;color:var(--dim);margin-bottom:2px">${avatar} ${S.streak} day${S.streak!==1?'s':''}</div>`;
+    } else {
+      el.innerHTML=`<div style="font-size:13px;font-weight:700;color:var(--dim)">${avatar} ${lvl[2]}</div>`;
+    }
   }
+  // Sister's greeting
+  const sEl=document.getElementById('sister-begin');
+  if(sEl)sEl.textContent=sisterSays('begin');
 }
 function checkBeginScreen(){
   const bs=document.getElementById('begin-screen');
@@ -3759,11 +3860,15 @@ function checkBeginScreen(){
   // First-run: simplified begin screen
   const sub=document.getElementById('begin-sub');
   const bedRow=document.getElementById('begin-bed-row');
+  const skipBtn=document.getElementById('skip-tut');
   if(S.isTrial){
     if(sub)sub.innerHTML='Tap play. Watch it boil.';
     if(bedRow)bedRow.style.display='none';
+    if(skipBtn)skipBtn.style.display='';
   } else {
-    if(bedRow)bedRow.style.display='';
+    // Hide bedtime on early days to reduce pre-action decisions
+    if(bedRow)bedRow.style.display=(S.daysCompleted||0)<=1?'none':'';
+    if(skipBtn)skipBtn.style.display='none';
   }
   // Restore saved values
   const bedInput=document.getElementById('begin-bed');
@@ -3808,6 +3913,9 @@ function render(){
   const hdr=document.querySelector('.hdr');
   if(aw){aw.classList.remove('day-0','day-1');if(dayClass)aw.classList.add(dayClass);}
   if(hdr){hdr.classList.remove('day-0','day-1');if(dayClass)hdr.classList.add(dayClass);}
+  // Progressive disclosure transition toasts
+  if(dc>=1&&dc<3)seenToast('daybar_intro','Your day at a glance ↑','#6b6258',2500);
+  if(dc>=2)seenToast('streak_intro','Streaks track consistency 🔥','#c8841a',2500);
   document.documentElement.classList.toggle('battery-saver',!!S.batterySaver);
   checkBeginScreen();renderBeginStreak();updateContToggle();renderDaybar();renderCards();updateSteamBanner();updateLogoDot();updateHeader();updateScrollState();applyAquarium();updateAquariumBar();setTimeout(startWaveLoop,50);updateGodBadge();applyNightTheme();
 }
@@ -3885,14 +3993,16 @@ function doReset(){bgBubbles.length=0;activeFloaters.length=0;if(bgHF.h)bgHF.h.f
 // ── FORMS ───────────────────────────────────────────────────────────
 let pomoOn=false,pickedCol=null;
 
-function taskForm(t){
+function taskForm(t,simple){
   const pomo=t?t.restDur>0:false;
   pomoOn=pomo;
   const ic=t?.color??PAL[0];
-  const sw=PAL.map(p=>`<div class="sw${p===ic?' on':''}" style="background:${p}" data-p="${p}" onclick="pickCol('${p}')"></div>`).join('');
+  const colors=simple?PAL.slice(0,5):PAL;
+  const sw=colors.map(p=>`<div class="sw${p===ic?' on':''}" style="background:${p}" data-p="${p}" onclick="pickCol('${p}')"></div>`).join('');
+  const hideSimple=simple?'display:none':'';
   return`
     <div class="field"><label>Name</label><input id="fn" type="text" value="${esc(t?.name??'')}" placeholder="e.g. Work, Chinese, Exercise" autocomplete="off"></div>
-    <div class="field"><label>Description <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--dimmer)">optional</span></label><input id="fdesc" type="text" value="${esc(t?.desc??'')}" placeholder="what specifically? where you left off?" autocomplete="off"></div>
+    <div class="field" style="${hideSimple}"><label>Description <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--dimmer)">optional</span></label><input id="fdesc" type="text" value="${esc(t?.desc??'')}" placeholder="what specifically? where you left off?" autocomplete="off"></div>
     <div class="field"><label>Color</label><div class="cr">${sw}</div></div>
     <div class="field"><label>Number of blocks</label><input id="ftot" type="number" value="${t?.total??4}" min="1" max="20" inputmode="numeric"></div>
     <div class="field"><label>Block duration (minutes)</label><input id="fwork" type="number" value="${t?Math.round(t.workDur/60):60}" min="1" max="480" inputmode="numeric"></div>
@@ -3905,16 +4015,25 @@ function taskForm(t){
     <div id="rfield" style="display:${pomo?'block':'none'}">
       <div class="field"><label>Rest duration (minutes)</label><input id="frest" type="number" value="${t?Math.round(t.restDur/60)||10:10}" min="1" max="120" inputmode="numeric"></div>
     </div>
-    <div class="field"><label>Days</label>
+    <div class="field" id="days-field" style="${hideSimple}"><label>Days</label>
       <div class="day-picker" id="day-picker">${['S','M','T','W','T','F','S'].map((d,i)=>{
         const on=t&&t.days?t.days.includes(i):false;
         return`<button class="day-pill${on?' on':''}" data-day="${i}" onclick="toggleDayPill(this)">${d}</button>`;
       }).join('')}</div>
       <div style="font-size:10px;color:var(--dim);margin-top:4px">Leave all off = every day</div>
-    </div>`;
+    </div>
+    ${simple?'<div style="text-align:center;margin-top:4px"><button onclick="showAllFormFields(this)" style="background:none;border:none;color:var(--dim);font-size:11px;font-family:var(--fs);text-decoration:underline;cursor:pointer">more options</button></div>':''}`;
 }
 function togglePomo(){pomoOn=!pomoOn;document.getElementById('ptog').classList.toggle('on',pomoOn);document.getElementById('rfield').style.display=pomoOn?'block':'none';}
 function pickCol(p){pickedCol=p;document.querySelectorAll('.sw').forEach(s=>s.classList.toggle('on',s.dataset.p===p));}
+function showAllFormFields(btn){
+  const sheet=btn.closest('.sheet');
+  if(sheet)sheet.querySelectorAll('.field[style*="display:none"]').forEach(f=>f.style.display='');
+  // Add remaining colors
+  const cr=sheet&&sheet.querySelector('.cr');
+  if(cr){const existing=new Set(Array.from(cr.querySelectorAll('.sw')).map(s=>s.dataset.p));PAL.filter(p=>!existing.has(p)).forEach(p=>{const d=document.createElement('div');d.className='sw';d.style.background=p;d.dataset.p=p;d.onclick=()=>pickCol(p);cr.appendChild(d);});}
+  btn.parentElement.remove();
+}
 function toggleDayPill(el){el.classList.toggle('on');}
 function getPickedDays(){
   const pills=document.querySelectorAll('#day-picker .day-pill.on');
@@ -3934,14 +4053,15 @@ function applyPreset(label,total,workMin,restMin){
     c.style.color=on?'#fff':'var(--mid)';
   });
 }
-function openAdd(){
+function openAdd(simple){
   pomoOn=false;pickedCol=null;
   const presets=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
     <button class="preset-chip" data-label="focus" onclick="applyPreset('focus',1,25,5)" style="background:var(--brd);color:var(--mid);border:none;border-radius:100px;padding:6px 12px;font-size:11px;font-weight:800;font-family:var(--fs);cursor:pointer;letter-spacing:.04em">25m focus</button>
     <button class="preset-chip" data-label="deep" onclick="applyPreset('deep',1,50,10)" style="background:var(--brd);color:var(--mid);border:none;border-radius:100px;padding:6px 12px;font-size:11px;font-weight:800;font-family:var(--fs);cursor:pointer;letter-spacing:.04em">50m + 10m rest</button>
     <button class="preset-chip" data-label="long" onclick="applyPreset('long',1,90,0)" style="background:var(--brd);color:var(--mid);border:none;border-radius:100px;padding:6px 12px;font-size:11px;font-weight:800;font-family:var(--fs);cursor:pointer;letter-spacing:.04em">90m deep work</button>
   </div>`;
-  openSheet(`<div class="sh-ttl">New block</div>${presets}${taskForm(null)}<div class="sh-btns"><button class="bs" onclick="closeSheet()">Cancel</button><button class="bp" onclick="saveTask(null)">Add</button></div>`);
+  openSheet(`<div class="sh-ttl">New block</div>${presets}${taskForm(null,simple)}<div class="sh-btns"><button class="bs" onclick="closeSheet()">Cancel</button><button class="bp" onclick="saveTask(null)">Add</button></div>`);
+  if(simple)setTimeout(()=>applyPreset('focus',1,25,5),50);
   setTimeout(()=>document.getElementById('fn')?.focus(),80);
 }
 function openEdit(id){const t=S.tasks.find(x=>x.id===id);pickedCol=t.color;openSheet(`<div class="sh-ttl">Edit block</div>${taskForm(t)}<div class="sh-btns"><button class="bd" onclick="confirmDel('${id}')">Delete</button><button class="bs" onclick="closeSheet()">Cancel</button><button class="bp" onclick="saveTask('${id}')">Save</button></div>`);}
@@ -3995,35 +4115,11 @@ function openFinishDay(){
     </div>`;
   }).join('');
 
-  openSheet(`<div class="sh-ttl">today</div>
+  const _reflections=['Small things with great love.','You showed up. That\'s what matters.','The water remembers.','Every block was a gift.','Rest well.'];
+  const _refl=_reflections[Math.floor(Math.random()*_reflections.length)];
 
-    <div class="fin-grid">
-      <div class="fin-stat">
-        <div class="fin-stat-icon">🪙</div>
-        <div class="fin-stat-val gold">${completedSubBlocks}<span style="font-size:16px;font-weight:700;color:var(--dim)"> / ${totalSubBlocks}</span></div>
-        <div class="fin-stat-label">coins earned</div>
-      </div>
-      <div class="fin-stat">
-        <div class="fin-stat-icon">⭐</div>
-        <div class="fin-stat-val purple">${completedTasks}<span style="font-size:16px;font-weight:700;color:var(--dim)"> / ${totalTasks}</span></div>
-        <div class="fin-stat-label">stars earned</div>
-      </div>
-      <div class="fin-stat">
-        <div class="fin-stat-icon">⏳</div>
-        <div class="fin-stat-val grn">${wr>0?fmtHM(wr):'—'}</div>
-        <div class="fin-stat-label">free time left</div>
-      </div>
-      <div class="fin-stat">
-        <div class="fin-stat-icon">⚡</div>
-        <div class="fin-stat-val">${fmtElapsed}</div>
-        <div class="fin-stat-label">time invested</div>
-      </div>
-      ${(S.streak||0)>1?`<div class="fin-stat wide">
-        <div class="fin-stat-icon">🔥</div>
-        <div class="fin-stat-val gold">${S.streak} days</div>
-        <div class="fin-stat-label">streak</div>
-      </div>`:''}
-    </div>
+  openSheet(`<div class="sh-ttl">today</div>
+    <div style="text-align:center;font-style:italic;font-size:14px;font-weight:600;color:var(--mid);margin-bottom:20px;line-height:1.6">${_refl}</div>
 
     <div style="margin-bottom:10px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)">by block</div>
     <div style="background:var(--bg);border:1.5px solid var(--brd);border-radius:14px;padding:4px 14px;margin-bottom:20px">
@@ -4167,16 +4263,20 @@ let beginWaveRaf=null;
 function animateBeginWater(){
   const cv=document.getElementById('begin-water');
   if(!cv||cv.offsetParent===null){beginWaveRaf=null;return;}
+  applyNightTheme(); // keep night colors current on begin screen
+  const nA=nightT();
   const dpr=Math.min(window.devicePixelRatio||1,2);
   const W=Math.round(cv.clientWidth*dpr);
   const H=Math.round(cv.clientHeight*dpr);
   if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;}
   const c=cv.getContext('2d');
   c.clearRect(0,0,W,H);
+  // Draw stars on begin screen at night
+  if(nA>0.01){drawStars(c,W,H,performance.now()/1000,nA);}
   const t=performance.now()/1000;
   const fp=18;
   const fillY=H*(1-fp/100);
-  const A=3.5,lam=W/1.6,spd=0.12;
+  const A=4.8,lam=W/1.6,spd=0.15;
   c.beginPath();
   c.moveTo(0,fillY+Math.sin(2*Math.PI*(-t*spd))*A);
   for(let x=1;x<=W;x+=2){
@@ -4184,9 +4284,12 @@ function animateBeginWater(){
     c.lineTo(x,y);
   }
   c.lineTo(W,H);c.lineTo(0,H);c.closePath();
+  // Water color adapts to night — darker and cooler
+  const wAlpha=0.22-nA*0.12;
+  const wR=Math.round(74-nA*44),wG=Math.round(158-nA*108),wB=Math.round(186-nA*86);
   const g=c.createLinearGradient(0,fillY,0,H);
-  g.addColorStop(0,'rgba(74,158,186,0.22)');
-  g.addColorStop(1,'rgba(74,158,186,0.06)');
+  g.addColorStop(0,`rgba(${wR},${wG},${wB},${wAlpha})`);
+  g.addColorStop(1,`rgba(${wR},${wG},${wB},${wAlpha*0.3})`);
   c.fillStyle=g;c.fill();
   c.beginPath();
   c.moveTo(0,fillY+Math.sin(2*Math.PI*(-t*spd))*A);
@@ -4194,7 +4297,7 @@ function animateBeginWater(){
     const y=fillY+Math.sin(2*Math.PI*(x/lam-t*spd))*A+Math.sin(2*Math.PI*(x/(lam*0.5)-t*spd*2))*1.2;
     c.lineTo(x,y);
   }
-  c.lineWidth=1.5;c.strokeStyle='rgba(255,255,255,0.45)';c.stroke();
+  c.lineWidth=1.5;c.strokeStyle=`rgba(255,255,255,${0.45-nA*0.25})`;c.stroke();
   beginWaveRaf=requestAnimationFrame(animateBeginWater);
 }
 function checkBeginWater(){
