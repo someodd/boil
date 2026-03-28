@@ -1233,11 +1233,14 @@ function save(){
 function today(){const d=new Date();return`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;}
 
 let _tabHiddenAt=null;
+let _bgNotifTimers=[];
+function clearBgNotifs(){_bgNotifTimers.forEach(clearTimeout);_bgNotifTimers=[];}
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden){_tabHiddenAt=Date.now();save();return;}
+  if(document.hidden){_tabHiddenAt=Date.now();save();schedBgNotifs();return;}
   // Resumed — compute actual away time before anything resets it
   const _actualAway=_tabHiddenAt?Math.floor((Date.now()-_tabHiddenAt)/1000):0;
   _tabHiddenAt=null;
+  clearBgNotifs();
   // Check for date rollover
   const td=today();
   if(S.date!==td){
@@ -2224,9 +2227,55 @@ function notify(title,body){
     try{new Notification(title,{body,icon:'',vibrate:[200,100,200]});}catch(e){}
   }
 }
+// Pre-schedule notifications for block completions while tab is hidden
+// (ticker is suspended on mobile — these are the lifeline, PRODUCT.md)
+function scheduleBgNotif(ms,title,body){
+  _bgNotifTimers.push(setTimeout(()=>{
+    if(!document.hidden)return;
+    try{new Notification(title,{body,vibrate:[200,100,200]});}catch(e){}
+  },ms));
+}
+function schedBgNotifs(){
+  clearBgNotifs();
+  if(!('Notification' in window)||Notification.permission!=='granted')return;
+  const t=S.tasks.find(x=>x.running&&!x.done);
+  if(!t)return;
+  const name=t.name,total=t.total,cont=S.continuous;
+  const lastTask=S.tasks.filter(x=>!x.done&&x.id!==t.id).length===0;
+  let rem=t.rem,comp=t.completed,rest=t.isRest,off=0;
+  while(comp<total){
+    off+=rem;
+    if(rest){
+      comp++;
+      if(comp>=total){
+        scheduleBgNotif(off*1000,name+' complete',total+'/'+total+' blocks done.');
+        if(lastTask)scheduleBgNotif(off*1000+2000,'Fully boiled','Every task done. Go gently.');
+        break;
+      }
+      scheduleBgNotif(off*1000,name+': '+comp+'/'+total+' blocks',(total-comp)+' to go.');
+      if(!cont){scheduleBgNotif((off+120)*1000,'The water\u2019s waiting when you are',name);break;}
+      rest=false;rem=t.workDur;
+    } else {
+      if(t.restDur>0){rest=true;rem=t.restDur;}
+      else{
+        comp++;
+        if(comp>=total){
+          scheduleBgNotif(off*1000,name+' complete',total+'/'+total+' blocks done.');
+          if(lastTask)scheduleBgNotif(off*1000+2000,'Fully boiled','Every task done. Go gently.');
+          break;
+        }
+        scheduleBgNotif(off*1000,name+': '+comp+'/'+total+' blocks',(total-comp)+' to go.');
+        if(!cont){scheduleBgNotif((off+120)*1000,'The water\u2019s waiting when you are',name);break;}
+        rem=t.workDur;
+      }
+    }
+    if(_bgNotifTimers.length>20)break;
+  }
+}
 // Cross-modal emphasis rotation (sensory-specific satiety prevention — Rolls, HAP model)
 function _completionMode(){const r=Math.random();return r<0.4?'audio':r<0.7?'haptic':'visual';}
 function onSubBlockDone(id){
+  clearBgNotifs();
   if(S.aquariumOn){S.aquariumOn=false;save();applyAquarium();}
   const _cm=_completionMode();
   sndSub();
@@ -2241,14 +2290,9 @@ function onSubBlockDone(id){
   } // always plays (with built-in micro-variation), volume adjusted by mode handled in visual/haptic
   const t=S.tasks.find(x=>x.id===id);
   if(t){
-    const blocksLeft2=t.total-t.completed-1;
-    if(blocksLeft2>0)notify(`${t.name}: one more done`,`${blocksLeft2} to go.`);
-    else notify(`${t.name} — last block done!`,'All done. Go gently.');
-    // Nudge if non-continuous and backgrounded — "come back when ready"
-    if(!S.continuous&&document.hidden&&blocksLeft2>0){
-      const _tn=t.name;
-      setTimeout(()=>{if(document.hidden&&!S.tasks.some(x=>x.running&&!x.done))notify('The water\'s waiting when you are',`${_tn}`);},120000);
-    }
+    const blocksLeft2=t.total-t.completed;
+    if(blocksLeft2>0)notify(`${t.name}: ${t.completed}/${t.total} blocks`,`${blocksLeft2} to go.`);
+    else notify(`${t.name}: ${t.total}/${t.total} blocks`,'All done.');
     // Contextual one-liners
     seenToast('coin','🪙 You earned a coin. One per block.','#c8841a',1200);
     if(S.seen.coin&&Math.random()<0.6)setTimeout(()=>sisterMsg(sisterSays('blockDone'),2000),800);
@@ -2303,11 +2347,13 @@ function onSubBlockDone(id){
 }
 
 function onTaskDone(id){
+  clearBgNotifs();
   if(S.aquariumOn){S.aquariumOn=false;save();applyAquarium();}
   stopAmbient();sndTask();
   const _td=S.tasks.find(x=>x.id===id);
   if(_td){
-    notify(`${_td.name} complete ⭐`,'All done. Go gently.');
+    notify(`${_td.name} complete`,`${_td.total}/${_td.total} blocks done.`);
+    if(S.tasks.every(x=>x.done))setTimeout(()=>notify('Fully boiled','Every task done. Go gently.'),2000);
     S.stars=(S.stars||0)+1;save();updateHeader();
     const _dc=getTheme().doneCopy;
     const _dm=_dc?_dc[Math.floor(Math.random()*_dc.length)]:sisterSays('taskDone');
