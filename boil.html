@@ -2908,14 +2908,24 @@ function _attachSensors(){
       }
       sndShake(mag);
       haptic([5]);
-      // Shake to start: double-shake (mag>20) starts first undone task
-      if(mag>20&&S.startTs&&!document.querySelector('.sheet')){
+      // Shake to start: double-shake (mag>20) begins day or starts a task
+      if(mag>20&&!document.querySelector('.sheet')){
         _shakeCount++;clearTimeout(_shakeTimer);
         _shakeTimer=setTimeout(()=>{_shakeCount=0;},1000);
-        if(_shakeCount>=2&&!S.tasks.some(t=>t.running&&!t.done)){
+        if(_shakeCount>=2){
           _shakeCount=0;
-          const _st=S.lastActiveId&&S.tasks.find(t=>t.id===S.lastActiveId&&!t.done) || S.tasks.filter(taskVisibleToday).find(t=>!t.done);
-          if(_st)tapCard(_st.id);
+          if(!S.startTs&&S.tasks.length){
+            // Begin screen: shake to begin the day
+            beginDay();
+          } else if(S.startTs&&!S.tasks.some(t=>t.running&&!t.done)){
+            // Day started, no task running: start last active or random undone
+            const _last=S.lastActiveId&&S.tasks.find(t=>t.id===S.lastActiveId&&!t.done);
+            if(_last){tapCard(_last.id);}
+            else{
+              const _undone=S.tasks.filter(t=>taskVisibleToday(t)&&!t.done);
+              if(_undone.length){tapCard(_undone[Math.floor(Math.random()*_undone.length)].id);}
+            }
+          }
         }
       }
     }
