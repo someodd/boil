@@ -1056,7 +1056,7 @@ function defaults(){
   };
 }
 function mkTask(id,name,color,total,workDur,restDur,days,desc){
-  return{id,name,color,total,workDur,restDur,days:days||null,desc:desc||'',completed:0,isRest:false,rem:workDur,running:false,done:false,savedAt:null};
+  return{id,name,color,total,workDur,restDur,days:days||null,desc:desc||'',continuous:!!S?.continuous,completed:0,isRest:false,rem:workDur,running:false,done:false,savedAt:null};
 }
 
 let S, ticker=null;
@@ -1141,7 +1141,7 @@ function boot(){
   if(S.batterySaver===undefined)S.batterySaver=false;
   if(S.muteWater===undefined)S.muteWater=false;
   if(S.lastActiveId===undefined)S.lastActiveId=null;
-  S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;if(t.desc===undefined)t.desc='';});
+  S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;if(t.desc===undefined)t.desc='';if(t.continuous===undefined)t.continuous=!!S.continuous;});
   const now=Date.now(),td=today();
   if(S.date!==td){
     S.tasks.forEach(resetTask);S.lastActiveId=null;
@@ -1168,7 +1168,7 @@ function boot(){
 function resetTask(t){t.completed=0;t.isRest=false;t.rem=t.workDur;t.running=false;t.done=false;t.savedAt=null;if(bubblePools[t.id])bubblePools[t.id]=[];delete window['_sf_'+t.id];}
 
 function resolvePhaseEnd(t,animate){
-  const cont=S.continuous;
+  const cont=t.continuous!==undefined?t.continuous:S.continuous;
   if(t.isRest){
     // Rest finished → next work block
     t.isRest=false;t.completed++;
@@ -2240,7 +2240,7 @@ function schedBgNotifs(){
   if(!('Notification' in window)||Notification.permission!=='granted')return;
   const t=S.tasks.find(x=>x.running&&!x.done);
   if(!t)return;
-  const name=t.name,total=t.total,cont=S.continuous;
+  const name=t.name,total=t.total,cont=t.continuous!==undefined?t.continuous:S.continuous;
   const lastTask=S.tasks.filter(x=>!x.done&&x.id!==t.id).length===0;
   let rem=t.rem,comp=t.completed,rest=t.isRest,off=0;
   while(comp<total){
@@ -4087,6 +4087,7 @@ function skipTutorial(){
 
 function toggleContinuous(){
   S.continuous=!S.continuous;
+  S.tasks.forEach(t=>{t.continuous=S.continuous;});
   save();
   const tog=document.getElementById('cont-tog');
   if(tog)tog.classList.toggle('on',S.continuous);
@@ -4315,10 +4316,11 @@ function doReset(){bgBubbles.length=0;activeFloaters.length=0;if(bgHF.h)bgHF.h.f
 }
 
 // ── FORMS ───────────────────────────────────────────────────────────
-let pomoOn=false,pickedCol=null;
+let pomoOn=false,pickedCol=null,contOn=true;
 
 function taskForm(t,simple){
   const pomo=t?t.restDur>0:false;
+  contOn=t?!!t.continuous:!!S.continuous;
   pomoOn=pomo;
   const ic=t?.color??PAL[0];
   const colors=simple?PAL.slice(0,5):PAL;
@@ -4339,6 +4341,12 @@ function taskForm(t,simple){
     <div id="rfield" style="display:${pomo?'block':'none'}">
       <div class="field"><label>Rest duration (minutes)</label><input id="frest" type="number" value="${t?Math.round(t.restDur/60)||10:10}" min="1" max="120" inputmode="numeric"></div>
     </div>
+    <div class="field" style="${hideSimple}"><label>Auto-continue</label>
+      <div class="tog-row">
+        <div><div class="tog-lbl">Auto-advance blocks</div><div class="tog-sub">Start next block automatically</div></div>
+        <button class="tog${contOn?' on':''}" id="ctog" onclick="toggleCont()"></button>
+      </div>
+    </div>
     <div class="field" id="days-field" style="${hideSimple}"><label>Days</label>
       <div class="day-picker" id="day-picker">${['S','M','T','W','T','F','S'].map((d,i)=>{
         const on=t&&t.days?t.days.includes(i):false;
@@ -4349,6 +4357,7 @@ function taskForm(t,simple){
     ${simple?'<div style="text-align:center;margin-top:4px"><button onclick="showAllFormFields(this)" style="background:none;border:none;color:var(--dim);font-size:11px;font-family:var(--fs);text-decoration:underline;cursor:pointer">more options</button></div>':''}`;
 }
 function togglePomo(){pomoOn=!pomoOn;document.getElementById('ptog').classList.toggle('on',pomoOn);document.getElementById('rfield').style.display=pomoOn?'block':'none';}
+function toggleCont(){contOn=!contOn;document.getElementById('ctog').classList.toggle('on',contOn);}
 function pickCol(p){pickedCol=p;document.querySelectorAll('.sw').forEach(s=>s.classList.toggle('on',s.dataset.p===p));}
 function showAllFormFields(btn){
   const sheet=btn.closest('.sheet');
@@ -4406,9 +4415,9 @@ function saveTask(id){
   if(!name)return;
   if(id){
     const t=S.tasks.find(x=>x.id===id);
-    if(t){t.name=name;t.desc=desc;t.color=color;t.days=days;t.total=total;if(t.workDur!==workDur||t.restDur!==restDur){t.workDur=workDur;t.restDur=restDur;resetTask(t);}if(t.completed>=t.total){t.completed=t.total;t.done=true;t.running=false;t.isRest=false;t.rem=0;t.savedAt=null;}else if(t.done){t.done=false;t.isRest=false;t.rem=t.workDur;}}
+    if(t){t.name=name;t.desc=desc;t.color=color;t.days=days;t.total=total;t.continuous=contOn;if(t.workDur!==workDur||t.restDur!==restDur){t.workDur=workDur;t.restDur=restDur;resetTask(t);}if(t.completed>=t.total){t.completed=t.total;t.done=true;t.running=false;t.isRest=false;t.rem=0;t.savedAt=null;}else if(t.done){t.done=false;t.isRest=false;t.rem=t.workDur;}}
   } else {
-    S.tasks.push(mkTask('t-'+Date.now(),name,color,total,workDur,restDur,days,desc));
+    const nt=mkTask('t-'+Date.now(),name,color,total,workDur,restDur,days,desc);nt.continuous=contOn;S.tasks.push(nt);
   }
   pickedCol=null;save();closeSheet();render();
 }
