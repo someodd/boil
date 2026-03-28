@@ -185,6 +185,9 @@
       box-shadow:0 2px 4px rgba(0,0,0,0.06),0 8px 24px rgba(0,0,0,0.10),0 0 0 1px color-mix(in srgb,var(--tc) 25%,transparent),inset 0 1px 0 rgba(255,255,255,0.6);
       transform:translateY(-3px);
     }
+    .card.last-active{box-shadow:0 2px 8px rgba(0,0,0,.08),0 0 0 1px color-mix(in srgb,var(--tc) 18%,transparent),inset 0 1px 0 rgba(255,255,255,0.5);transform:translateY(-1px)}
+    .card.suggested{animation:suggest-pulse 1.2s ease-in-out 2}
+    @keyframes suggest-pulse{0%,100%{box-shadow:0 2px 8px rgba(0,0,0,.06),inset 0 1px 0 rgba(255,255,255,0.5)}50%{box-shadow:0 2px 16px color-mix(in srgb,var(--tc) 25%,rgba(0,0,0,.12)),0 0 0 2px color-mix(in srgb,var(--tc) 30%,transparent),inset 0 1px 0 rgba(255,255,255,0.5);transform:translateY(-2px)}}
     .card.done-all{background:color-mix(in srgb,var(--card) 82%,transparent);border-style:dashed;border-color:var(--dimmer)}
     .card.warn{border-color:color-mix(in srgb,#f0c060 70%,var(--brd))}
     .card.danger{background:color-mix(in srgb,#c0453a 12%,var(--glass));border-color:color-mix(in srgb,#f09090 60%,var(--brd))}
@@ -974,19 +977,50 @@ function resetNightTheme(){
 }
 function initStars(W,H){
   _stars=[];
-  for(let i=0;i<65;i++)_stars.push({x:Math.random()*W,y:Math.random()*H*0.85,r:0.5+Math.random()*1.5,phase:Math.random()*Math.PI*2,speed:0.3+Math.random()*0.7,bright:0.5+Math.random()*0.5});
+  for(let i=0;i<65;i++){
+    const isBright=i<4; // 4 bright stars visible at deep night
+    _stars.push({x:Math.random()*W,y:Math.random()*H*(isBright?0.5:0.85),r:isBright?1.5+Math.random()*1.2:0.5+Math.random()*1.5,phase:Math.random()*Math.PI*2,speed:isBright?0.15+Math.random()*0.3:0.3+Math.random()*0.7,bright:isBright?0.8+Math.random()*0.2:0.5+Math.random()*0.5,isBright});
+  }
 }
 function drawStars(ctx,W,H,t,nA){
   if(nA<0.01||isBatterySaver())return;
   if(!_stars.length)initStars(W,H);
+  const dpr=window.devicePixelRatio||1;
+  const deepNight=Math.max(0,(nA-0.7)/0.3); // 0 until nA>0.7, then 0→1
   ctx.save();
   for(const s of _stars){
     const tw=0.3+0.7*((Math.sin(t*s.speed+s.phase)+1)/2);
-    ctx.globalAlpha=nA*s.bright*tw;
-    ctx.fillStyle='#fff';
-    ctx.beginPath();ctx.arc(s.x,s.y,s.r*(window.devicePixelRatio||1),0,Math.PI*2);ctx.fill();
+    const brightScale=s.isBright?1+deepNight*0.5:1; // bright stars grow at deep night
+    ctx.globalAlpha=nA*s.bright*tw*brightScale;
+    ctx.fillStyle=s.isBright&&s===_stars[0]?'#ffe8c0':'#fff'; // first bright star has warm tint
+    ctx.beginPath();ctx.arc(s.x,s.y,s.r*dpr*brightScale,0,Math.PI*2);ctx.fill();
   }
   ctx.restore();
+}
+// Rare shooting star — streaks across night sky in <1 second
+let _shootingStar=null;
+function drawShootingStar(ctx,W,H,nA,dt){
+  if(nA<0.8&&!_shootingStar)return; // only spawn at deep night
+  if(!_shootingStar&&Math.random()<0.009*dt){ // dt-normalized: ~1 per 111s regardless of framerate
+    const sx=Math.random()*W*0.8+W*0.1,sy=Math.random()*H*0.3;
+    const angle=-0.3-Math.random()*0.4; // shallow downward angle
+    _shootingStar={x:sx,y:sy,angle,life:1,speed:W*0.8+Math.random()*W*0.4,len:40+(Math.random()*30)};
+  }
+  if(_shootingStar){
+    const s=_shootingStar;
+    const dpr=window.devicePixelRatio||1;
+    const dx=Math.cos(s.angle)*s.speed*dt,dy=Math.sin(s.angle)*s.speed*dt;
+    s.x+=dx;s.y-=dy;s.life-=dt*2.5; // fade over ~0.4s
+    if(s.life<=0||s.x>W||s.y<0){_shootingStar=null;return;}
+    ctx.save();
+    const grad=ctx.createLinearGradient(s.x,s.y,s.x-Math.cos(s.angle)*s.len*dpr,s.y+Math.sin(s.angle)*s.len*dpr);
+    grad.addColorStop(0,`rgba(255,255,255,${nA*s.life*0.9})`);
+    grad.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.strokeStyle=grad;ctx.lineWidth=1.5*dpr;ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(s.x,s.y);
+    ctx.lineTo(s.x-Math.cos(s.angle)*s.len*dpr,s.y+Math.sin(s.angle)*s.len*dpr);
+    ctx.stroke();ctx.restore();
+  }
 }
 const PAL=['#c0453a','#d4782a','#b59a1a','#3a9e6a','#2a8a8a','#4a78c0','#5b5cd6','#9b6bb5','#c06090','#8a6548'];
 const KEY='boil-v1'; // renamed from blocks-v7
@@ -1033,11 +1067,13 @@ function godTick(){return GOD_MODE?60:1;}
 const SISTER={
   begin:['Shall we begin?','Ready when you are.','One small thing. That\'s all.'],
   firstBlock:['One small thing with great love.','Just this one.'],
+  firstBlockDawn:['Early start. The water\'s fresh.','Morning. One small thing.'],
+  firstBlockEvening:['Late start. Still counts.','The water doesn\'t mind the hour.'],
   blockDone:['Good.','That\'s one.','The water knows.','Keep going.'],
   restStart:['Rest is part of the work.','Let it settle.','Grace between blocks.'],
   betweenBlocks:['Ready for the next?','Whenever you are.'],
-  halfway:['Halfway.'],
-  almostDone:['Almost.'],
+  halfway:['Halfway.','The water feels it.','Half done. Still here.','Middle of the work.'],
+  almostDone:['Almost.','Nearly there.','The water\'s about to boil.','Just a little more.'],
   returnShort:['Welcome back.','The water\'s still warm.'],
   returnLong:['You came back. That\'s everything.','The door was open the whole time.'],
   dayDone:[
@@ -1050,7 +1086,7 @@ const SISTER={
   ],
   bedtimeNudge:['It\'s almost time to rest.','You did enough today.'],
   taskDone:['Finished. Go gently.','Done. Every block was a gift.'],
-  mercy:['It\'s okay. Some moments need grace.'],
+  mercy:['It\'s okay. Some moments need grace.','Grace is not weakness.','The water forgives.'],
 };
 function sisterSays(moment){
   const pool=SISTER[moment];
@@ -1104,10 +1140,11 @@ function boot(){
   if(S.bedtime===undefined)S.bedtime=null;
   if(S.batterySaver===undefined)S.batterySaver=false;
   if(S.muteWater===undefined)S.muteWater=false;
+  if(S.lastActiveId===undefined)S.lastActiveId=null;
   S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;if(t.desc===undefined)t.desc='';});
   const now=Date.now(),td=today();
   if(S.date!==td){
-    S.tasks.forEach(resetTask);
+    S.tasks.forEach(resetTask);S.lastActiveId=null;
     S.date=td;S.startTs=null;_bedtimeNudged=false;
     delete S._daySnap; // day ended naturally — rewards earned
     resetNightTheme();bgBubbles.length=0;
@@ -1169,7 +1206,8 @@ function skipRest(id){
 }
 function reconcileTask(t,now){
   if(!t.running||t.done||!t.savedAt)return;
-  let el=Math.floor((now-t.savedAt)/1000);
+  if(t._quickStart)t._quickStart=0; // perceptual trick window passed during background
+  let el=Math.max(0,Math.floor((now-t.savedAt)/1000));
   while(el>0&&t.running&&!t.done){
     if(el>=t.rem){
       el-=t.rem;t.rem=0;
@@ -1188,13 +1226,19 @@ function save(){
   if(_erasing)return;
   const now=Date.now();
   S.tasks.forEach(t=>{if(t.running&&!t.done)t.savedAt=now;});
-  try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}
+  try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){
+    if(e.name==='QuotaExceededError'||e.code===22)showToast('⚠ Storage full — progress not saved. Export your data in profile.','#c0453a',5000);
+  }
 }
 function today(){const d=new Date();return`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;}
 
+let _tabHiddenAt=null;
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden){save();return;}
-  // Resumed — check for date rollover
+  if(document.hidden){_tabHiddenAt=Date.now();save();return;}
+  // Resumed — compute actual away time before anything resets it
+  const _actualAway=_tabHiddenAt?Math.floor((Date.now()-_tabHiddenAt)/1000):0;
+  _tabHiddenAt=null;
+  // Check for date rollover
   const td=today();
   if(S.date!==td){
     S.tasks.forEach(t=>{if(t.running){t.running=false;t.savedAt=null;}});
@@ -1214,12 +1258,22 @@ document.addEventListener('visibilitychange',()=>{
   // Audio feedback for blocks completed while away
   if(_postDone>_preDone)sndTask();
   else if(_postComp>_preComp)sndSub();
-  if(S.tasks.some(t=>t.running)){
+  const _rtVis=S.tasks.find(t=>t.running&&!t.done);
+  if(_rtVis){
     ensureTicker();
     // Re-acquire wake lock (released when page went hidden)
     acquireWakeLock();
     // Resume AudioContext (mobile browsers suspend it in background)
     if(aC&&aC.state==='suspended')aC.resume().catch(()=>{});
+    // Return warmth: welcome back if away >60s with a task running (PRODUCT.md: visibilitychange is first-class)
+    if(_actualAway>=60&&_postDone===_preDone){
+      haptic([10,30,10]);
+      const _awayM=Math.floor(_actualAway/60);
+      setTimeout(()=>{
+        sisterMsg(sisterSays(_awayM>4320?'returnLong':'returnShort'),2500);
+        showToast(`${_awayM} min passed while you were away`,'#3d3530',1800);
+      },400);
+    }
   }
 });
 // Space bar = start/pause running or first non-done task (desktop UX)
@@ -1250,6 +1304,8 @@ function ensureTicker(){
     S.tasks.forEach(t=>{
       if(!t.running||t.done)return;
       any=true;t.rem=Math.max(0,t.rem-godTick());
+      // "Just 5 min" countdown — reveal full timer when elapsed
+      if(t._quickStart>0){t._quickStart=Math.max(0,t._quickStart-godTick());if(t._quickStart===0){try{tone(_jHz(660),.15,.02);}catch(e){}sisterMsg('Five minutes. The hardest part is done.',2500);}}
       // Sister: sparse mid-block encouragement
       if(!t.isRest&&t.running){
         if(!t._halfShown&&t.rem<=t.workDur/2){t._halfShown=true;if(Math.random()<0.3)sisterMsg(sisterSays('halfway'),2000);}
@@ -1559,6 +1615,15 @@ function openProfile(){
       <div style="font-size:10px;color:var(--dim);margin-top:4px">Day ends here. Never sacrificed.</div>
     </div>
 
+    <!-- Data backup -->
+    <div style="font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin-bottom:8px">your data</div>
+    <div style="display:flex;gap:8px;margin-bottom:20px">
+      <button onclick="exportData()" style="flex:1;background:var(--bg);border:2px solid var(--brd);color:var(--ink);font-family:var(--fs);font-size:13px;font-weight:700;padding:10px 0;border-radius:12px;cursor:pointer">↓ export backup</button>
+      <button onclick="document.getElementById('import-file').click()" style="flex:1;background:var(--bg);border:2px solid var(--brd);color:var(--ink);font-family:var(--fs);font-size:13px;font-weight:700;padding:10px 0;border-radius:12px;cursor:pointer">↑ import backup</button>
+      <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(this)">
+    </div>
+    <div style="font-size:10px;color:var(--dim);margin-top:-12px;margin-bottom:16px">Your data lives only in this browser. Back it up.</div>
+
     <div class="sh-btns">
       <button class="bs" onclick="closeSheet()">close</button>
       <button class="bp" onclick="closeSheet();openShop()">🪙 gifts</button>
@@ -1657,7 +1722,8 @@ function tone(hz,dur,vol,t0,type='sine'){
     g.gain.exponentialRampToValueAtTime(.001,t+dur);o.start(t);o.stop(t+dur+.01);
   }catch(e){}
 }
-const sndTap   =()=>{tone(720,.065,.022);haptic([8]);};
+// Start sound: warm ascending motif (DTD — reward at point of action, not after)
+const sndTap=()=>{try{const now=ac().currentTime;tone(_jHz(440),.12,.025,now);tone(_jHz(660),.10,.02,now+_jDt(.06));tone(_jHz(880),.08,.015,now+_jDt(.12));}catch(e){}haptic([12,20,8]);};
 // Water surface tap — hollow plop with pitch scaled by force
 function sndPlop(force){
   try{
@@ -1764,12 +1830,17 @@ function updateWaterAudio(fillPct){
   try{
     const c=ac(),t=c.currentTime;
     const f=fillPct/100;
-    // Volume: scales with fill, very quiet (max 0.035)
-    _waterGain.gain.linearRampToValueAtTime(f*0.035,t+0.5);
-    // Filter center: 250Hz at empty → 500Hz at full (higher = more active boiling)
-    _waterFilter.frequency.linearRampToValueAtTime(250+f*250,t+0.5);
-    // LFO speed: faster modulation at higher fill
-    if(_waterLfo)_waterLfo.frequency.linearRampToValueAtTime(0.3+f*0.8,t+0.5);
+    // Anticipatory crescendo: quadratic boost in final 20% (Salimpoor — caudate anticipation via sound)
+    const cresc=f>0.8?Math.pow((f-0.8)/0.2,2):0;
+    const _nd=1-nightT()*0.4; // night damping: quieter, calmer water sound
+    // Volume: scales with fill + crescendo boost, damped at night
+    _waterGain.gain.linearRampToValueAtTime((f*0.035+cresc*0.018)*_nd,t+0.5);
+    // Filter center: 250Hz→500Hz base + crescendo, lower ceiling at night
+    _waterFilter.frequency.linearRampToValueAtTime((250+f*250+cresc*150)*_nd+250*(1-_nd),t+0.5);
+    // LFO speed: faster modulation at higher fill + crescendo, calmer at night
+    if(_waterLfo)_waterLfo.frequency.linearRampToValueAtTime((0.3+f*0.8+cresc*0.6)*_nd,t+0.5);
+    // LFO depth: wider modulation during crescendo, steadier at night
+    if(_waterLfoGain)_waterLfoGain.gain.linearRampToValueAtTime((80+cresc*60)*_nd,t+0.5);
   }catch(e){}
 }
 function startAmbient(){
@@ -1826,17 +1897,19 @@ function sndShake(mag){
 // Micro-variation helpers: prevent hedonic adaptation (Schultz RPE, Frederick & Loewenstein)
 function _jHz(hz){return hz*(1+(Math.random()-.5)*.06);} // ±3% pitch jitter
 function _jDt(dt){return Math.max(0,dt+(Math.random()-.5)*.03);} // ±15ms timing jitter, clamped to 0
+// Night-warm sound: shift frequencies down ~10%, volumes down ~20% at night
+function _nHz(hz){return _jHz(hz*(1-nightT()*0.1));}
+function _nVol(v){return v*(1-nightT()*0.2);}
 function sndSub(){
   const now=ac().currentTime;
   // punchy attack transient then ascending chime
-  tone(_jHz(1760),.04,.05,now,'square'); // sharp click at start
-  [[0,880,.065],[.06,1108,.06],[.13,1318,.055],[.21,1760,.05],[.32,2093,.045]].forEach(([dt,hz,v])=>tone(_jHz(hz),.35,v,now+_jDt(dt)));
+  tone(_nHz(1760),.04,_nVol(.05),now,'square');
+  [[0,880,.065],[.06,1108,.06],[.13,1318,.055],[.21,1760,.05],[.32,2093,.045]].forEach(([dt,hz,v])=>tone(_nHz(hz),.35,_nVol(v),now+_jDt(dt)));
   // 1-in-5: bonus sparkle — consonant fifth above top note
-  if(Math.random()<0.2)tone(_jHz(3136),.25,.03,now+.42);
+  if(Math.random()<0.2)tone(_nHz(3136),.25,_nVol(.03),now+.42);
   // glass shatter: descending noise sweep
   try{
     const c=ac();
-    // two noise bursts at different frequencies = glass crack character
     [1,2].forEach(pass=>{
       const buf=c.createBuffer(1,c.sampleRate*.18,c.sampleRate);
       const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*(1-i/(d.length));
@@ -1844,15 +1917,14 @@ function sndSub(){
       f.type='highpass';f.frequency.value=pass===1?2800+Math.random()*400:5500+Math.random()*1000;
       src.buffer=buf;src.connect(f);f.connect(g);g.connect(c.destination);
       const t0=now+(pass-1)*.04;
-      g.gain.setValueAtTime(.06,t0);g.gain.exponentialRampToValueAtTime(.001,t0+.18);
+      g.gain.setValueAtTime(_nVol(.06),t0);g.gain.exponentialRampToValueAtTime(.001,t0+.18);
       src.start(t0);src.stop(t0+.2);
     });
-    // low thud
-    tone(_jHz(80),.25,.06,now);tone(_jHz(60),.3,.04,now+.05);
+    tone(_nHz(80),.25,_nVol(.06),now);tone(_nHz(60),.3,_nVol(.04),now+.05);
   }catch(e){}
   haptic([15,80,15]);
 }
-const sndTask=()=>{const t=ac().currentTime;[0,.1,.2,.32,.48].forEach((dt,i)=>tone(_jHz([523,659,784,1047,1319][i]),.32,.05,t+_jDt(dt)));tone(_jHz(523),.6,.03,t+_jDt(.48));if(Math.random()<0.2)tone(_jHz(1976),.3,.025,t+.56);haptic([20,30,20,30,80]);};
+const sndTask=()=>{const t=ac().currentTime;[0,.1,.2,.32,.48].forEach((dt,i)=>tone(_nHz([523,659,784,1047,1319][i]),.32,_nVol(.05),t+_jDt(dt)));tone(_nHz(523),.6,_nVol(.03),t+_jDt(.48));if(Math.random()<0.2)tone(_nHz(1976),.3,_nVol(.025),t+.56);haptic([20,30,20,30,80]);};
 const sndDay=()=>{
   const now=ac().currentTime;
   [0,.1,.2,.32,.46,.62].forEach((dt,i)=>tone(_jHz([523,659,784,1047,1319,1568][i]),.4,.06,now+_jDt(dt)));
@@ -2050,20 +2122,36 @@ function tapCard(id){
   });
   t.running=!wasRunning;
   if(t.running){
+    S.lastActiveId=null; // running card has .running emphasis; clear residual glow
+    document.querySelectorAll('.card.suggested').forEach(e=>e.classList.remove('suggested'));
     t.savedAt=Date.now();sndTap();startAmbient();ensureTicker();showToast('Heating up. ↑','var(--tc)',1200);if(!_sensorsAttached)requestMotionPermission();
     // First block of the day: enhanced ceremony (Bandura — self-efficacy seeds the spiral)
     const _isFirst=!S.tasks.some(x=>x.completed>0||x.running&&x.id!==id);
     // Water kick-start: brief surge for instant feedback (1.5× for first block)
     if(bgWaveState)bgWaveState.kick=_isFirst?1.5:1;
-    // Sister: guaranteed on first block (not 30% chance), standard otherwise
-    if(_isFirst){setTimeout(()=>sisterMsg(sisterSays('firstBlock'),2500),1500);haptic([30,40,30,40,80]);}
-    else if(!S.tasks.some(x=>x.completed>0&&x.id!==id))setTimeout(()=>sisterMsg(sisterSays('firstBlock'),2500),1500);
+    // Sister: guaranteed on first block, time-aware greeting
+    const _fbPool=(()=>{const h=new Date().getHours();return h<9?'firstBlockDawn':h>=20?'firstBlockEvening':'firstBlock';})();
+    if(_isFirst){setTimeout(()=>sisterMsg(sisterSays(_fbPool),2500),1500);haptic([30,40,30,40,80]);}
+    else if(!S.tasks.some(x=>x.completed>0&&x.id!==id))setTimeout(()=>sisterMsg(sisterSays(_fbPool),2500),1500);
   }
-  else{t.savedAt=null;sndStop();stopAmbient();showToast('The water cools.','#6b6258',1800);}
+  else{
+    const _wasQuick=t._quickStart>0;t._quickStart=0;
+    t.savedAt=null;S.lastActiveId=id;sndStop();stopAmbient();
+    if(_wasQuick)sisterMsg('You showed up. That counts.',2500);
+    else showToast('The water cools.','#6b6258',1800);
+  }
   save();renderCard(t);renderDaybar();updateLogoDot();
   updateScrollState();
   // Scroll running card into view
   if(t.running){const el=document.getElementById('c-'+id);if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});}
+}
+
+// ── "JUST 5 MINUTES" QUICK START ──────────────────────────────────
+function quickStart(id){
+  const t=S.tasks.find(x=>x.id===id);
+  if(!t||t.done||t.running)return;
+  t._quickStart=300; // 5 minutes perceptual cap
+  tapCard(id);
 }
 
 // ── RETROACTIVE CREDIT / UNDO ─────────────────────────────────────
@@ -2141,7 +2229,16 @@ function _completionMode(){const r=Math.random();return r<0.4?'audio':r<0.7?'hap
 function onSubBlockDone(id){
   if(S.aquariumOn){S.aquariumOn=false;save();applyAquarium();}
   const _cm=_completionMode();
-  sndSub(); // always plays (with built-in micro-variation), volume adjusted by mode handled in visual/haptic
+  sndSub();
+  // Steam burst — the water just boiled (metaphor completion)
+  if(!isBatterySaver()&&bgWaveState.active){
+    const _dpr=_bgDpr(),_W=window.innerWidth*_dpr,_surfY=window.innerHeight*_dpr*(1-bgWaveState.fill/100);
+    for(let i=0;i<18;i++){
+      const p=new P(_W*(0.15+Math.random()*0.7),_surfY,(Math.random()-.5)*60,-40-Math.random()*80,'rgba(255,255,255,0.5)',2+Math.random()*3,0.05);
+      p.decay=0.025+Math.random()*0.015;p.round=true;parts.push(p);
+    }
+    startFX();
+  } // always plays (with built-in micro-variation), volume adjusted by mode handled in visual/haptic
   const t=S.tasks.find(x=>x.id===id);
   if(t){
     const blocksLeft2=t.total-t.completed-1;
@@ -2548,7 +2645,7 @@ function taskTotalRem(t){
 
 function cardHTML(t){
   const cs=cardState(t);
-  const stCls=t.done?'done-all':t.running&&t.isRest?'resting':t.running?'running':'';
+  const stCls=t.done?'done-all':t.running&&t.isRest?'resting':t.running?'running':(!t.done&&!t.running&&t.id===S.lastActiveId?'last-active':'');
 
   // ── DONE: collapsed strikethrough card ──────────────────────────────
   if(t.done){
@@ -2621,6 +2718,7 @@ function cardHTML(t){
         <div class="c-sub">${sub}</div>
         <div style="display:flex;align-items:center;gap:8px">
           ${S.mercyCoins>0&&t.running&&!t.done?`<button class="mercy-btn" onclick="event.stopPropagation();useMercy('${t.id}')" title="Use mercy — skip this block">🕊️</button>`:''}
+          ${!t.running&&!t.done&&t.workDur>600?`<button onclick="event.stopPropagation();quickStart('${t.id}')" style="background:none;border:none;font-family:var(--fs);font-size:10px;font-weight:700;color:var(--dim);cursor:pointer;padding:4px 6px;white-space:nowrap">just 5 min</button>`:''}
           <button class="play-btn" aria-label="${t.running?'pause':'start'} ${esc(t.name)}" onclick="event.stopPropagation();tapCard('${t.id}')">
             ${t.running?svgPause():svgPlay()}
           </button>
@@ -2650,7 +2748,8 @@ function renderCards(){
     </div>`;
     return;
   }
-  el.innerHTML=visible.map(cardHTML).join('');
+  const hidden=S.tasks.filter(t=>!taskVisibleToday(t));
+  el.innerHTML=visible.map(cardHTML).join('')+(hidden.length?`<div style="text-align:center;padding:12px 0 4px;font-size:11px;font-weight:700;color:var(--dim)">${hidden.length} task${hidden.length!==1?'s':''} not scheduled for today</div>`:'');
   updateScrollState();
   setTimeout(attachDrag,0);
 }
@@ -2668,7 +2767,7 @@ function fastUpdateCard(id){
   const t=S.tasks.find(x=>x.id===id);
   const el=document.getElementById('c-'+id);if(!el||!t)return;
   // overlay timer (new IDs)
-  const ptc=document.getElementById('ptc-'+t.id);if(ptc){ptc.textContent=fmtTime(t.rem);ptc.classList.toggle('has-hours',t.rem>=3600);if(t.running&&!t.isRest){ptc.classList.remove('tick-pulse');void ptc.offsetWidth;ptc.classList.add('tick-pulse');}}
+  const ptc=document.getElementById('ptc-'+t.id);if(ptc){const _qr=t._quickStart>0?Math.min(t.rem,t._quickStart):t.rem;ptc.textContent=fmtTime(_qr);ptc.classList.toggle('has-hours',_qr>=3600);if(t.running&&!t.isRest){ptc.classList.remove('tick-pulse');void ptc.offsetWidth;ptc.classList.add('tick-pulse');}}
   const ptt=document.getElementById('ptt-'+t.id);if(ptt&&!t.done)ptt.textContent='total: '+fmtHM(taskTotalRem(t));
   // rest progress bar
   if(t.isRest){
@@ -2732,7 +2831,7 @@ const _isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
 const _hasTouch='ontouchstart'in window||navigator.maxTouchPoints>0;
 let tiltSmooth=0;
 let lastShakeAccel={x:0,y:0,z:0};
-let shakeF=0;
+let shakeF=0,_shakeCount=0,_shakeTimer=null;
 let _sensorsAttached=false;
 let _tiltRaw=null;
 let _orientHandler=null,_motionHandler=null;
@@ -2763,6 +2862,16 @@ function _attachSensors(){
       }
       sndShake(mag);
       haptic([5]);
+      // Shake to start: double-shake (mag>20) starts first undone task
+      if(mag>20&&S.startTs&&!document.querySelector('.sheet')){
+        _shakeCount++;clearTimeout(_shakeTimer);
+        _shakeTimer=setTimeout(()=>{_shakeCount=0;},1000);
+        if(_shakeCount>=2&&!S.tasks.some(t=>t.running&&!t.done)){
+          _shakeCount=0;
+          const _st=S.lastActiveId&&S.tasks.find(t=>t.id===S.lastActiveId&&!t.done) || S.tasks.filter(taskVisibleToday).find(t=>!t.done);
+          if(_st)tapCard(_st.id);
+        }
+      }
     }
   };
   window.addEventListener('deviceorientation',_orientHandler);
@@ -3360,6 +3469,8 @@ function waveLoop(now){
     // Night sky: stars behind water
     applyNightTheme();
     drawStars(ctx,W,H,waveT,nightT());
+    // Rare shooting star at deep night (Bunzeck novelty signal)
+    if(!isBatterySaver())drawShootingStar(ctx,W,H,nightT(),dt);
 
     if(isResting){
       // ── REST: steam dissipating ──────────────────────────────────
@@ -3428,7 +3539,8 @@ function waveLoop(now){
       const boil2=(bgWaveState.fill/100)*(bgWaveState.fill/100);
       const hfSteps=Math.max(2,Math.round(dt*60));
       for(let si=0;si<hfSteps;si++)stepHF(bgHF,0.35,0.985);
-      injectBoilEnergy(bgHF,boil2,dt);
+      const _ndW=1-nightT()*0.4; // night damping for wave energy
+      injectBoilEnergy(bgHF,boil2*_ndW,dt);
       updateTiltLayer(bgN);
       tickBubbles(bgBubbles,W,H,bgWaveState.fill,dt,bgWaveState.color,true);
       drawWater(ctx,W,H,bgWaveState.fill,bgWaveState.color,waveT*0.35,bgBubbles,true,bgHF);
@@ -3470,7 +3582,7 @@ function waveLoop(now){
   if(bgWaveState.active&&bgWaveState.fill>_steamThreshold){
     const steamBoil=(bgWaveState.fill/100)*(bgWaveState.fill/100);
     if(steamBoil>0.10){
-      const steamRate=(steamBoil-0.10)*5*_steamHm;
+      const steamRate=(steamBoil-0.10)*5*_steamHm*(1-nightT()*0.4);
       const sN=Math.floor(steamRate*dt+(Math.random()<(steamRate*dt%1)?1:0));
       const surfY=FX.height*(1-bgWaveState.fill/100);
       for(let si=0;si<sN;si++){
@@ -3504,14 +3616,22 @@ function waveLoop(now){
 
 // ── BUBBLE SYSTEM ─────────────────────────────────────────────────────
 function heatMultiplier(){const idx=HEAT_LEVELS.findIndex(h=>h===getHeatLevel());return 1+idx*0.12;}
+// Session water personality — subliminal variation prevents hedonic adaptation (Schultz RPE, Bunzeck novelty)
+const _waterSeed={
+  nucleateWall:0.20+Math.random()*0.15,   // 20-35% wall nucleation (default was fixed 25%)
+  speedMul:0.88+Math.random()*0.24,        // 0.88-1.12× speed
+  sizeBias:0.9+Math.random()*0.2,          // 0.9-1.1× size
+  wobbleFreq:2.8+Math.random()*1.4,        // 2.8-4.2 wobble Hz (default was fixed 3.5)
+};
 function tickBubbles(pool,W,H,fp,dt,color,isBg){
   const b2=(fp/100)*(fp/100);
   const fillY=H*(1-fp/100);
   const hm=heatMultiplier();
+  const _nd=1-nightT()*0.4; // night damping: 60% energy at full night
   const fizzM=1+shakeF*4;
   // Anticipatory crescendo: +50% bubble rate in final 20% (Salimpoor — caudate anticipation)
   const _cresc=fp>80?1+0.5*Math.pow((fp-80)/20,2):1;
-  const baseRate=((isBg?(fp<8?0:b2*120*hm):(fp<15?0:b2*18*hm))*fizzM+(shakeF>0&&fp>0.5?(isBg?shakeF*80:shakeF*12):0))*_cresc;
+  const baseRate=((isBg?(fp<8?0:b2*120*hm):(fp<15?0:b2*18*hm))*fizzM+(shakeF>0&&fp>0.5?(isBg?shakeF*80:shakeF*12):0))*_cresc*_nd;
   const n=Math.floor(baseRate*dt+(Math.random()<(baseRate*dt%1)?1:0));
   for(let s=0;s<n;s++){
     // Nucleation-site spawning: bubbles form near bottom and edges
@@ -3520,11 +3640,13 @@ function tickBubbles(pool,W,H,fp,dt,color,isBg){
     // At high boil (b2>0.6) bubbles grow significantly larger and more visible
     const highBoilBonus=isBg?Math.max(0,b2-0.5)*8:0;
     const shakeBoost=shakeF>0?shakeF:0;
-    const maxR  =(isBg?(2+b2*9+highBoilBonus+Math.random()*(b2*4+highBoilBonus*0.5)):(1.0+b2*3.0+Math.random()*(b2*2.0)))+(isBg?shakeBoost*4:shakeBoost*2);
-    const speed=(isBg?(10+b2*140+Math.random()*(b2*80))
-                     :(4+b2*35+Math.random()*(b2*20)))*(1+shakeBoost*1.5);
-    // Nucleation sites: mostly near walls and bottom
-    const nucleateSide=Math.random()<0.25; // 25% chance spawn near a wall
+    const _sb=_waterSeed.sizeBias;
+    const maxR  =(isBg?(2+b2*9*_sb+highBoilBonus+Math.random()*(b2*4*_sb+highBoilBonus*0.5)):(1.0+b2*3.0*_sb+Math.random()*(b2*2.0*_sb)))+(isBg?shakeBoost*4:shakeBoost*2);
+    const _sm=_waterSeed.speedMul;
+    const speed=((isBg?(10+b2*140+Math.random()*(b2*80))
+                      :(4+b2*35+Math.random()*(b2*20)))*_sm*_nd)*(1+shakeBoost*1.5);
+    // Nucleation sites: mostly near walls and bottom — ratio varies per session
+    const nucleateSide=Math.random()<_waterSeed.nucleateWall;
     const spawnX=nucleateSide
       ? (Math.random()<0.5 ? W*(0.02+Math.random()*0.08) : W*(0.90+Math.random()*0.08))
       : W*(0.08+Math.random()*0.84);
@@ -3547,7 +3669,7 @@ function tickBubbles(pool,W,H,fp,dt,color,isBg){
     const pressureFactor=1+(H-b.y)/(H-fillY+1)*0.3; // faster near top
     b.vy*=0.998;
     b.y+=b.vy*dt*pressureFactor;
-    b.x+=b.vx*dt+Math.sin(b.born*3.5+b.wobble)*dt*(isBg?2:0.8);
+    b.x+=b.vx*dt+Math.sin(b.born*_waterSeed.wobbleFreq+b.wobble)*dt*(isBg?2:0.8);
     b.vx*=0.995;
     // Grow toward maxR as it rises (expansion due to decreasing pressure)
     if(b.r<b.maxR) b.r=Math.min(b.maxR, b.r+(b.maxR-b.r)*dt*1.5);
@@ -3686,6 +3808,33 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
     ctx.fillStyle=`rgb(${clr(ri+100)},${clr(gi+100)},${clr(bi+100)})`;
     ctx.fill();
     ctx.restore();
+  }
+
+  // ── Star reflections on water surface (night only) ────────────────
+  if(isBg&&!isBatterySaver()){
+    const _nA=nightT();
+    if(_nA>0.15&&_stars.length){
+      ctx.save();
+      const dpr=window.devicePixelRatio||1;
+      for(const s of _stars){
+        if(s.y>=fillY)continue; // star must be above waterline
+        const mirrorY=fillY+(fillY-s.y)*0.3; // compressed reflection
+        if(mirrorY>H)continue;
+        const tw=0.3+0.7*((Math.sin(waveT*s.speed+s.phase)+1)/2);
+        // Wobble tied to surface heightfield
+        const si=Math.min(N-1,Math.max(0,Math.round(s.x/step)));
+        const surfOff=_surf?_surf[si]-fillY:0;
+        const wx=s.x+surfOff*0.5; // horizontal wobble from waves
+        const deepMul=s.isBright?1.5:1;
+        ctx.globalAlpha=_nA*s.bright*tw*0.25*deepMul; // 25% of sky brightness
+        ctx.fillStyle=s.isBright&&s===_stars[0]?'#ffe8c0':'#fff';
+        // Elongated vertical reflection
+        ctx.beginPath();
+        ctx.ellipse(wx,mirrorY+surfOff,s.r*dpr*0.8,s.r*dpr*2.5,0,0,Math.PI*2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
   }
 
   // ── Surface highlight: the single most important line ─────────────
@@ -3827,6 +3976,9 @@ function beginDay(){
   document.getElementById('begin-screen').style.display='none';
   if(beginWaveRaf){cancelAnimationFrame(beginWaveRaf);beginWaveRaf=null;}
   renderDaybar();renderCards();updateLogoDot();updateScrollState();
+  // "Start here" emphasis on first undone task (implementation intentions, d=0.99)
+  const _firstUndone=S.tasks.filter(taskVisibleToday).find(t=>!t.done);
+  if(_firstUndone){const _fe=document.getElementById('c-'+_firstUndone.id);if(_fe){_fe.scrollIntoView({behavior:'smooth',block:'nearest'});setTimeout(()=>_fe.classList.add('suggested'),150);}}
   if('Notification' in window && Notification.permission==='default'){
     Notification.requestPermission();
   }
@@ -3997,12 +4149,47 @@ function render(){
   // Progressive disclosure transition toasts
   if(dc>=1&&dc<3)seenToast('daybar_intro','Your day at a glance ↑','#6b6258',2500);
   if(dc>=2)seenToast('streak_intro','Streaks track consistency 🔥','#c8841a',2500);
+  // PWA install nudge: show on day 2-3 if not already installed as standalone
+  if(dc>=2&&dc<=4&&!window.matchMedia('(display-mode: standalone)').matches&&!navigator.standalone)seenToast('pwa_install','Tip: install boil on your home screen — browser menu → Add to Home Screen','#6b6258',3500);
   document.documentElement.classList.toggle('battery-saver',!!S.batterySaver);
   checkBeginScreen();renderBeginStreak();updateContToggle();renderDaybar();renderCards();updateSteamBanner();updateLogoDot();updateHeader();updateScrollState();applyAquarium();updateAquariumBar();setTimeout(startWaveLoop,50);updateGodBadge();applyNightTheme();
 }
 
 function svgPlay(){return`<svg width="15" height="15" viewBox="0 0 12 12" fill="currentColor"><polygon points="2,1 11,6 2,11"/></svg>`;}
 function svgPause(){return`<svg width="15" height="15" viewBox="0 0 12 12" fill="currentColor"><rect x="1" y="1" width="3.5" height="10" rx="1"/><rect x="7.5" y="1" width="3.5" height="10" rx="1"/></svg>`;}
+
+// ── DATA EXPORT/IMPORT ──────────────────────────────────────────────
+function exportData(){
+  const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`boil-backup-${today()}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('Backup saved','#3d3530',1500);
+}
+function importData(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const data=JSON.parse(reader.result);
+      if(!data.tasks||!Array.isArray(data.tasks))throw new Error('invalid');
+      openSheet(`<div class="sh-ttl">Restore backup?</div>
+        <p style="font-size:14px;color:var(--mid);line-height:1.7;margin-bottom:4px">This will replace all current data with the backup. ${data.tasks.length} task${data.tasks.length!==1?'s':''}, ${data.lifetimeCoins||0} coins.</p>
+        <div class="sh-btns"><button class="bs" onclick="closeSheet()">Cancel</button><button class="bp" onclick="restoreBackup()">Restore</button></div>`);
+      window._pendingRestore=data;
+    }catch(e){showToast('Invalid backup file','#c0453a',2000);}
+  };
+  reader.readAsText(file);
+  input.value='';
+}
+function restoreBackup(){
+  if(!window._pendingRestore)return;
+  S=window._pendingRestore;delete window._pendingRestore;
+  boot();save();closeSheet();render();updateHeader();
+  showToast('Data restored','#3d3530',1500);
+}
 
 // ── RESET ───────────────────────────────────────────────────────────
 function eraseAll(){
@@ -4169,7 +4356,7 @@ function saveTask(id){
   }
   pickedCol=null;save();closeSheet();render();
 }
-function delTask(id){S.tasks=S.tasks.filter(x=>x.id!==id);delete bubblePools[id];save();closeSheet();render();}
+function delTask(id){if(S.lastActiveId===id)S.lastActiveId=null;S.tasks=S.tasks.filter(x=>x.id!==id);delete bubblePools[id];save();closeSheet();render();}
 
 // ── FINISH DAY ──────────────────────────────────────────────────────
 function openFinishDay(){
