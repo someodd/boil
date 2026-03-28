@@ -844,7 +844,7 @@
 </div>
 <div class="daybar" id="daybar"></div>
 <div class="cont-row">
-  <span class="cont-label"><span class="cont-icon">♾️</span>Auto-continue blocks</span>
+  <span class="cont-label"><span class="cont-icon">♾️</span>Always auto-continue</span>
   <button class="cont-tog" id="cont-tog" onclick="toggleContinuous()"></button>
 </div>
 <div class="scroll" id="cards"></div>
@@ -1168,7 +1168,7 @@ function boot(){
 function resetTask(t){t.completed=0;t.isRest=false;t.rem=t.workDur;t.running=false;t.done=false;t.savedAt=null;if(bubblePools[t.id])bubblePools[t.id]=[];delete window['_sf_'+t.id];}
 
 function resolvePhaseEnd(t,animate){
-  const cont=t.continuous!==undefined?t.continuous:S.continuous;
+  const cont=S.continuous||t.continuous;
   if(t.isRest){
     // Rest finished → next work block
     t.isRest=false;t.completed++;
@@ -2240,7 +2240,7 @@ function schedBgNotifs(){
   if(!('Notification' in window)||Notification.permission!=='granted')return;
   const t=S.tasks.find(x=>x.running&&!x.done);
   if(!t)return;
-  const name=t.name,total=t.total,cont=t.continuous!==undefined?t.continuous:S.continuous;
+  const name=t.name,total=t.total,cont=S.continuous||t.continuous;
   const lastTask=S.tasks.filter(x=>!x.done&&x.id!==t.id).length===0;
   let rem=t.rem,comp=t.completed,rest=t.isRest,off=0;
   while(comp<total){
@@ -2889,6 +2889,7 @@ function _attachSensors(){
     _tiltRaw=e.gamma;
   };
   _motionHandler=(e)=>{
+    if(document.hidden)return;
     const a=e.accelerationIncludingGravity;
     if(!a)return;
     // Tilt from gravity: only on touch devices (phones/tablets that can actually tilt)
@@ -2908,11 +2909,11 @@ function _attachSensors(){
       }
       sndShake(mag);
       haptic([5]);
-      // Shake to start: double-shake (mag>20) begins day or starts a task
-      if(mag>20&&!document.querySelector('.sheet')){
+      // Shake to start: sustained shake (8+ frames of mag>10 within 800ms)
+      if(!document.querySelector('.ov.open')){
         _shakeCount++;clearTimeout(_shakeTimer);
-        _shakeTimer=setTimeout(()=>{_shakeCount=0;},1000);
-        if(_shakeCount>=2){
+        _shakeTimer=setTimeout(()=>{_shakeCount=0;},800);
+        if(_shakeCount>=8){
           _shakeCount=0;
           if(!S.startTs&&S.tasks.length){
             // Begin screen: shake to begin the day
@@ -4087,7 +4088,6 @@ function skipTutorial(){
 
 function toggleContinuous(){
   S.continuous=!S.continuous;
-  S.tasks.forEach(t=>{t.continuous=S.continuous;});
   save();
   const tog=document.getElementById('cont-tog');
   if(tog)tog.classList.toggle('on',S.continuous);
@@ -4320,7 +4320,7 @@ let pomoOn=false,pickedCol=null,contOn=true;
 
 function taskForm(t,simple){
   const pomo=t?t.restDur>0:false;
-  contOn=t?!!t.continuous:!!S.continuous;
+  contOn=t?!!t.continuous:true;
   pomoOn=pomo;
   const ic=t?.color??PAL[0];
   const colors=simple?PAL.slice(0,5):PAL;
