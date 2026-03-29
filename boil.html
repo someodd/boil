@@ -4244,7 +4244,7 @@ function importData(input){
 function restoreBackup(){
   if(!window._pendingRestore)return;
   S=window._pendingRestore;delete window._pendingRestore;
-  boot();save();closeSheet();render();updateHeader();
+  save();boot();closeSheet();render();updateHeader(); // save() must come before boot() — boot() reads S from localStorage
   showToast('Data restored','#3d3530',1500);
 }
 
