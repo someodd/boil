@@ -2730,6 +2730,7 @@ function cardHTML(t){
           <div class="done-trophy">${getTheme().emoji}</div>
           <div class="done-name">${esc(t.name)}</div>
           <div class="done-count" style="display:flex;align-items:center;gap:5px">${t.total}×${fmtHM(t.workDur)}<span style="color:var(--mid);font-size:12px">✓</span></div>
+          <button class="c-edit" onclick="event.stopPropagation();uncreditBlock('${t.id}')" title="Undo last block" style="font-size:15px">↩</button>
           <button class="c-edit" onclick="event.stopPropagation();openEdit('${t.id}')">⋯</button>
         </div>
       </div>
