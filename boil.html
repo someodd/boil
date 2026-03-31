@@ -2723,14 +2723,13 @@ function cardHTML(t){
 
   // ── DONE: collapsed strikethrough card ──────────────────────────────
   if(t.done){
-    return`<div class="card done-all" id="c-${t.id}" style="--tc:${t.color}" onclick="event.stopPropagation();openEdit('${t.id}')">
+    return`<div class="card done-all" id="c-${t.id}" style="--tc:${t.color}" onclick="event.stopPropagation();uncreditBlock('${t.id}')">
       <div class="c-bar"></div>
       <div class="c-body">
         <div class="done-row">
           <div class="done-trophy">${getTheme().emoji}</div>
           <div class="done-name">${esc(t.name)}</div>
           <div class="done-count" style="display:flex;align-items:center;gap:5px">${t.total}×${fmtHM(t.workDur)}<span style="color:var(--mid);font-size:12px">✓</span></div>
-          <button class="c-edit" onclick="event.stopPropagation();uncreditBlock('${t.id}')" title="Undo last block" style="font-size:15px">↩</button>
           <button class="c-edit" onclick="event.stopPropagation();openEdit('${t.id}')">⋯</button>
         </div>
       </div>
@@ -4700,7 +4699,7 @@ function openAdd(simple){
   if(simple)setTimeout(()=>applyPreset('focus',1,25,5),50);
   setTimeout(()=>document.getElementById('fn')?.focus(),80);
 }
-function openEdit(id){const t=S.tasks.find(x=>x.id===id);pickedCol=t.color;openSheet(`<div class="sh-ttl">Edit block</div>${taskForm(t)}<div class="sh-btns"><button class="bd" onclick="confirmDel('${id}')">Delete</button><button class="bs" onclick="closeSheet()">Cancel</button><button class="bp" onclick="saveTask('${id}')">Save</button></div>`);}
+function openEdit(id){const t=S.tasks.find(x=>x.id===id);pickedCol=t.color;const undoBtn=t.done?`<button class="bs" onclick="uncreditBlock('${id}');closeSheet()">Undo last block</button>`:'';openSheet(`<div class="sh-ttl">Edit block</div>${taskForm(t)}<div class="sh-btns"><button class="bd" onclick="confirmDel('${id}')">Delete</button>${undoBtn}<button class="bs" onclick="closeSheet()">Cancel</button><button class="bp" onclick="saveTask('${id}')">Save</button></div>`);if(t.done)seenToast('undoDone','You can undo the last block from here.','#6b6258',1800);}
 
 function confirmDel(id){
   const conf=document.createElement('div');conf.className='conf-ask';
