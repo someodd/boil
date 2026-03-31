@@ -1195,20 +1195,23 @@ function boot(){
     delete S._daySnap; // day ended naturally — rewards earned
     resetNightTheme();bgBubbles.length=0;
   } else {
+    const _preComp=S.tasks.reduce((a,t)=>a+t.completed,0);
     S.tasks.forEach(t=>reconcileTask(t,now));
     S.tasks.forEach(setPhaseStart);
+    var _bootBlocksGained=S.tasks.reduce((a,t)=>a+t.completed,0)-_preComp;
   }
   // Capture elapsed BEFORE save() overwrites savedAt
   const _reopenTask=S.tasks.find(t=>t.running&&t.savedAt);
   const _elapsedBeforeSave=_reopenTask?Math.floor((Date.now()-_reopenTask.savedAt)/60000):0;
   save();
-  // Reopen toast
+  // Reopen toast — orientation status (what's happening now, not just how long)
   if(_reopenTask&&_elapsedBeforeSave>=1){
     const _el=_elapsedBeforeSave;
+    const _bg=_bootBlocksGained||0;
     setTimeout(()=>{
       const msg=_el>4320?sisterSays('returnLong'):sisterSays('returnShort');
       sisterMsg(msg,2800);
-      showToast(`${_el} min passed while you were away`,'#3d3530',1800);
+      showToast(returnStatus(_el,_bg,0),'#3d3530',2400);
     },600);
   }
 }
@@ -1282,6 +1285,27 @@ function reconcileTask(t,now){
   if(t.running&&!t.done)t.savedAt=now;
   else{t.savedAt=null;t._phaseStart=null;}
 }
+// Orientation string for return-from-background — tells the user exactly where they are
+// blocksGained = individual blocks completed while away; tasksDoneGained = whole tasks completed while away
+function returnStatus(awayMin,blocksGained,tasksDoneGained){
+  const vis=S.tasks.filter(taskVisibleToday);
+  const rt=vis.find(t=>t.running&&!t.done);
+  const allDone=vis.length&&vis.every(t=>t.done);
+  const next=vis.find(t=>!t.done&&!t.running);
+  const away=awayMin>=60?fmtHM(awayMin*60):awayMin+'m away';
+  if(allDone)return `${away} — everything's done`;
+  if(rt){
+    const phase=rt.isRest?'rest':'block';
+    const rem=fmtHM(rt.rem);
+    const pos=`${rt.completed+1}/${rt.total}`;
+    const extra=blocksGained?` · ${blocksGained} block${blocksGained>1?'s':''} finished`:'';
+    return `${away} — ${rt.name}, ${phase} ${pos}, ${rem} left${extra}`;
+  }
+  // Nothing running — task may have finished while away
+  if(blocksGained&&next)return `${away} — ${blocksGained} block${blocksGained>1?'s':''} finished. ${next.name} is next`;
+  if(next)return `${away} — paused. ${next.name} is next`;
+  return `${away} — no task running`;
+}
 
 let _erasing=false;
 function save(){
@@ -1344,15 +1368,18 @@ document.addEventListener('visibilitychange',()=>{
     acquireWakeLock();
     // Resume AudioContext (mobile browsers suspend it in background)
     if(aC&&aC.state==='suspended')aC.resume().catch(()=>{});
-    // Return warmth: welcome back if away >60s with a task running (PRODUCT.md: visibilitychange is first-class)
-    if(_actualAway>=60&&_postDone===_preDone){
-      haptic([10,30,10]);
-      const _awayM=Math.floor(_actualAway/60);
-      setTimeout(()=>{
-        sisterMsg(sisterSays(_awayM>4320?'returnLong':'returnShort'),2500);
-        showToast(`${_awayM} min passed while you were away`,'#3d3530',1800);
-      },400);
-    }
+  }
+  // Return warmth: welcome back if away >60s (PRODUCT.md: visibilitychange is first-class)
+  // Orientation toast tells the user exactly where they are — task, phase, position, time left
+  if(_actualAway>=60){
+    haptic([10,30,10]);
+    const _awayM=Math.floor(_actualAway/60);
+    const _blocksGained=_postComp-_preComp;
+    const _tasksDone=_postDone-_preDone;
+    setTimeout(()=>{
+      sisterMsg(sisterSays(_awayM>4320?'returnLong':'returnShort'),2500);
+      showToast(returnStatus(_awayM,_blocksGained,_tasksDone),'#3d3530',2400);
+    },400);
   }
 });
 // Space bar = start/pause running or first non-done task (desktop UX)
