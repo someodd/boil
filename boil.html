@@ -171,6 +171,9 @@
     }
     @media(hover:hover){.card:hover:not(.running):not(.resting){box-shadow:0 4px 16px rgba(0,0,0,.09);transform:translateY(-1px)}}
     .card:active{transform:scale(.972)!important}
+    .bedtime-active .card{opacity:0.4;transition:opacity 2s ease,transform .18s cubic-bezier(.34,1.2,.64,1),box-shadow .25s,border-color .25s,filter .35s,background .35s}
+    .bedtime-active .card.running{opacity:0.7}
+    .bedtime-active .fab{opacity:0.3}
     .card.running{
       background:var(--glass-hi);
       backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
@@ -905,6 +908,11 @@ function DAY_S(){
 }
 function dayEl(){if(!S?.startTs)return 0;return Math.min(DAY_S(),Math.max(0,Math.floor((Date.now()-S.startTs)/1000)));}
 function dayRem(){return Math.max(0,DAY_S()-dayEl());}
+function setPhaseStart(t){
+  if(!t.running||t.done)return;
+  const pd=t.isRest?t.restDur:t.workDur;
+  t._phaseStart=Date.now()-((pd-t.rem)/godTick())*1000;
+}
 // ── NIGHT SKY TRANSITION ──────────────────────────────────────────
 function _wallClockNight(){
   // Real-world night based on clock + bedtime
@@ -927,7 +935,7 @@ function nightT(){
   }
   return wall;
 }
-let _lastNightT=-1,_stars=[],_bedtimeNudged=false;
+let _lastNightT=-1,_stars=[],_bedtimeNudged=false,_windDownNudged=false,_bedtimeReached=false,_bedtimeReachedAt=0,_pastBedtimeNudged=false,_noStartNudged=false;
 function applyNightTheme(){
   const t=nightT();
   if(Math.abs(t-_lastNightT)<0.005)return;
@@ -967,6 +975,11 @@ function applyNightTheme(){
     `rgba(${n3(226,140,37,bgT,P)},${n3(219,100,42,bgT,P)},${n3(208,70,56,bgT,P)},0.6)`);
   const meta=document.querySelector('meta[name="theme-color"]');
   if(meta)meta.content=c3('#f5f0e8','#b89070','#0e1420',bgT,P);
+  // Bedtime dimming — also checked here so it activates even without ticker
+  if(S&&S.bedtime!=null&&S.startTs&&dayRem()<=0){
+    document.querySelector('.app-wrap')?.classList.add('bedtime-active');
+    if(!_bedtimeReached){_bedtimeReached=true;_bedtimeReachedAt=Date.now();}
+  }
 }
 function resetNightTheme(){
   _lastNightT=-1;_stars=[];
@@ -1109,6 +1122,12 @@ const SISTER={
     ['Faithful again.','Rest is sacred.'],
   ],
   bedtimeNudge:['It\'s almost time to rest.','You did enough today.'],
+  windDown:['Starting to wind down.','The evening is settling.','Almost time to rest.'],
+  bedtime:['It\'s bedtime. Rest.','The water rests now. So should you.','You did enough today.'],
+  pastBedtime:['Still here? The water can wait.','Tomorrow has its own work.'],
+  bedtimeBlockEnd:['That was enough. Rest now.','Last one tonight. Go gently.'],
+  noStart:['The water\'s ready when you are.','One small thing. That\'s all.'],
+  idle:['The water\'s still warm.','Whenever you\'re ready.'],
   taskDone:['Finished. Go gently.','Done. Every block was a gift.'],
   mercy:['It\'s okay. Some moments need grace.','Grace is not weakness.','The water forgives.'],
 };
@@ -1170,12 +1189,14 @@ function boot(){
   const now=Date.now(),td=today();
   if(S.date!==td){
     ecoDecayEnergy(); // ecosystem entropy — energy fades without work
-    S.tasks.forEach(resetTask);S.lastActiveId=null;
-    S.date=td;S.startTs=null;_bedtimeNudged=false;
+    creditPartialAtMidnight();S.tasks.forEach(resetTask);S.lastActiveId=null;
+    S.date=td;S.startTs=null;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;
+    document.querySelector('.app-wrap')?.classList.remove('bedtime-active');
     delete S._daySnap; // day ended naturally — rewards earned
     resetNightTheme();bgBubbles.length=0;
   } else {
     S.tasks.forEach(t=>reconcileTask(t,now));
+    S.tasks.forEach(setPhaseStart);
   }
   // Capture elapsed BEFORE save() overwrites savedAt
   const _reopenTask=S.tasks.find(t=>t.running&&t.savedAt);
@@ -1191,33 +1212,46 @@ function boot(){
     },600);
   }
 }
-function resetTask(t){t.completed=0;t.isRest=false;t.rem=t.workDur;t.running=false;t.done=false;t.savedAt=null;if(bubblePools[t.id])bubblePools[t.id]=[];delete window['_sf_'+t.id];}
+function resetTask(t){t.completed=0;t.isRest=false;t.rem=t.workDur;t.running=false;t.done=false;t.savedAt=null;t._phaseStart=null;if(bubblePools[t.id])bubblePools[t.id]=[];delete window['_sf_'+t.id];}
+function creditPartialAtMidnight(){
+  S.tasks.forEach(t=>{
+    if(!t.running||t.done)return;
+    // Credit work block past halfway (don't silently lose real work)
+    if(!t.isRest&&t.rem<t.workDur/2){
+      t.completed++;
+      S.lifetimeCoins=(S.lifetimeCoins||0)+1;
+      if(t.completed>=t.total)t.done=true;
+    }
+    t.running=false;t.savedAt=null;t._phaseStart=null;
+  });
+}
 
 function resolvePhaseEnd(t,animate){
-  const cont=S.continuous||t.continuous;
+  const _pastBed=S.bedtime!=null&&dayRem()<=0;
+  const cont=(S.continuous||t.continuous)&&!_pastBed;
   if(t.isRest){
     // Rest finished → next work block
     t.isRest=false;t.completed++;
     S.lifetimeCoins=(S.lifetimeCoins||0)+1; // accumulate in real-time
-    if(t.completed>=t.total){t.done=true;t.running=false;t.savedAt=null;return true;}
+    if(t.completed>=t.total){t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;return true;}
     t.rem=t.workDur;t._halfShown=false;t._almostShown=false;
-    if(cont){t.savedAt=animate?Date.now():null;}
-    else{t.running=false;t.savedAt=null;}
+    if(cont){const _n=animate?Date.now():null;t.savedAt=_n;t._phaseStart=_n;}
+    else{t.running=false;t.savedAt=null;t._phaseStart=null;}
   } else {
     if(t.restDur>0){
       // Work finished → rest phase (always auto-continue into rest)
       t.isRest=true;t.rem=t.restDur;
       ecoAddEnergy(2); // work block feeds the ecosystem
-      if(animate)t.savedAt=Date.now();
+      if(animate){t.savedAt=Date.now();t._phaseStart=Date.now();}
     } else {
       // Work finished, no rest
       t.completed++;
       S.lifetimeCoins=(S.lifetimeCoins||0)+1; // accumulate in real-time
       ecoAddEnergy(2); // work block feeds the ecosystem
-      if(t.completed>=t.total){t.done=true;t.running=false;t.savedAt=null;return true;}
+      if(t.completed>=t.total){t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;return true;}
       t.rem=t.workDur;t._halfShown=false;t._almostShown=false;
-      if(cont){t.savedAt=animate?Date.now():null;}
-      else{t.running=false;t.savedAt=null;}
+      if(cont){const _n=animate?Date.now():null;t.savedAt=_n;t._phaseStart=_n;}
+      else{t.running=false;t.savedAt=null;t._phaseStart=null;}
     }
   }
   return false;
@@ -1246,7 +1280,7 @@ function reconcileTask(t,now){
     }
   }
   if(t.running&&!t.done)t.savedAt=now;
-  else t.savedAt=null;
+  else{t.savedAt=null;t._phaseStart=null;}
 }
 
 let _erasing=false;
@@ -1264,7 +1298,19 @@ let _tabHiddenAt=null;
 let _bgNotifTimers=[];
 function clearBgNotifs(){_bgNotifTimers.forEach(clearTimeout);_bgNotifTimers=[];}
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden){_tabHiddenAt=Date.now();save();schedBgNotifs();return;}
+  if(document.hidden){
+    _tabHiddenAt=Date.now();save();schedBgNotifs();
+    // "Haven't started" nudge: 30min after day-start with no blocks started (intention-action gap)
+    if(S.startTs&&!_noStartNudged&&!S.tasks.some(t=>t.completed>0||t.running)){
+      _noStartNudged=true;
+      scheduleBgNotif(30*60*1000,'Boil',sisterSays('noStart'));
+    }
+    // Idle re-engagement: 2hr with incomplete tasks, during day window, not past bedtime
+    if(S.startTs&&S.tasks.some(t=>!t.done)&&!(S.bedtime!=null&&dayRem()<=0)){
+      scheduleBgNotif(2*60*60*1000,'Boil',sisterSays('idle'));
+    }
+    return;
+  }
   // Resumed — compute actual away time before anything resets it
   const _actualAway=_tabHiddenAt?Math.floor((Date.now()-_tabHiddenAt)/1000):0;
   _tabHiddenAt=null;
@@ -1272,8 +1318,9 @@ document.addEventListener('visibilitychange',()=>{
   // Check for date rollover
   const td=today();
   if(S.date!==td){
-    S.tasks.forEach(t=>{if(t.running){t.running=false;t.savedAt=null;}});
-    stopAmbient();S.tasks.forEach(resetTask);S.date=td;S.startTs=null;_bedtimeNudged=false;
+    creditPartialAtMidnight();
+    stopAmbient();S.tasks.forEach(resetTask);S.date=td;S.startTs=null;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;
+    document.querySelector('.app-wrap')?.classList.remove('bedtime-active');
     delete S._daySnap; // day ended naturally — rewards earned
     resetNightTheme();clearInterval(ticker);ticker=null;bgBubbles.length=0;
     save();render();return;
@@ -1283,6 +1330,7 @@ document.addEventListener('visibilitychange',()=>{
   const _preComp=S.tasks.reduce((a,t)=>a+t.completed,0);
   const _preDone=S.tasks.filter(t=>t.done).length;
   S.tasks.forEach(t=>reconcileTask(t,now));
+  S.tasks.forEach(setPhaseStart);
   const _postComp=S.tasks.reduce((a,t)=>a+t.completed,0);
   const _postDone=S.tasks.filter(t=>t.done).length;
   save();render();
@@ -1325,8 +1373,9 @@ function ensureTicker(){
   ticker=setInterval(()=>{
     // Date rollover guard (foreground past midnight)
     if(S.date!==today()){
-      S.tasks.forEach(t=>{if(t.running){t.running=false;t.savedAt=null;}});
-      stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;_bedtimeNudged=false;
+      creditPartialAtMidnight();
+      stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;
+      document.querySelector('.app-wrap')?.classList.remove('bedtime-active');
       delete S._daySnap;resetNightTheme(); // day ended naturally — rewards earned
       clearInterval(ticker);ticker=null;bgBubbles.length=0;
       save();render();return;
@@ -1334,15 +1383,21 @@ function ensureTicker(){
     let any=false;
     S.tasks.forEach(t=>{
       if(!t.running||t.done)return;
-      any=true;t.rem=Math.max(0,t.rem-godTick());
+      any=true;
+      // Wall-clock accurate rem (eliminates setInterval drift)
+      if(t._phaseStart){
+        const pd=t.isRest?t.restDur:t.workDur;
+        const ws=Math.floor((Date.now()-t._phaseStart)/1000);
+        t.rem=Math.max(0,pd-ws*godTick());
+      }else{t.rem=Math.max(0,t.rem-godTick());}
       // "Just 5 min" countdown — reveal full timer when elapsed
-      if(t._quickStart>0){t._quickStart=Math.max(0,t._quickStart-godTick());if(t._quickStart===0){try{tone(_jHz(660),.15,.02);}catch(e){}sisterMsg('Five minutes. The hardest part is done.',2500);}}
+      if(t._quickStart>0){const pd=t.isRest?t.restDur:t.workDur;const _prev=t._quickStart;t._quickStart=Math.max(0,300-(pd-t.rem));if(_prev>0&&t._quickStart===0){try{tone(_jHz(660),.15,.02);}catch(e){}sisterMsg('Five minutes. The hardest part is done.',2500);}}
       // Sister: sparse mid-block encouragement
       if(!t.isRest&&t.running){
         if(!t._halfShown&&t.rem<=t.workDur/2){t._halfShown=true;if(Math.random()<0.3)sisterMsg(sisterSays('halfway'),2000);}
         if(!t._almostShown&&t.rem<=t.workDur*0.2){t._almostShown=true;if(Math.random()<0.3)sisterMsg(sisterSays('almostDone'),2000);}
       }
-      if(t.rem===0){
+      if(t.rem<=0){
         const allDone=resolvePhaseEnd(t,true);
         save();
         if(allDone)onTaskDone(t.id);
@@ -1352,8 +1407,18 @@ function ensureTicker(){
       }
     });
     if(any){save();fastUpdateAll();}
-    // Bedtime approaching warning (once, at ~15min mark)
-    if(any&&S.bedtime!=null&&!_bedtimeNudged){const _dr=dayRem();if(_dr<=900&&document.hidden){_bedtimeNudged=true;notify('15 minutes to bedtime',sisterSays('bedtimeNudge'));}}
+    // Progressive bedtime wind-down (PRODUCT.md: notifications are the lifeline)
+    if(S.bedtime!=null){
+      const _dr=dayRem();
+      // -30min: sister in-app wind-down (visible only)
+      if(!_windDownNudged&&_dr<=1800&&_dr>0){_windDownNudged=true;if(!document.hidden)sisterMsg(sisterSays('windDown'),3000);}
+      // -15min: notification (hidden) or sister (visible)
+      if(!_bedtimeNudged&&_dr<=900&&_dr>0){_bedtimeNudged=true;if(document.hidden)notify('15 minutes to bedtime',sisterSays('bedtimeNudge'));else sisterMsg(sisterSays('bedtimeNudge'),3000);}
+      // Bedtime reached: dimming + notification/sister
+      if(!_bedtimeReached&&_dr<=0){_bedtimeReached=true;_bedtimeReachedAt=Date.now();document.querySelector('.app-wrap')?.classList.add('bedtime-active');if(document.hidden)notify('Bedtime',sisterSays('bedtime'));else sisterMsg(sisterSays('bedtime'),4000);}
+      // +15min past bedtime: gentle sister (visible only)
+      if(_bedtimeReached&&!_pastBedtimeNudged&&_bedtimeReachedAt&&Date.now()-_bedtimeReachedAt>=900000){_pastBedtimeNudged=true;if(!document.hidden)sisterMsg(sisterSays('pastBedtime'),3500);}
+    }
     if(!S.tasks.some(t=>t.running)){clearInterval(ticker);ticker=null;}
   },1000);
 }
@@ -2149,13 +2214,13 @@ function tapCard(id){
   const wasRunning=t.running;
   // single-block rule: pause anything else
   S.tasks.forEach(o=>{
-    if(o.id!==id&&o.running){o.running=false;o.savedAt=null;renderCard(o);}
+    if(o.id!==id&&o.running){o.running=false;o.savedAt=null;o._phaseStart=null;renderCard(o);}
   });
   t.running=!wasRunning;
   if(t.running){
     S.lastActiveId=null; // running card has .running emphasis; clear residual glow
     document.querySelectorAll('.card.suggested').forEach(e=>e.classList.remove('suggested'));
-    t.savedAt=Date.now();sndTap();startAmbient();ensureTicker();showToast('Heating up. ↑','var(--tc)',1200);if(!_sensorsAttached)requestMotionPermission();
+    t.savedAt=Date.now();t._phaseStart=Date.now();sndTap();startAmbient();ensureTicker();showToast('Heating up. ↑','var(--tc)',1200);if(!_sensorsAttached)requestMotionPermission();
     // First block of the day: enhanced ceremony (Bandura — self-efficacy seeds the spiral)
     const _isFirst=!S.tasks.some(x=>x.completed>0||x.running&&x.id!==id);
     // Water kick-start: brief surge for instant feedback (1.5× for first block)
@@ -2167,7 +2232,7 @@ function tapCard(id){
   }
   else{
     const _wasQuick=t._quickStart>0;t._quickStart=0;
-    t.savedAt=null;S.lastActiveId=id;sndStop();stopAmbient();
+    t.savedAt=null;t._phaseStart=null;S.lastActiveId=id;sndStop();stopAmbient();
     if(_wasQuick)sisterMsg('You showed up. That counts.',2500);
     else showToast('The water cools.','#6b6258',1800);
   }
@@ -2196,13 +2261,13 @@ function creditBlock(id){
   const t=S.tasks.find(x=>x.id===id);
   if(!t||t.done||t.completed>=t.total)return;
   // pause if running
-  if(t.running){t.running=false;t.savedAt=null;stopAmbient();}
+  if(t.running){t.running=false;t.savedAt=null;t._phaseStart=null;stopAmbient();}
   // credit the block
   t.isRest=false;
   t.completed++;
   S.lifetimeCoins=(S.lifetimeCoins||0)+1;
   if(t.completed>=t.total){
-    t.done=true;t.running=false;t.savedAt=null;
+    t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;
     save();onTaskDone(id);renderCard(t);renderDaybar();updateLogoDot();return;
   }
   t.rem=t.workDur;
@@ -2222,7 +2287,7 @@ function creditBlock(id){
 function uncreditBlock(id){
   const t=S.tasks.find(x=>x.id===id);
   if(!t||t.completed<=0)return;
-  if(t.running){t.running=false;t.savedAt=null;stopAmbient();}
+  if(t.running){t.running=false;t.savedAt=null;t._phaseStart=null;stopAmbient();}
   if(t.done){t.done=false;S.stars=Math.max(0,(S.stars||0)-1);updateHeader();}
   t.completed--;
   S.lifetimeCoins=Math.max(0,(S.lifetimeCoins||0)-1);
@@ -2255,6 +2320,11 @@ function notify(title,body){
     try{new Notification(title,{body,icon:'',vibrate:[200,100,200]});}catch(e){}
   }
 }
+function notifyAlways(title,body){
+  if('Notification' in window&&Notification.permission==='granted'){
+    try{new Notification(title,{body,icon:'',vibrate:[200,100,200]});}catch(e){}
+  }
+}
 // Pre-schedule notifications for block completions while tab is hidden
 // (ticker is suspended on mobile — these are the lifeline, PRODUCT.md)
 function scheduleBgNotif(ms,title,body){
@@ -2271,8 +2341,10 @@ function schedBgNotifs(){
   const name=t.name,total=t.total,cont=S.continuous||t.continuous;
   const lastTask=S.tasks.filter(x=>!x.done&&x.id!==t.id).length===0;
   let rem=t.rem,comp=t.completed,rest=t.isRest,off=0;
+  const bedSec=S.bedtime!=null?dayRem():Infinity;
   while(comp<total){
     off+=rem;
+    if(off>=bedSec){scheduleBgNotif(bedSec*1000,'Bedtime',sisterSays('bedtimeNudge'));break;}
     if(rest){
       comp++;
       if(comp>=total){
@@ -2319,8 +2391,8 @@ function onSubBlockDone(id){
   const t=S.tasks.find(x=>x.id===id);
   if(t){
     const blocksLeft2=t.total-t.completed;
-    if(blocksLeft2>0)notify(`${t.name}: ${t.completed}/${t.total} blocks`,`${blocksLeft2} to go.`);
-    else notify(`${t.name}: ${t.total}/${t.total} blocks`,'All done.');
+    if(blocksLeft2>0)notifyAlways(`${t.name}: ${t.completed}/${t.total} blocks`,`${blocksLeft2} to go.`);
+    else notifyAlways(`${t.name}: ${t.total}/${t.total} blocks`,'All done.');
     // Contextual one-liners
     seenToast('coin','🪙 You earned a coin. One per block.','#c8841a',1200);
     if(S.seen.coin&&Math.random()<0.6)setTimeout(()=>sisterMsg(sisterSays('blockDone'),2000),800);
@@ -2371,7 +2443,10 @@ function onSubBlockDone(id){
     renderCard(t);renderDaybar();updateLogoDot();
   },720);
   // Sister: between blocks (non-continuous, task paused waiting for user)
-  if(t&&!t.running&&!t.done)setTimeout(()=>sisterMsg(sisterSays('betweenBlocks'),2500),1200);
+  if(t&&!t.running&&!t.done){
+    const _bed=S.bedtime!=null&&dayRem()<=0;
+    setTimeout(()=>sisterMsg(sisterSays(_bed?'bedtimeBlockEnd':'betweenBlocks'),2500),1200);
+  }
 }
 
 function onTaskDone(id){
@@ -2380,8 +2455,8 @@ function onTaskDone(id){
   stopAmbient();sndTask();
   const _td=S.tasks.find(x=>x.id===id);
   if(_td){
-    notify(`${_td.name} complete`,`${_td.total}/${_td.total} blocks done.`);
-    if(S.tasks.every(x=>x.done))setTimeout(()=>notify('Fully boiled','Every task done. Go gently.'),2000);
+    notifyAlways(`${_td.name} complete`,`${_td.total}/${_td.total} blocks done.`);
+    if(S.tasks.every(x=>x.done))setTimeout(()=>notifyAlways('Fully boiled','Every task done. Go gently.'),2000);
     S.stars=(S.stars||0)+1;save();updateHeader();
     const _dc=getTheme().doneCopy;
     const _dm=_dc?_dc[Math.floor(Math.random()*_dc.length)]:sisterSays('taskDone');
@@ -4717,7 +4792,7 @@ function saveTask(id){
   if(!name)return;
   if(id){
     const t=S.tasks.find(x=>x.id===id);
-    if(t){t.name=name;t.desc=desc;t.color=color;t.days=days;t.total=total;t.continuous=contOn;if(t.workDur!==workDur||t.restDur!==restDur){t.workDur=workDur;t.restDur=restDur;resetTask(t);}if(t.completed>=t.total){t.completed=t.total;t.done=true;t.running=false;t.isRest=false;t.rem=0;t.savedAt=null;}else if(t.done){t.done=false;t.isRest=false;t.rem=t.workDur;}}
+    if(t){t.name=name;t.desc=desc;t.color=color;t.days=days;t.total=total;t.continuous=contOn;if(t.workDur!==workDur||t.restDur!==restDur){t.workDur=workDur;t.restDur=restDur;resetTask(t);}if(t.completed>=t.total){t.completed=t.total;t.done=true;t.running=false;t.isRest=false;t.rem=0;t.savedAt=null;t._phaseStart=null;}else if(t.done){t.done=false;t.isRest=false;t.rem=t.workDur;}}
   } else {
     const nt=mkTask('t-'+Date.now(),name,color,total,workDur,restDur,days,desc);nt.continuous=contOn;S.tasks.push(nt);
   }
