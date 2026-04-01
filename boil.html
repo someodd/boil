@@ -147,7 +147,7 @@
     .scroll{flex:1;overflow-y:auto;padding:8px 12px 100px;display:flex;flex-direction:column;gap:8px;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--brd) transparent;-webkit-overflow-scrolling:touch}
 
     /* dim inactive cards when something running */
-    .scroll.has-running .card:not(.running):not(.resting):not(.done-all){
+    .scroll.has-running .card:not(.running):not(.resting){
       opacity:.35;transform:scale(.97);filter:grayscale(25%);
       transition:opacity .35s,transform .35s,filter .35s;
     }
