@@ -3789,7 +3789,7 @@ function waveLoop(now){
         ctx.restore();
       }
     } else if(bgWaveState.ambient&&bgWaveState.fill>0.3){
-      // ── AMBIENT: calm pool, no bubbles/floaters/noodles ─────────
+      // ── AMBIENT: calm pool with floaters ───────────────────────
       const bgStep=Math.max(3,Math.ceil(W/1023));
       const bgN=Math.min(Math.ceil(W/bgStep)+1,1024);
       ensureBgHF(bgN);
@@ -3798,9 +3798,12 @@ function waveLoop(now){
       updateTiltLayer(bgN);
       if(shakeF>0.1)injectBoilEnergy(bgHF,shakeF*0.1,dt);
       drawWater(ctx,W,H,bgWaveState.fill,bgWaveState.color,waveT*0.2,[],true,bgHF);
-      // Ecosystem (vivid register — between tasks, calm pool)
       const ambFillY=H*(1-bgWaveState.fill/100);
       drawEcosystem(ctx,W,H,ambFillY,bgHF,bgStep,bgN,dt);
+      // Floaters — your toys stay in the water
+      if(activeFloaters.length===0&&((S.shopItems&&S.shopItems.floaters&&S.shopItems.floaters.length)||getTheme().floaters.length))spawnFloaters(W,ambFillY);
+      stepFloaters(W,H,ambFillY,bgHF,bgStep,dt,0);
+      drawFloaters(ctx);
     } else if(bgWaveState.fill>0.3){
       // ── WORK: water + floaters + noodles ─────────────────────────
       // Step heightfield physics
