@@ -3069,12 +3069,12 @@ function _attachSensors(){
             // Begin screen: shake to begin the day
             beginDay();
           } else if(S.startTs&&!S.tasks.some(t=>t.running&&!t.done)){
-            // Day started, no task running: start last active or random undone
+            // Day started, no task running: start last active or first undone
             const _last=S.lastActiveId&&S.tasks.find(t=>t.id===S.lastActiveId&&!t.done);
             if(_last){tapCard(_last.id);}
             else{
               const _undone=S.tasks.filter(t=>taskVisibleToday(t)&&!t.done);
-              if(_undone.length){tapCard(_undone[Math.floor(Math.random()*_undone.length)].id);}
+              if(_undone.length){tapCard(_undone[0].id);}
             }
           }
         }
