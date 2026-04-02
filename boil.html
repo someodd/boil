@@ -146,11 +146,29 @@
     /* ── SCROLL ────────────────────────── */
     .scroll{flex:1;overflow-y:auto;padding:8px 12px 100px;display:flex;flex-direction:column;gap:8px;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--brd) transparent;-webkit-overflow-scrolling:touch}
 
-    /* dim inactive cards when something running */
+    /* ── FLOWING MODE: hide inactive cards, simplify header ── */
     .scroll.has-running .card:not(.running):not(.resting){
       opacity:.35;transform:scale(.97);filter:grayscale(25%);
       transition:opacity .35s,transform .35s,filter .35s;
     }
+    /* When flowing, hide inactive cards entirely (they become canvas blocks) */
+    .app-wrap.flowing .scroll.has-running .card:not(.running):not(.resting):not(.done-all){
+      display:none!important;
+    }
+    /* Simplify header when flowing */
+    .app-wrap.flowing .profile-pill,
+    .app-wrap.flowing .streak-badge,
+    .app-wrap.flowing .coin-pill,
+    .app-wrap.flowing .pill-finish{display:none!important}
+    /* Hide daybar and continuous row when flowing */
+    .app-wrap.flowing .daybar,
+    .app-wrap.flowing .cont-row{opacity:0;pointer-events:none;transition:opacity .35s}
+    /* Lean running card: smaller timer, reduced stats, translucent glass */
+    .app-wrap.flowing .card.running{background:rgba(250,248,244,0.25);backdrop-filter:blur(16px)}
+    .app-wrap.flowing .card.running .c-sub{font-size:10px;opacity:.5}
+    .app-wrap.flowing .card.running .pip-timer-overlay .pto-cur{font-size:16px}
+    .app-wrap.flowing .card.running .pip-timer-overlay .pto-tot{display:none}
+    .app-wrap.flowing .card.running .c-desc{display:none}
 
     /* ── CARD ──────────────────────────── */
     @keyframes cardIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -205,6 +223,7 @@
     .c-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
     .c-desc+.pips-wrap{margin-top:0}
     .c-name{font-family:var(--fd);font-size:18px;font-weight:800;letter-spacing:-.025em;color:var(--ink);flex:1;margin-right:8px;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+    .c-emoji{margin-right:6px;font-size:16px;vertical-align:middle}
     .c-edit{background:none;border:none;color:var(--dimmer);font-size:22px;line-height:1;cursor:pointer;padding:0 2px;transition:color .14s;flex-shrink:0}
     .c-edit:hover{color:var(--dim)}
     .c-desc{font-size:12px;font-weight:500;color:var(--dim);letter-spacing:.01em;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px}
@@ -1092,8 +1111,16 @@ function defaults(){
     eco:{energy:0,peak:0},
   };
 }
-function mkTask(id,name,color,total,workDur,restDur,days,desc){
-  return{id,name,color,total,workDur,restDur,days:days||null,desc:desc||'',continuous:!!S?.continuous,completed:0,isRest:false,rem:workDur,running:false,done:false,savedAt:null};
+function mkTask(id,name,color,total,workDur,restDur,days,desc,emoji){
+  return{id,name,color,total,workDur,restDur,days:days||null,desc:desc||'',emoji:emoji||null,continuous:!!S?.continuous,completed:0,isRest:false,rem:workDur,running:false,done:false,savedAt:null};
+}
+// Auto-assign emoji for tasks that don't have one
+const TASK_EMOJIS=['📖','✏️','💻','🎯','🏋️','🎨','🎵','🧹','📞','🍳','🧘','📐','🔧','🌱','📝','🗂️','💡','🎓','🧪','📦'];
+function autoEmoji(t){
+  if(t.emoji)return t.emoji;
+  // Deterministic from task id so it's stable
+  let h=0;for(let i=0;i<t.id.length;i++){h=((h<<5)-h)+t.id.charCodeAt(i);h|=0;}
+  return TASK_EMOJIS[Math.abs(h)%TASK_EMOJIS.length];
 }
 
 let S, ticker=null;
@@ -1169,7 +1196,7 @@ function boot(){
   if(S.bestScore===undefined)S.bestScore=0;
   if(S.lifetimeCoins===undefined)S.lifetimeCoins=0;
   if(S.stars===undefined)S.stars=0;
-  S.tasks.forEach(t=>{delete t.perfectBlocks;delete t.pauseCount;});
+  S.tasks.forEach(t=>{delete t.perfectBlocks;delete t.pauseCount;if(t.emoji===undefined)t.emoji=null;});
   if(S.streakFreezes===undefined)S.streakFreezes=0;
   if(S.badges===undefined)S.badges=[];
   if(S.shopItems===undefined)S.shopItems={};
@@ -2279,8 +2306,8 @@ function tapCard(id){
     if(_wasQuick)sisterMsg('You showed up. That counts.',2500);
     else showToast('The water cools.','#6b6258',1800);
   }
-  save();renderCard(t);renderDaybar();updateLogoDot();
-  updateScrollState();
+  activeTaskBlocks.length=0; // force respawn on next frame
+  save();render();updateLogoDot();
   // Scroll running card into view
   if(t.running){const el=document.getElementById('c-'+id);if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});}
 }
@@ -2785,6 +2812,8 @@ function updateScrollState(){
   const sc=document.getElementById('cards');
   const rt=S.tasks.find(t=>t.running);
   sc.classList.toggle('has-running',!!rt);
+  const aw=document.querySelector('.app-wrap');
+  if(aw)aw.classList.toggle('flowing',!!rt);
   const bgc=document.getElementById('bg-canvas');
   if(!rt){
     // Ambient water: gentle sway when day is active but no task running
@@ -2801,6 +2830,7 @@ function updateScrollState(){
       if(bgc)bgc.classList.remove('active');
     }
     activeFloaters.length=0;
+    activeTaskBlocks.length=0;
   } else {
     bgWaveState.ambient=false;
     // Immediately activate bg wave — don't wait for ticker
@@ -2888,7 +2918,7 @@ function cardHTML(t){
     <div class="c-bar"></div>
     <div class="c-body">
       <div class="c-head">
-        <div class="c-name">${esc(t.name)}</div>
+        <div class="c-name"><span class="c-emoji">${autoEmoji(t)}</span>${esc(t.name)}</div>
         <button class="c-edit" onclick="event.stopPropagation();openEdit('${t.id}')">⋯</button>
       </div>
       ${t.desc?`<div class="c-desc">${esc(t.desc)}</div>`:''}
@@ -2944,7 +2974,11 @@ function renderCards(){
     return;
   }
   const hidden=S.tasks.filter(t=>!taskVisibleToday(t));
-  el.innerHTML=visible.map(cardHTML).join('')+(hidden.length?`<div style="text-align:center;padding:12px 0 4px;font-size:11px;font-weight:700;color:var(--dim)">${hidden.length} task${hidden.length!==1?'s':''} not scheduled for today</div>`:'');
+  // Flowing mode: running task floats to top of card list
+  const sorted=visible.slice();
+  const ri=sorted.findIndex(t=>t.running);
+  if(ri>0){const[r]=sorted.splice(ri,1);sorted.unshift(r);}
+  el.innerHTML=sorted.map(cardHTML).join('')+(hidden.length?`<div style="text-align:center;padding:12px 0 4px;font-size:11px;font-weight:700;color:var(--dim)">${hidden.length} task${hidden.length!==1?'s':''} not scheduled for today</div>`:'');
   updateScrollState();
   setTimeout(attachDrag,0);
 }
@@ -3186,6 +3220,96 @@ const FLOATER_DEFS={
   'float_ball': {emoji:'🏐',size:30,buoyancy:0.10,drag:0.88,bouncy:true},
   'float_fish': {emoji:'🐟',size:22,buoyancy:0.06,drag:0.98,underwater:true},
 };
+// ── TASK BLOCKS: floating emoji representations of inactive tasks ──
+let activeTaskBlocks=[];
+function spawnTaskBlocks(W,fillY){
+  activeTaskBlocks.length=0;
+  const rt=S.tasks.find(t=>t.running);
+  if(!rt)return;
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const inactive=S.tasks.filter(t=>t.id!==rt.id&&!t.done&&taskVisibleToday(t));
+  const count=inactive.length;
+  if(!count)return;
+  // Spread across water surface, evenly spaced
+  inactive.forEach((t,i)=>{
+    const emoji=autoEmoji(t);
+    // Size proportional to remaining time, min 44px for tap target
+    const totalRem=(t.total-t.completed)*t.workDur;
+    const maxRem=Math.max(...inactive.map(x=>(x.total-x.completed)*x.workDur),1);
+    const frac=totalRem/maxRem;
+    const minSz=44*dpr, maxSz=72*dpr;
+    const sz=minSz+frac*(maxSz-minSz);
+    const spacing=W/(count+1);
+    activeTaskBlocks.push({
+      taskId:t.id, emoji, color:t.color, name:t.name,
+      size:sz, baseSize:sz,
+      x:spacing*(i+1), y:fillY-sz*0.3,
+      vy:0, rot:0, bobPhase:Math.random()*Math.PI*2
+    });
+  });
+}
+function stepTaskBlocks(W,H,fillY,hf,step,dt){
+  activeTaskBlocks.forEach(f=>{
+    const col=Math.round(f.x/step);
+    const tOff=(tiltH&&col>=0&&col<tiltH.length)?tiltH[col]:0;
+    const surfY=(hf&&col>=0&&col<hf.cols)?fillY+hf.h[col]+tOff:fillY+tOff;
+    const submerge=f.size*0.35;
+    const targetY=surfY-submerge;
+    // Gentle buoyancy toward surface — high drag for stability
+    f.vy+=(targetY-f.y)*0.04;
+    f.vy*=0.88;
+    f.y+=f.vy;
+    // Very gentle bob for life
+    f.bobPhase+=dt*1.2;
+    f.y+=Math.sin(f.bobPhase)*0.3;
+    // Subtle rotation from wave
+    f.rot=Math.sin(f.bobPhase*0.7)*0.05;
+    // Keep on screen
+    if(f.x<f.size)f.x=f.size;
+    if(f.x>W-f.size)f.x=W-f.size;
+  });
+}
+function drawTaskBlocks(ctx){
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  activeTaskBlocks.forEach(f=>{
+    ctx.save();
+    ctx.translate(f.x,f.y);
+    ctx.rotate(f.rot);
+    // Colored circle background
+    const r=f.size*0.5;
+    ctx.beginPath();
+    ctx.arc(0,0,r,0,Math.PI*2);
+    ctx.fillStyle=f.color+'44'; // translucent task color
+    ctx.fill();
+    ctx.strokeStyle=f.color+'88';
+    ctx.lineWidth=2*dpr;
+    ctx.stroke();
+    // Emoji centered
+    const emojiImg=getEmojiImg(f.emoji,Math.round(f.size*0.45));
+    if(emojiImg)ctx.drawImage(emojiImg,-f.size*0.22,-f.size*0.22,f.size*0.45,f.size*0.45);
+    // Task name label below
+    ctx.textAlign='center';
+    ctx.textBaseline='top';
+    const fontSize=Math.round(10*dpr);
+    ctx.font=`700 ${fontSize}px "Plus Jakarta Sans",sans-serif`;
+    // White shadow for readability
+    ctx.fillStyle='rgba(255,255,255,0.8)';
+    ctx.fillText(f.name,1*dpr,r+4*dpr+1);
+    ctx.fillStyle=f.color;
+    ctx.fillText(f.name,0,r+4*dpr);
+    ctx.restore();
+  });
+}
+function hitTestTaskBlock(tx,ty){
+  for(let i=activeTaskBlocks.length-1;i>=0;i--){
+    const f=activeTaskBlocks[i];
+    const dx=tx-f.x,dy=ty-f.y;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist<f.size*0.6)return f;
+  }
+  return null;
+}
+
 function spawnFloaters(W,fillY){
   activeFloaters.length=0;
   const owned=S.shopItems&&S.shopItems.floaters?S.shopItems.floaters:[];
@@ -3232,7 +3356,9 @@ function spawnFloaters(W,fillY){
   }
 }
 function stepFloaters(W,H,fillY,hf,step,dt,boil){
+  const flowing=S&&S.tasks&&S.tasks.some(t=>t.running);
   activeFloaters.forEach(f=>{
+    if(flowing&&!f.underwater)return; // skip surface toys in flowing mode
     const col=Math.round(f.x/step);
     const tOff=(tiltH&&col>=0&&col<tiltH.length)?tiltH[col]:0;
     const surfY=(hf&&col>=0&&col<hf.cols)?fillY+hf.h[col]+tOff:fillY+tOff;
@@ -3360,7 +3486,10 @@ function getEmojiImg(emoji,size){
   return c;
 }
 function drawFloaters(ctx){
+  const flowing=S&&S.tasks&&S.tasks.some(t=>t.running);
   activeFloaters.forEach(f=>{
+    // In flowing mode, hide surface toys (they compete with task blocks)
+    if(flowing&&!f.underwater)return;
     ctx.save();
     ctx.translate(f.x,f.y);
     if(f.flipX)ctx.scale(-1,1);
@@ -3530,6 +3659,9 @@ document.addEventListener('touchstart',(e)=>{
   for(let i=0;i<e.changedTouches.length;i++){
     const t=e.changedTouches[i];
     const tx=t.clientX*dpr,ty=t.clientY*dpr;
+    // Task block tap: switch to that task immediately
+    const hitBlock=hitTestTaskBlock(tx,ty);
+    if(hitBlock){haptic([15,30,15]);tapCard(hitBlock.taskId);return;}
     // Star twinkle (sky zone)
     if(ty<waterY)tapStar(tx,ty);
     // Always allow floater interaction (ball juggling needs taps above water)
@@ -3579,6 +3711,9 @@ document.addEventListener('mousedown',(e)=>{
   const waterY=H*(1-bgWaveState.fill/100);
   const surfZone=80*dpr;
   const aboveZone=20*dpr;
+  // Task block click: switch to that task
+  const hitBlock=hitTestTaskBlock(tx,ty);
+  if(hitBlock){haptic([15,30,15]);tapCard(hitBlock.taskId);return;}
   // Star twinkle (sky zone)
   if(ty<waterY)tapStar(tx,ty);
   // Always allow floater interaction (ball juggling needs taps above water)
@@ -3830,6 +3965,10 @@ function waveLoop(now){
       if(activeFloaters.length===0&&((S.shopItems&&S.shopItems.floaters&&S.shopItems.floaters.length)||getTheme().floaters.length))spawnFloaters(W,bgFillY);
       stepFloaters(W,H,bgFillY,bgHF,bgStep,dt,boil2);
       drawFloaters(ctx);
+      // Task blocks (inactive tasks as floating emoji blocks)
+      if(activeTaskBlocks.length===0&&S.tasks.some(t=>t.running))spawnTaskBlocks(W,bgFillY);
+      stepTaskBlocks(W,H,bgFillY,bgHF,bgStep,dt);
+      drawTaskBlocks(ctx);
       // Glass fogging at high boil
       if(boil2>0.4){
         ctx.save();ctx.globalAlpha=(boil2-0.4)*0.25;
@@ -4318,7 +4457,9 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
   // ── Body gradient (light at surface, deep at bottom) ──────────────
   const _om=_theme.opacityMul||1.0;
   // Background water starts transparent, reaches full opacity near completion
-  const _bp=isBg?0.35+0.65*(fp/100):1;
+  // Flowing mode: boost opacity so water is more visually prominent
+  const _flowing=isBg&&S&&S.tasks&&S.tasks.some(t=>t.running&&!t.isRest);
+  const _bp=isBg?(_flowing?0.55+0.45*(fp/100):0.35+0.65*(fp/100)):1;
   const g=ctx.createLinearGradient(0,gt,0,H);
   g.addColorStop(0,   `rgba(${clr(ri+70)},${clr(gi+70)},${clr(bi+70)},${Math.min(1,(isBg?0.32:0.95)*_om*_bp)})`);
   g.addColorStop(0.08,`rgba(${clr(ri+35)},${clr(gi+35)},${clr(bi+35)},${Math.min(1,(isBg?0.27:0.85)*_om*_bp)})`);
@@ -4794,7 +4935,7 @@ function doReset(){bgBubbles.length=0;activeFloaters.length=0;if(bgHF.h)bgHF.h.f
 }
 
 // ── FORMS ───────────────────────────────────────────────────────────
-let pomoOn=false,pickedCol=null,contOn=true;
+let pomoOn=false,pickedCol=null,pickedEmoji=null,contOn=true;
 
 function taskForm(t,simple){
   const pomo=t?t.restDur>0:false;
@@ -4808,6 +4949,7 @@ function taskForm(t,simple){
     <div class="field"><label>Name</label><input id="fn" type="text" value="${esc(t?.name??'')}" placeholder="e.g. Work, Chinese, Exercise" autocomplete="off"></div>
     <div class="field" style="${hideSimple}"><label>Description <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--dimmer)">optional</span></label><input id="fdesc" type="text" value="${esc(t?.desc??'')}" placeholder="what specifically? where you left off?" autocomplete="off"></div>
     <div class="field"><label>Color</label><div class="cr">${sw}</div></div>
+    <div class="field" style="${hideSimple}"><label>Emoji</label><div class="cr" id="emoji-row">${TASK_EMOJIS.slice(0,10).map(e=>`<div class="sw ew${e===(t?.emoji||pickedEmoji)?' on':''}" onclick="pickEmoji('${e}')" style="background:var(--brd);font-size:18px;display:flex;align-items:center;justify-content:center">${e}</div>`).join('')}</div></div>
     <div class="field"><label>Number of blocks</label><input id="ftot" type="number" value="${t?.total??4}" min="1" max="20" inputmode="numeric"></div>
     <div class="field"><label>Block duration (minutes)</label><input id="fwork" type="number" value="${t?Math.round(t.workDur/60):60}" min="1" max="480" inputmode="numeric"></div>
     <div class="field"><label>Pomodoro rest?</label>
@@ -4836,7 +4978,8 @@ function taskForm(t,simple){
 }
 function togglePomo(){pomoOn=!pomoOn;document.getElementById('ptog').classList.toggle('on',pomoOn);document.getElementById('rfield').style.display=pomoOn?'block':'none';}
 function toggleCont(){contOn=!contOn;document.getElementById('ctog').classList.toggle('on',contOn);}
-function pickCol(p){pickedCol=p;document.querySelectorAll('.sw').forEach(s=>s.classList.toggle('on',s.dataset.p===p));}
+function pickCol(p){pickedCol=p;document.querySelectorAll('.sw:not(.ew)').forEach(s=>s.classList.toggle('on',s.dataset.p===p));}
+function pickEmoji(e){pickedEmoji=e;document.querySelectorAll('.ew').forEach(s=>s.classList.toggle('on',s.textContent===e));}
 function showAllFormFields(btn){
   const sheet=btn.closest('.sheet');
   if(sheet)sheet.querySelectorAll('.field[style*="display:none"]').forEach(f=>f.style.display='');
@@ -4865,7 +5008,7 @@ function applyPreset(label,total,workMin,restMin){
   });
 }
 function openAdd(simple){
-  pomoOn=false;pickedCol=null;
+  pomoOn=false;pickedCol=null;pickedEmoji=null;
   const presets=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
     <button class="preset-chip" data-label="focus" onclick="applyPreset('focus',1,25,5)" style="background:var(--brd);color:var(--mid);border:none;border-radius:100px;padding:6px 12px;font-size:11px;font-weight:800;font-family:var(--fs);cursor:pointer;letter-spacing:.04em">25m focus</button>
     <button class="preset-chip" data-label="deep" onclick="applyPreset('deep',1,50,10)" style="background:var(--brd);color:var(--mid);border:none;border-radius:100px;padding:6px 12px;font-size:11px;font-weight:800;font-family:var(--fs);cursor:pointer;letter-spacing:.04em">50m + 10m rest</button>
@@ -4875,7 +5018,7 @@ function openAdd(simple){
   if(simple)setTimeout(()=>applyPreset('focus',1,25,5),50);
   setTimeout(()=>document.getElementById('fn')?.focus(),80);
 }
-function openEdit(id){const t=S.tasks.find(x=>x.id===id);pickedCol=t.color;const undoBtn=t.done?`<button class="bs" onclick="uncreditBlock('${id}');closeSheet()">Undo last block</button>`:'';openSheet(`<div class="sh-ttl">Edit block</div>${taskForm(t)}<div class="sh-btns"><button class="bd" onclick="confirmDel('${id}')">Delete</button>${undoBtn}<button class="bs" onclick="closeSheet()">Cancel</button><button class="bp" onclick="saveTask('${id}')">Save</button></div>`);if(t.done)seenToast('undoDone','You can undo the last block from here.','#6b6258',1800);}
+function openEdit(id){const t=S.tasks.find(x=>x.id===id);pickedCol=t.color;pickedEmoji=t.emoji;const undoBtn=t.done?`<button class="bs" onclick="uncreditBlock('${id}');closeSheet()">Undo last block</button>`:'';openSheet(`<div class="sh-ttl">Edit block</div>${taskForm(t)}<div class="sh-btns"><button class="bd" onclick="confirmDel('${id}')">Delete</button>${undoBtn}<button class="bs" onclick="closeSheet()">Cancel</button><button class="bp" onclick="saveTask('${id}')">Save</button></div>`);if(t.done)seenToast('undoDone','You can undo the last block from here.','#6b6258',1800);}
 
 function confirmDel(id){
   const conf=document.createElement('div');conf.className='conf-ask';
@@ -4893,11 +5036,11 @@ function saveTask(id){
   if(!name)return;
   if(id){
     const t=S.tasks.find(x=>x.id===id);
-    if(t){t.name=name;t.desc=desc;t.color=color;t.days=days;t.total=total;t.continuous=contOn;if(t.workDur!==workDur||t.restDur!==restDur){t.workDur=workDur;t.restDur=restDur;resetTask(t);}if(t.completed>=t.total){t.completed=t.total;t.done=true;t.running=false;t.isRest=false;t.rem=0;t.savedAt=null;t._phaseStart=null;}else if(t.done){t.done=false;t.isRest=false;t.rem=t.workDur;}}
+    if(t){t.name=name;t.desc=desc;t.color=color;t.emoji=pickedEmoji||t.emoji;t.days=days;t.total=total;t.continuous=contOn;if(t.workDur!==workDur||t.restDur!==restDur){t.workDur=workDur;t.restDur=restDur;resetTask(t);}if(t.completed>=t.total){t.completed=t.total;t.done=true;t.running=false;t.isRest=false;t.rem=0;t.savedAt=null;t._phaseStart=null;}else if(t.done){t.done=false;t.isRest=false;t.rem=t.workDur;}}
   } else {
-    const nt=mkTask('t-'+Date.now(),name,color,total,workDur,restDur,days,desc);nt.continuous=contOn;S.tasks.push(nt);
+    const nt=mkTask('t-'+Date.now(),name,color,total,workDur,restDur,days,desc,pickedEmoji);nt.continuous=contOn;S.tasks.push(nt);
   }
-  pickedCol=null;save();closeSheet();render();
+  pickedCol=null;pickedEmoji=null;save();closeSheet();render();
 }
 function delTask(id){if(S.lastActiveId===id)S.lastActiveId=null;S.tasks=S.tasks.filter(x=>x.id!==id);delete bubblePools[id];save();closeSheet();render();}
 
