@@ -2306,12 +2306,43 @@ function tapCard(id){
     if(_wasQuick)sisterMsg('You showed up. That counts.',2500);
     else showToast('The water cools.','#6b6258',1800);
   }
+  // FLIP animation: capture old position before DOM rebuild
+  const oldEl=t.running?document.getElementById('c-'+id):null;
+  const oldRect=oldEl?oldEl.getBoundingClientRect():null;
   activeTaskBlocks.length=0; // force respawn on next frame
   save();render();updateLogoDot();
-  // Scroll running card to top
+  // Scroll running card to top + animate it into place
   if(t.running){
     const sc=document.getElementById('cards');
     if(sc)sc.scrollTop=0;
+    const newEl=document.getElementById('c-'+id);
+    if(newEl){
+      const newRect=newEl.getBoundingClientRect();
+      if(oldRect){
+        // Card was visible: FLIP from old position to top
+        const dy=oldRect.top-newRect.top;
+        if(Math.abs(dy)>5){
+          newEl.style.transform=`translateY(${dy}px)`;
+          newEl.style.transition='none';
+          requestAnimationFrame(()=>requestAnimationFrame(()=>{
+            newEl.style.transition='transform .4s cubic-bezier(.34,1.2,.64,1)';
+            newEl.style.transform='';
+            newEl.addEventListener('transitionend',()=>{newEl.style.transition='';newEl.style.transform='';},{once:true});
+          }));
+        }
+      } else {
+        // Card was hidden (switched from floating block): rise into view
+        newEl.style.transform='translateY(30px) scale(0.95)';
+        newEl.style.opacity='0';
+        newEl.style.transition='none';
+        requestAnimationFrame(()=>requestAnimationFrame(()=>{
+          newEl.style.transition='transform .35s cubic-bezier(.34,1.2,.64,1),opacity .25s ease';
+          newEl.style.transform='';
+          newEl.style.opacity='';
+          newEl.addEventListener('transitionend',()=>{newEl.style.transition='';newEl.style.transform='';newEl.style.opacity='';},{once:true});
+        }));
+      }
+    }
   }
 }
 
