@@ -2282,9 +2282,9 @@ function tapCard(id){
   const t=S.tasks.find(x=>x.id===id);
   if(!t||t.done)return;
   const wasRunning=t.running;
-  // single-block rule: pause anything else
+  // single-block rule: pause anything else (don't render individually — render() rebuilds all)
   S.tasks.forEach(o=>{
-    if(o.id!==id&&o.running){o.running=false;o.savedAt=null;o._phaseStart=null;renderCard(o);}
+    if(o.id!==id&&o.running){o.running=false;o.savedAt=null;o._phaseStart=null;}
   });
   t.running=!wasRunning;
   if(t.running){
@@ -2308,8 +2308,11 @@ function tapCard(id){
   }
   activeTaskBlocks.length=0; // force respawn on next frame
   save();render();updateLogoDot();
-  // Scroll running card into view
-  if(t.running){const el=document.getElementById('c-'+id);if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});}
+  // Scroll running card to top
+  if(t.running){
+    const sc=document.getElementById('cards');
+    if(sc)sc.scrollTop=0;
+  }
 }
 
 // ── "JUST 5 MINUTES" QUICK START ──────────────────────────────────
