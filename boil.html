@@ -160,9 +160,12 @@
     .app-wrap.flowing .streak-badge,
     .app-wrap.flowing .coin-pill,
     .app-wrap.flowing .pill-finish{display:none!important}
-    /* Hide daybar and continuous row when flowing */
+    /* Hide daybar, continuous row, and unscheduled notice when flowing */
     .app-wrap.flowing .daybar,
-    .app-wrap.flowing .cont-row{display:none!important}
+    .app-wrap.flowing .cont-row,
+    .app-wrap.flowing .hidden-sched{display:none!important}
+    /* Tighten scroll padding so card sits right under header */
+    .app-wrap.flowing .scroll{padding-top:4px}
     /* Lean running card: smaller timer, reduced stats, translucent glass */
     .app-wrap.flowing .card.running{background:rgba(250,248,244,0.25);backdrop-filter:blur(16px)}
     .app-wrap.flowing .card.running .c-sub{font-size:10px;opacity:.5}
@@ -2306,22 +2309,46 @@ function tapCard(id){
     if(_wasQuick)sisterMsg('You showed up. That counts.',2500);
     else showToast('The water cools.','#6b6258',1800);
   }
-  // FLIP animation: capture old position before DOM rebuild
-  // (display:none elements return zero-height rects — treat as hidden)
+  // Capture old card position for FLIP (visible cards only)
   const oldEl=t.running?document.getElementById('c-'+id):null;
   const oldRect=oldEl?oldEl.getBoundingClientRect():null;
   const wasVisible=oldRect&&oldRect.height>0;
-  activeTaskBlocks.length=0; // force respawn on next frame
+  const popped=_poppedBlock;_poppedBlock=null;
+  activeTaskBlocks.length=0;
   save();render();updateLogoDot();
-  // Scroll running card to top + animate it into place
   if(t.running){
     const sc=document.getElementById('cards');
     if(sc)sc.scrollTop=0;
     const newEl=document.getElementById('c-'+id);
     if(newEl){
       const newRect=newEl.getBoundingClientRect();
-      if(wasVisible){
-        // Card was visible: FLIP from old position to top
+      if(popped){
+        // Bubble→card morph: circle at bubble position transforms into card
+        newEl.style.opacity='0';
+        const m=document.createElement('div');
+        const sz=popped.size;
+        m.style.cssText=`position:fixed;left:${popped.cx}px;top:${popped.cy}px;width:${sz}px;height:${sz}px;border-radius:50%;background:${popped.color}44;border:2px solid ${popped.color}88;z-index:1000;pointer-events:none;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;font-size:${sz*0.5}px;overflow:hidden;backdrop-filter:blur(8px)`;
+        m.textContent=popped.emoji;
+        document.body.appendChild(m);
+        requestAnimationFrame(()=>requestAnimationFrame(()=>{
+          // Morph circle → card rectangle at card's position
+          m.style.transition='all .45s cubic-bezier(.22,1,.36,1)';
+          m.style.left=`${newRect.left+newRect.width/2}px`;
+          m.style.top=`${newRect.top+newRect.height/2}px`;
+          m.style.width=`${newRect.width}px`;
+          m.style.height=`${newRect.height}px`;
+          m.style.borderRadius='16px';
+          m.style.background='rgba(250,248,244,0.25)';
+          m.style.border='1.5px solid rgba(255,255,255,0.6)';
+          m.style.fontSize=`${sz*1.5}px`;
+          m.style.opacity='0';
+          // Reveal real card as morph fades
+          setTimeout(()=>{newEl.style.transition='opacity .15s';newEl.style.opacity='';},300);
+          m.addEventListener('transitionend',()=>{m.remove();newEl.style.transition='';newEl.style.opacity='';},{once:true});
+          setTimeout(()=>m.remove(),600);
+        }));
+      } else if(wasVisible){
+        // FLIP: card was visible, slide from old position to top
         const dy=oldRect.top-newRect.top;
         if(Math.abs(dy)>5){
           newEl.style.transform=`translateY(${dy}px)`;
@@ -2333,12 +2360,12 @@ function tapCard(id){
           }));
         }
       } else {
-        // Card was hidden (switched from floating block): rise into view
-        newEl.style.transform='translateY(30px) scale(0.95)';
+        // Fallback: gentle rise
+        newEl.style.transform='translateY(20px)';
         newEl.style.opacity='0';
         newEl.style.transition='none';
         requestAnimationFrame(()=>requestAnimationFrame(()=>{
-          newEl.style.transition='transform .35s cubic-bezier(.34,1.2,.64,1),opacity .25s ease';
+          newEl.style.transition='transform .35s cubic-bezier(.34,1.2,.64,1),opacity .2s ease';
           newEl.style.transform='';
           newEl.style.opacity='';
           newEl.addEventListener('transitionend',()=>{newEl.style.transition='';newEl.style.transform='';newEl.style.opacity='';},{once:true});
@@ -3014,7 +3041,7 @@ function renderCards(){
   const sorted=visible.slice();
   const ri=sorted.findIndex(t=>t.running);
   if(ri>0){const[r]=sorted.splice(ri,1);sorted.unshift(r);}
-  el.innerHTML=sorted.map(cardHTML).join('')+(hidden.length?`<div style="text-align:center;padding:12px 0 4px;font-size:11px;font-weight:700;color:var(--dim)">${hidden.length} task${hidden.length!==1?'s':''} not scheduled for today</div>`:'');
+  el.innerHTML=sorted.map(cardHTML).join('')+(hidden.length?`<div class="hidden-sched" style="text-align:center;padding:12px 0 4px;font-size:11px;font-weight:700;color:var(--dim)">${hidden.length} task${hidden.length!==1?'s':''} not scheduled for today</div>`:'');
   updateScrollState();
   setTimeout(attachDrag,0);
 }
@@ -3336,40 +3363,26 @@ function drawTaskBlocks(ctx){
     ctx.restore();
   });
 }
+let _poppedBlock=null; // stash for morph animation in tapCard
 function popTaskBlock(block){
   const dpr=Math.min(window.devicePixelRatio||1,2);
-  const cx=block.x/dpr, cy=block.y/dpr; // convert canvas→CSS coords for burstAt
-  // Particle burst in task color
+  const cx=block.x/dpr, cy=block.y/dpr;
+  // Particle burst
   burstAt(cx,cy,block.color,18);
   burstAt(cx,cy,'#fff',8);
-  // Satisfying pop sound — ascending two-tone
+  // Pop sound
   try{
     const now=ac().currentTime;
     tone(400,.06,.03,now);tone(600,.08,.025,now+0.04);tone(900,.1,.015,now+0.08);
   }catch(e){}
-  // Haptic pop
   haptic([20,30,20]);
-  // Water splash at block position
+  // Water splash
   if(bgHF&&bgHF.cols>0){
     const col=Math.round(block.x/Math.max(3,Math.ceil((window.innerWidth*dpr)/1023)));
     if(col>=0&&col<bgHF.cols)applyForce(bgHF,col,-20,6);
   }
-  // Emoji float-up: rises and grows as if transforming into the card
-  const em=document.createElement('div');
-  const emojiSz=block.size*0.45/dpr;
-  em.textContent=block.emoji;
-  em.style.cssText=`position:fixed;left:${cx}px;top:${cy}px;font-size:${emojiSz}px;z-index:1000;pointer-events:none;transform:translate(-50%,-50%);transition:transform .4s cubic-bezier(.34,1.2,.64,1),opacity .35s ease,font-size .4s cubic-bezier(.34,1.2,.64,1),top .4s cubic-bezier(.22,1,.36,1),left .4s ease;`;
-  document.body.appendChild(em);
-  // Target: roughly where the card header will appear
-  const hdrH=document.querySelector('.hdr')?.getBoundingClientRect().bottom||56;
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    em.style.top=`${hdrH+30}px`;
-    em.style.left='50%';
-    em.style.fontSize=`${emojiSz*2.5}px`;
-    em.style.opacity='0';
-    em.addEventListener('transitionend',()=>em.remove(),{once:true});
-    setTimeout(()=>em.remove(),500); // safety cleanup
-  }));
+  // Stash for morph animation (tapCard picks this up)
+  _poppedBlock={cx,cy,size:block.size/dpr,color:block.color,emoji:block.emoji};
 }
 function hitTestTaskBlock(tx,ty){
   for(let i=activeTaskBlocks.length-1;i>=0;i--){
