@@ -3716,6 +3716,7 @@ function popBubbleAt(tx,ty){
     }
   }
 }
+let _lastBlockTapT=0; // guard against synthetic mousedown after touchstart
 document.addEventListener('touchstart',(e)=>{
   // Task block taps bypass the e.target filter — mobile browsers adjust touch targets
   // to the nearest interactive element (the running card), swallowing taps in the water area
@@ -3724,7 +3725,7 @@ document.addEventListener('touchstart',(e)=>{
     for(let i=0;i<e.changedTouches.length;i++){
       const t0=e.changedTouches[i];
       const hitBlock=hitTestTaskBlock(t0.clientX*dpr0,t0.clientY*dpr0);
-      if(hitBlock){popTaskBlock(hitBlock);tapCard(hitBlock.taskId);return;}
+      if(hitBlock){_lastBlockTapT=Date.now();popTaskBlock(hitBlock);tapCard(hitBlock.taskId);return;}
     }
   }
   if(!bgWaveState.active||e.target.closest('.card,.sheet,.fab,.hdr,.pill,.coin-pill'))return;
@@ -3779,6 +3780,8 @@ document.addEventListener('touchend',(e)=>{
 },{passive:true});
 document.addEventListener('mousedown',(e)=>{
   if(!bgWaveState.active||e.target.closest('.card,.sheet,.fab,.hdr,.pill,.coin-pill'))return;
+  // Skip synthetic mousedown fired by mobile browsers after touchstart
+  if(Date.now()-_lastBlockTapT<800)return;
   const dpr=_bgDpr();
   const tx=e.clientX*dpr,ty=e.clientY*dpr;
   const H=window.innerHeight*dpr;
