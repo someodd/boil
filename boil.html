@@ -2332,7 +2332,7 @@ function tapCard(id){
         document.body.appendChild(m);
         requestAnimationFrame(()=>requestAnimationFrame(()=>{
           // Morph circle → card rectangle at card's position
-          m.style.transition='all .45s cubic-bezier(.22,1,.36,1)';
+          m.style.transition='all .65s cubic-bezier(.22,1,.36,1)';
           m.style.left=`${newRect.left+newRect.width/2}px`;
           m.style.top=`${newRect.top+newRect.height/2}px`;
           m.style.width=`${newRect.width}px`;
@@ -2343,9 +2343,9 @@ function tapCard(id){
           m.style.fontSize=`${sz*1.5}px`;
           m.style.opacity='0';
           // Reveal real card as morph fades
-          setTimeout(()=>{newEl.style.transition='opacity .15s';newEl.style.opacity='';},300);
+          setTimeout(()=>{newEl.style.transition='opacity .2s';newEl.style.opacity='';},450);
           m.addEventListener('transitionend',()=>{m.remove();newEl.style.transition='';newEl.style.opacity='';},{once:true});
-          setTimeout(()=>m.remove(),600);
+          setTimeout(()=>m.remove(),800);
         }));
       } else if(wasVisible){
         // FLIP: card was visible, slide from old position to top
