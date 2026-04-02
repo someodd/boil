@@ -162,7 +162,7 @@
     .app-wrap.flowing .pill-finish{display:none!important}
     /* Hide daybar and continuous row when flowing */
     .app-wrap.flowing .daybar,
-    .app-wrap.flowing .cont-row{opacity:0;pointer-events:none;transition:opacity .35s}
+    .app-wrap.flowing .cont-row{display:none!important}
     /* Lean running card: smaller timer, reduced stats, translucent glass */
     .app-wrap.flowing .card.running{background:rgba(250,248,244,0.25);backdrop-filter:blur(16px)}
     .app-wrap.flowing .card.running .c-sub{font-size:10px;opacity:.5}
@@ -2307,8 +2307,10 @@ function tapCard(id){
     else showToast('The water cools.','#6b6258',1800);
   }
   // FLIP animation: capture old position before DOM rebuild
+  // (display:none elements return zero-height rects — treat as hidden)
   const oldEl=t.running?document.getElementById('c-'+id):null;
   const oldRect=oldEl?oldEl.getBoundingClientRect():null;
+  const wasVisible=oldRect&&oldRect.height>0;
   activeTaskBlocks.length=0; // force respawn on next frame
   save();render();updateLogoDot();
   // Scroll running card to top + animate it into place
@@ -2318,7 +2320,7 @@ function tapCard(id){
     const newEl=document.getElementById('c-'+id);
     if(newEl){
       const newRect=newEl.getBoundingClientRect();
-      if(oldRect){
+      if(wasVisible){
         // Card was visible: FLIP from old position to top
         const dy=oldRect.top-newRect.top;
         if(Math.abs(dy)>5){
@@ -3349,10 +3351,25 @@ function popTaskBlock(block){
   haptic([20,30,20]);
   // Water splash at block position
   if(bgHF&&bgHF.cols>0){
-    const step=Math.max(3,Math.ceil(bgHF.cols));
     const col=Math.round(block.x/Math.max(3,Math.ceil((window.innerWidth*dpr)/1023)));
     if(col>=0&&col<bgHF.cols)applyForce(bgHF,col,-20,6);
   }
+  // Emoji float-up: rises and grows as if transforming into the card
+  const em=document.createElement('div');
+  const emojiSz=block.size*0.45/dpr;
+  em.textContent=block.emoji;
+  em.style.cssText=`position:fixed;left:${cx}px;top:${cy}px;font-size:${emojiSz}px;z-index:1000;pointer-events:none;transform:translate(-50%,-50%);transition:transform .4s cubic-bezier(.34,1.2,.64,1),opacity .35s ease,font-size .4s cubic-bezier(.34,1.2,.64,1),top .4s cubic-bezier(.22,1,.36,1),left .4s ease;`;
+  document.body.appendChild(em);
+  // Target: roughly where the card header will appear
+  const hdrH=document.querySelector('.hdr')?.getBoundingClientRect().bottom||56;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    em.style.top=`${hdrH+30}px`;
+    em.style.left='50%';
+    em.style.fontSize=`${emojiSz*2.5}px`;
+    em.style.opacity='0';
+    em.addEventListener('transitionend',()=>em.remove(),{once:true});
+    setTimeout(()=>em.remove(),500); // safety cleanup
+  }));
 }
 function hitTestTaskBlock(tx,ty){
   for(let i=activeTaskBlocks.length-1;i>=0;i--){
