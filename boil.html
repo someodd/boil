@@ -3358,10 +3358,23 @@ function spawnFloaters(W,fillY){
 function stepFloaters(W,H,fillY,hf,step,dt,boil){
   const flowing=S&&S.tasks&&S.tasks.some(t=>t.running);
   activeFloaters.forEach(f=>{
-    if(flowing&&!f.underwater)return; // skip surface toys in flowing mode
     const col=Math.round(f.x/step);
     const tOff=(tiltH&&col>=0&&col<tiltH.length)?tiltH[col]:0;
     const surfY=(hf&&col>=0&&col<hf.cols)?fillY+hf.h[col]+tOff:fillY+tOff;
+    // Ball → anchor during work: sinks to bottom
+    if(f.bouncy&&flowing){
+      if(!f._anchored){f._anchored=true;f._origEmoji=f.emoji;f.emoji='⚓';f.juggleCount=0;}
+      f.vy+=0.25; // gravity pulls anchor down
+      f.vy*=0.96;
+      f.y+=f.vy;
+      if(f.y>H-f.size){f.y=H-f.size;f.vy=0;}
+      // Gentle sway at bottom
+      f.rot=Math.sin(waveT*0.5)*0.08;
+      f.vx*=0.95;f.x+=f.vx;
+      if(f.x<f.size)f.x=f.size;if(f.x>W-f.size)f.x=W-f.size;
+      return;
+    }
+    if(f.bouncy&&!flowing&&f._anchored){f._anchored=false;f.emoji=f._origEmoji||'🏐';f.vy=-3;} // float back up
     // Fish: swim through the water with sinusoidal path
     if(f.underwater){
       // Target: middle of the water column
@@ -3488,9 +3501,9 @@ function getEmojiImg(emoji,size){
 function drawFloaters(ctx){
   const flowing=S&&S.tasks&&S.tasks.some(t=>t.running);
   activeFloaters.forEach(f=>{
-    // In flowing mode, hide surface toys (they compete with task blocks)
-    if(flowing&&!f.underwater)return;
     ctx.save();
+    // Surface toys fade during flowing (task blocks are the primary layer)
+    if(flowing&&!f.underwater)ctx.globalAlpha=0.4;
     ctx.translate(f.x,f.y);
     if(f.flipX)ctx.scale(-1,1);
     ctx.rotate(f.rot);
