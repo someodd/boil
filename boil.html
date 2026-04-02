@@ -1191,7 +1191,7 @@ function boot(){
   if(S.date!==td){
     ecoDecayEnergy(); // ecosystem entropy — energy fades without work
     creditPartialAtMidnight();S.tasks.forEach(resetTask);S.lastActiveId=null;
-    S.date=td;S.startTs=null;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;
+    S.date=td;S.startTs=null;S.isTrial=false;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;
     document.querySelector('.app-wrap')?.classList.remove('bedtime-active');
     delete S._daySnap; // day ended naturally — rewards earned
     resetNightTheme();bgBubbles.length=0;
@@ -1344,7 +1344,7 @@ document.addEventListener('visibilitychange',()=>{
   const td=today();
   if(S.date!==td){
     creditPartialAtMidnight();
-    stopAmbient();S.tasks.forEach(resetTask);S.date=td;S.startTs=null;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;
+    stopAmbient();S.tasks.forEach(resetTask);S.date=td;S.startTs=null;S.isTrial=false;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;
     document.querySelector('.app-wrap')?.classList.remove('bedtime-active');
     delete S._daySnap; // day ended naturally — rewards earned
     resetNightTheme();clearInterval(ticker);ticker=null;bgBubbles.length=0;
@@ -1402,7 +1402,7 @@ function ensureTicker(){
     // Date rollover guard (foreground past midnight)
     if(S.date!==today()){
       creditPartialAtMidnight();
-      stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;
+      stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;S.isTrial=false;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;
       document.querySelector('.app-wrap')?.classList.remove('bedtime-active');
       delete S._daySnap;resetNightTheme(); // day ended naturally — rewards earned
       clearInterval(ticker);ticker=null;bgBubbles.length=0;
