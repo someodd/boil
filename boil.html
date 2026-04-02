@@ -3303,6 +3303,26 @@ function drawTaskBlocks(ctx){
     ctx.restore();
   });
 }
+function popTaskBlock(block){
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const cx=block.x/dpr, cy=block.y/dpr; // convert canvas→CSS coords for burstAt
+  // Particle burst in task color
+  burstAt(cx,cy,block.color,18);
+  burstAt(cx,cy,'#fff',8);
+  // Satisfying pop sound — ascending two-tone
+  try{
+    const now=ac().currentTime;
+    tone(400,.06,.03,now);tone(600,.08,.025,now+0.04);tone(900,.1,.015,now+0.08);
+  }catch(e){}
+  // Haptic pop
+  haptic([20,30,20]);
+  // Water splash at block position
+  if(bgHF&&bgHF.cols>0){
+    const step=Math.max(3,Math.ceil(bgHF.cols));
+    const col=Math.round(block.x/Math.max(3,Math.ceil((window.innerWidth*dpr)/1023)));
+    if(col>=0&&col<bgHF.cols)applyForce(bgHF,col,-20,6);
+  }
+}
 function hitTestTaskBlock(tx,ty){
   for(let i=activeTaskBlocks.length-1;i>=0;i--){
     const f=activeTaskBlocks[i];
@@ -3666,6 +3686,16 @@ function popBubbleAt(tx,ty){
   }
 }
 document.addEventListener('touchstart',(e)=>{
+  // Task block taps bypass the e.target filter — mobile browsers adjust touch targets
+  // to the nearest interactive element (the running card), swallowing taps in the water area
+  if(bgWaveState.active&&activeTaskBlocks.length>0){
+    const dpr0=_bgDpr();
+    for(let i=0;i<e.changedTouches.length;i++){
+      const t0=e.changedTouches[i];
+      const hitBlock=hitTestTaskBlock(t0.clientX*dpr0,t0.clientY*dpr0);
+      if(hitBlock){popTaskBlock(hitBlock);tapCard(hitBlock.taskId);return;}
+    }
+  }
   if(!bgWaveState.active||e.target.closest('.card,.sheet,.fab,.hdr,.pill,.coin-pill'))return;
   const dpr=_bgDpr();
   const H=window.innerHeight*dpr;
@@ -3675,9 +3705,6 @@ document.addEventListener('touchstart',(e)=>{
   for(let i=0;i<e.changedTouches.length;i++){
     const t=e.changedTouches[i];
     const tx=t.clientX*dpr,ty=t.clientY*dpr;
-    // Task block tap: switch to that task immediately
-    const hitBlock=hitTestTaskBlock(tx,ty);
-    if(hitBlock){haptic([15,30,15]);tapCard(hitBlock.taskId);return;}
     // Star twinkle (sky zone)
     if(ty<waterY)tapStar(tx,ty);
     // Always allow floater interaction (ball juggling needs taps above water)
@@ -3729,7 +3756,7 @@ document.addEventListener('mousedown',(e)=>{
   const aboveZone=20*dpr;
   // Task block click: switch to that task
   const hitBlock=hitTestTaskBlock(tx,ty);
-  if(hitBlock){haptic([15,30,15]);tapCard(hitBlock.taskId);return;}
+  if(hitBlock){popTaskBlock(hitBlock);tapCard(hitBlock.taskId);return;}
   // Star twinkle (sky zone)
   if(ty<waterY)tapStar(tx,ty);
   // Always allow floater interaction (ball juggling needs taps above water)
