@@ -37,7 +37,6 @@
       --fd: 'Syne', sans-serif;
     }
     html.battery-saver .card,html.battery-saver .hdr,html.battery-saver .daybar,html.battery-saver .sheet{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-    html.mobile .card,html.mobile .hdr,html.mobile .daybar,html.mobile .sheet{backdrop-filter:blur(4px)!important;-webkit-backdrop-filter:blur(4px)!important}
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
     html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
     :focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:4px}
@@ -400,10 +399,8 @@
     .card.danger   .c-time-cur{color:var(--text)!important}
     /* urgency pulse on danger */
     @keyframes danger-pulse{0%,100%{opacity:1}50%{opacity:.55}}
-    @keyframes tick-pulse-a{0%{transform:scale(1)}30%{transform:scale(1.04)}100%{transform:scale(1)}}
-    @keyframes tick-pulse-b{0%{transform:scale(1)}30%{transform:scale(1.04)}100%{transform:scale(1)}}
-    .tick-pulse-a{animation:tick-pulse-a .18s ease}
-    .tick-pulse-b{animation:tick-pulse-b .18s ease}
+    @keyframes tick-pulse{0%{transform:scale(1)}30%{transform:scale(1.04)}100%{transform:scale(1)}}
+    .tick-pulse{animation:tick-pulse .18s ease}
     .card.danger .c-time-cur{animation:danger-pulse .7s ease-in-out infinite}
     .c-time-divider{
       font-size:13px;font-weight:700;color:var(--dimmer);flex-shrink:0;
@@ -1342,18 +1339,14 @@ function returnStatus(awayMin,blocksGained,tasksDoneGained){
 }
 
 let _erasing=false;
-let _lastSaveTs=0;
 function save(){
   if(_erasing)return;
   const now=Date.now();
   S.tasks.forEach(t=>{if(t.running&&!t.done)t.savedAt=now;});
-  _lastSaveTs=now;
   try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){
     if(e.name==='QuotaExceededError'||e.code===22)showToast('⚠ Storage full — progress not saved. Export your data in profile.','#c0453a',5000);
   }
 }
-// Throttled save for ticker — avoids localStorage thrashing (JSON.stringify + setItem every 1s)
-function saveThrottled(){if(Date.now()-_lastSaveTs>=10000)save();}
 function today(){const d=new Date();return`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;}
 
 let _tabHiddenAt=null;
@@ -1471,7 +1464,7 @@ function ensureTicker(){
         return;
       }
     });
-    if(any){saveThrottled();fastUpdateAll();}
+    if(any){save();fastUpdateAll();}
     // Progressive bedtime wind-down (PRODUCT.md: notifications are the lifeline)
     if(S.bedtime!=null){
       const _dr=dayRem();
@@ -1487,7 +1480,7 @@ function ensureTicker(){
     if(!S.tasks.some(t=>t.running)){clearInterval(ticker);ticker=null;}
   },1000);
 }
-setInterval(()=>{renderDaybar();applyNightTheme();},30000); // 30s — daybar moves imperceptibly per second
+setInterval(()=>{renderDaybar();applyNightTheme();},1000);
 
 const BOIL_THEMES={
   default:{
@@ -1969,9 +1962,8 @@ function releaseWakeLock(){
 let _ambOsc=null,_ambGain=null;
 // Procedural water audio — filtered noise that scales with fill (Buxton 2021: water sounds #1 for positive affect)
 let _waterNoise=null,_waterGain=null,_waterFilter=null,_waterLfo=null,_waterLfoGain=null;
-let _waterFading=false; // guard against start during fade-out
 function _startWaterAudio(){
-  if(isBatterySaver()||S.muteWater||_waterFading)return;
+  if(isBatterySaver()||S.muteWater)return;
   try{
     if(_waterNoise)return;
     const c=ac();
@@ -1995,13 +1987,12 @@ function _startWaterAudio(){
 function _stopWaterAudio(){
   try{
     if(!_waterNoise)return;
-    _waterFading=true;
     const c=ac();
     _waterGain.gain.linearRampToValueAtTime(0,c.currentTime+1.5);
     const n=_waterNoise,l=_waterLfo;
-    setTimeout(()=>{try{n.stop();l.stop();}catch(e){}_waterFading=false;},1600);
+    setTimeout(()=>{try{n.stop();l.stop();}catch(e){}},1600);
     _waterNoise=null;_waterGain=null;_waterFilter=null;_waterLfo=null;_waterLfoGain=null;
-  }catch(e){_waterFading=false;}
+  }catch(e){}
 }
 function updateWaterAudio(fillPct){
   if(!_waterGain||!_waterFilter)return;
@@ -2115,24 +2106,18 @@ const FX=document.getElementById('fx');
 const ctx=FX.getContext('2d');
 let parts=[];
 let fxRaf=null;
-const _pPool=[]; // object pool to avoid GC churn
 
 function resizeFX(){FX.width=window.innerWidth;FX.height=window.innerHeight;}
 window.addEventListener('resize',resizeFX);resizeFX();
 
 class P {
   constructor(x,y,vx,vy,col,sz,grav=0.28,bouncy=false){
-    this.reset(x,y,vx,vy,col,sz,grav,bouncy);
-  }
-  reset(x,y,vx,vy,col,sz,grav=0.28,bouncy=false){
     this.x=x;this.y=y;this.vx=vx;this.vy=vy;this.col=col;this.sz=sz;
     this.rot=Math.random()*Math.PI*2;
     this.rotv=(Math.random()-.5)*.18;
     this.life=1;this.grav=grav;this.bouncy=bouncy;
     this.damp=.62;
     this.decay=bouncy?(.003+Math.random()*.002):(.011+Math.random()*.009);
-    this.emoji=null;this.round=false;
-    return this;
   }
   tick(){
     this.x+=this.vx;this.y+=this.vy;
@@ -2171,21 +2156,11 @@ class P {
     ctx.restore();
   }
 }
-// Factory: reuse pooled particles instead of allocating new ones
-function mkP(x,y,vx,vy,col,sz,grav,bouncy){
-  return _pPool.length>0?_pPool.pop().reset(x,y,vx,vy,col,sz,grav,bouncy):new P(x,y,vx,vy,col,sz,grav,bouncy);
-}
 
 function fxStep(){
   ctx.clearRect(0,0,FX.width,FX.height);
-  // In-place compaction: move dead particles to pool, avoid creating new array
-  let w=0;
-  for(let r=0;r<parts.length;r++){
-    if(parts[r].life>0){parts[w++]=parts[r];}
-    else if(_pPool.length<200){_pPool.push(parts[r]);} // cap pool size
-  }
-  parts.length=w;
-  for(let i=0;i<parts.length;i++){parts[i].tick();parts[i].draw();}
+  parts=parts.filter(p=>p.life>0);
+  parts.forEach(p=>{p.tick();p.draw();});
   fxRaf=parts.length>0?requestAnimationFrame(fxStep):null;
   if(!parts.length)ctx.clearRect(0,0,FX.width,FX.height);
 }
@@ -2203,7 +2178,7 @@ function burstAt(x,y,col,n=20){
   for(let i=0;i<n;i++){
     const a=Math.PI*2*i/n+(Math.random()-.5)*.6;
     const sp=3+Math.random()*8;
-    parts.push(mkP(
+    parts.push(new P(
       x+(Math.random()-.5)*16,y+(Math.random()-.5)*16,
       Math.cos(a)*sp,Math.sin(a)*sp-3,
       cols[Math.floor(Math.random()*cols.length)],
@@ -2219,7 +2194,7 @@ function shatterAt(x,y,col,n=28){
     const a=Math.PI*2*i/n+(Math.random()-.5)*.4;
     const sp=4+Math.random()*14;
     const sz=2+Math.random()*9;
-    const p=mkP(x+(Math.random()-.5)*10,y+(Math.random()-.5)*10,
+    const p=new P(x+(Math.random()-.5)*10,y+(Math.random()-.5)*10,
       Math.cos(a)*sp,Math.sin(a)*sp-4,
       Math.random()<.45?'#fff':Math.random()<.5?col:'rgba(255,255,255,.7)',sz,.32);
     p.decay=.008+Math.random()*.012;
@@ -2234,7 +2209,7 @@ function shockwave(x,y,col,n=32){if(isBatterySaver())return;
   for(let i=0;i<n;i++){
     const a=Math.PI*2*i/n;
     const sp=6+Math.random()*5;
-    const p=mkP(x,y,Math.cos(a)*sp,Math.sin(a)*sp,
+    const p=new P(x,y,Math.cos(a)*sp,Math.sin(a)*sp,
       Math.random()<.5?col:Math.random()<.5?'#fff':lc(col,70),
       4+Math.random()*5);
     p.decay=.016+Math.random()*.008;
@@ -2249,7 +2224,7 @@ function sparks(x,y,col,n=18){
   for(let i=0;i<n;i++){
     const spread=(Math.random()-.5)*4;
     const sp=5+Math.random()*12;
-    const p=mkP(x+(Math.random()-.5)*20,y,spread,-sp,
+    const p=new P(x+(Math.random()-.5)*20,y,spread,-sp,
       Math.random()<.4?'#fff':Math.random()<.5?col:lc(col,60),
       2+Math.random()*4,.32);
     p.decay=.012+Math.random()*.01;
@@ -2262,7 +2237,7 @@ function sparks(x,y,col,n=18){
 function rainConfetti(col,n=80){
   const cols=[col,...CPAL];
   for(let i=0;i<n;i++){
-    const p=mkP(
+    const p=new P(
       Math.random()*FX.width,-15-Math.random()*80,
       (Math.random()-.5)*3.5,1.8+Math.random()*4,
       cols[Math.floor(Math.random()*cols.length)],
@@ -2275,7 +2250,7 @@ function rainConfetti(col,n=80){
   if(getTheme().noodles){
     const pastas=['🍝','🍜','🍝','🍜','🍝','🍜'];
     for(let i=0;i<Math.round(n/6);i++){
-      const p=mkP(
+      const p=new P(
         Math.random()*FX.width,-20-Math.random()*60,
         (Math.random()-.5)*2.5,1.2+Math.random()*3,
         'rgba(0,0,0,0)',14+Math.random()*10);
@@ -2296,7 +2271,7 @@ function launchSolitaire(){
     const y=FX.height*.3+Math.random()*FX.height*.25;
     const a=Math.random()*Math.PI*2;
     const sp=5+Math.random()*9;
-    const p=mkP(x,y,Math.cos(a)*sp,Math.sin(a)*sp-8,
+    const p=new P(x,y,Math.cos(a)*sp,Math.sin(a)*sp-8,
       cols[Math.floor(Math.random()*cols.length)],
       16+Math.random()*14,.38,true);
     p.decay=.003;
@@ -2541,7 +2516,7 @@ function onSubBlockDone(id){
   if(!isBatterySaver()&&bgWaveState.active){
     const _dpr=_bgDpr(),_W=window.innerWidth*_dpr,_surfY=window.innerHeight*_dpr*(1-bgWaveState.fill/100);
     for(let i=0;i<18;i++){
-      const p=mkP(_W*(0.15+Math.random()*0.7),_surfY,(Math.random()-.5)*60,-40-Math.random()*80,'rgba(255,255,255,0.5)',2+Math.random()*3,0.05);
+      const p=new P(_W*(0.15+Math.random()*0.7),_surfY,(Math.random()-.5)*60,-40-Math.random()*80,'rgba(255,255,255,0.5)',2+Math.random()*3,0.05);
       p.decay=0.025+Math.random()*0.015;p.round=true;parts.push(p);
     }
     startFX();
@@ -3084,7 +3059,7 @@ function fastUpdateCard(id){
   const t=S.tasks.find(x=>x.id===id);
   const el=document.getElementById('c-'+id);if(!el||!t)return;
   // overlay timer (new IDs)
-  const ptc=document.getElementById('ptc-'+t.id);if(ptc){const _qr=t._quickStart>0?Math.min(t.rem,t._quickStart):t.rem;ptc.textContent=fmtTime(_qr);ptc.classList.toggle('has-hours',_qr>=3600);if(t.running&&!t.isRest){const hasA=ptc.classList.contains('tick-pulse-a');ptc.classList.remove('tick-pulse-a','tick-pulse-b');ptc.classList.add(hasA?'tick-pulse-b':'tick-pulse-a');}}
+  const ptc=document.getElementById('ptc-'+t.id);if(ptc){const _qr=t._quickStart>0?Math.min(t.rem,t._quickStart):t.rem;ptc.textContent=fmtTime(_qr);ptc.classList.toggle('has-hours',_qr>=3600);if(t.running&&!t.isRest){ptc.classList.remove('tick-pulse');void ptc.offsetWidth;ptc.classList.add('tick-pulse');}}
   const ptt=document.getElementById('ptt-'+t.id);if(ptt&&!t.done)ptt.textContent='total: '+fmtHM(taskTotalRem(t));
   // rest progress bar
   if(t.isRest){
@@ -3758,11 +3733,11 @@ function popBubbleAt(tx,ty){
       const popCount=5+Math.round(b.r*1.5);
       for(let k=0;k<popCount;k++){
         const a=Math.random()*Math.PI*2,sp=1.5+Math.random()*4;
-        const p=mkP(b.x,b.y,Math.cos(a)*sp,Math.sin(a)*sp-2.5,'rgba(255,255,255,0.65)',1.5+Math.random()*3+b.r*0.3,0.12);
+        const p=new P(b.x,b.y,Math.cos(a)*sp,Math.sin(a)*sp-2.5,'rgba(255,255,255,0.65)',1.5+Math.random()*3+b.r*0.3,0.12);
         p.round=true;p.decay=0.03+Math.random()*0.02;parts.push(p);
       }
       // Ring flash at pop site
-      const ring=mkP(b.x,b.y,0,0,'rgba(255,255,255,0.35)',b.r*2,0);
+      const ring=new P(b.x,b.y,0,0,'rgba(255,255,255,0.35)',b.r*2,0);
       ring.round=true;ring.decay=0.08;ring.grav=0;parts.push(ring);
       startFX();bgBubbles.splice(j,1);
       // Pop pitch inversely proportional to size — big bubbles = deep, small = high
@@ -3901,10 +3876,6 @@ document.addEventListener('pointerdown',(e)=>{
 },{passive:true});
 
 let _waveAlive=0;
-const _isMobile='ontouchstart' in window||navigator.maxTouchPoints>0;
-// Cached gradients for static patterns (invalidated on resize)
-let _fogGrad=null,_edgeGrad=null,_gradW=0,_gradH=0;
-const _WAVE_MIN_DT=_isMobile?32:0; // ~30fps cap on mobile (33ms between frames)
 function startWaveLoop(){
   if(isBatterySaver())return;
   // Detect dead loop: waveRaf is set but loop hasn't run in 500ms
@@ -3919,8 +3890,6 @@ function stopWaveLoop(){
 
 function waveLoop(now){
   _waveAlive=now;
-  // Mobile frame-rate cap: skip frames to stay ~30fps, halving GPU/CPU load
-  if(_WAVE_MIN_DT&&now-lastFrame<_WAVE_MIN_DT){waveRaf=requestAnimationFrame(waveLoop);return;}
   let _anyContinue=false;
   try{
   const dt=Math.min((now-lastFrame)/1000,0.05);
@@ -4110,14 +4079,21 @@ function waveLoop(now){
       // Glass fogging at high boil
       if(boil2>0.4){
         ctx.save();ctx.globalAlpha=(boil2-0.4)*0.25;
-        if(!_fogGrad||_gradH!==H){_fogGrad=ctx.createLinearGradient(0,0,0,H);_fogGrad.addColorStop(0,'rgba(255,255,255,0.7)');_fogGrad.addColorStop(0.25,'rgba(255,255,255,0)');_fogGrad.addColorStop(0.75,'rgba(255,255,255,0)');_fogGrad.addColorStop(1,'rgba(255,255,255,0.3)');}
-        ctx.fillStyle=_fogGrad;ctx.fillRect(0,0,W,H);
+        const fogG=ctx.createLinearGradient(0,0,0,H);
+        fogG.addColorStop(0,'rgba(255,255,255,0.7)');
+        fogG.addColorStop(0.25,'rgba(255,255,255,0)');
+        fogG.addColorStop(0.75,'rgba(255,255,255,0)');
+        fogG.addColorStop(1,'rgba(255,255,255,0.3)');
+        ctx.fillStyle=fogG;ctx.fillRect(0,0,W,H);
         ctx.restore();
       }
       // Edge vignette
-      if(!_edgeGrad||_gradW!==W){_edgeGrad=ctx.createLinearGradient(0,0,W,0);_edgeGrad.addColorStop(0,'rgba(0,0,0,0.08)');_edgeGrad.addColorStop(0.04,'rgba(0,0,0,0)');_edgeGrad.addColorStop(0.96,'rgba(0,0,0,0)');_edgeGrad.addColorStop(1,'rgba(0,0,0,0.08)');}
-      _gradW=W;_gradH=H;
-      ctx.fillStyle=_edgeGrad;
+      const edgeG=ctx.createLinearGradient(0,0,W,0);
+      edgeG.addColorStop(0,  `rgba(0,0,0,0.08)`);
+      edgeG.addColorStop(0.04,`rgba(0,0,0,0)`);
+      edgeG.addColorStop(0.96,`rgba(0,0,0,0)`);
+      edgeG.addColorStop(1,  `rgba(0,0,0,0.08)`);
+      ctx.fillStyle=edgeG;
       ctx.fillRect(0,0,W,H);
     }
   }
@@ -4132,7 +4108,7 @@ function waveLoop(now){
       const sN=Math.floor(steamRate*dt+(Math.random()<(steamRate*dt%1)?1:0));
       const surfY=FX.height*(1-bgWaveState.fill/100);
       for(let si=0;si<sN;si++){
-        const sp=mkP(
+        const sp=new P(
           FX.width*(0.12+Math.random()*0.76),
           surfY-5-Math.random()*15,
           (Math.random()-.5)*1.5,
@@ -4484,7 +4460,7 @@ function tickBubbles(pool,W,H,fp,dt,color,isBg){
           for(let k=0;k<sprayCount;k++){
             const a=-Math.PI*0.3+Math.random()*Math.PI*0.6-Math.PI/2;
             const sp=0.5+Math.random()*2;
-            const p=mkP(b.x,fillY,Math.cos(a)*sp,Math.sin(a)*sp,'rgba(255,255,255,0.35)',0.5+Math.random()*1.5,0.08);
+            const p=new P(b.x,fillY,Math.cos(a)*sp,Math.sin(a)*sp,'rgba(255,255,255,0.35)',0.5+Math.random()*1.5,0.08);
             p.round=true;p.decay=0.04+Math.random()*0.02;parts.push(p);
           }
           startFX();
@@ -4959,7 +4935,6 @@ function render(){
   // PWA install nudge: show on day 2-3 if not already installed as standalone
   if(dc>=2&&dc<=4&&!window.matchMedia('(display-mode: standalone)').matches&&!navigator.standalone)seenToast('pwa_install','Tip: install boil on your home screen — browser menu → Add to Home Screen','#6b6258',3500);
   document.documentElement.classList.toggle('battery-saver',!!S.batterySaver);
-  document.documentElement.classList.toggle('mobile',_isMobile);
   checkBeginScreen();renderBeginStreak();updateContToggle();renderDaybar();renderCards();updateSteamBanner();updateLogoDot();updateHeader();updateScrollState();applyAquarium();updateAquariumBar();setTimeout(startWaveLoop,50);updateGodBadge();applyNightTheme();
 }
 
