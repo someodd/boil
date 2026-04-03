@@ -214,6 +214,7 @@
     .card.suggested{animation:suggest-pulse 1.2s ease-in-out 2}
     @keyframes suggest-pulse{0%,100%{box-shadow:0 2px 8px rgba(0,0,0,.06),inset 0 1px 0 rgba(255,255,255,0.5)}50%{box-shadow:0 2px 16px color-mix(in srgb,var(--tc) 25%,rgba(0,0,0,.12)),0 0 0 2px color-mix(in srgb,var(--tc) 30%,transparent),inset 0 1px 0 rgba(255,255,255,0.5);transform:translateY(-2px)}}
     .card.done-all{background:color-mix(in srgb,var(--card) 82%,transparent);border-style:dashed;border-color:var(--dimmer)}
+    .card.skipped{background:color-mix(in srgb,var(--card) 60%,transparent);border-style:dashed;border-color:var(--dimmer);opacity:0.55}
     .card.warn{border-color:color-mix(in srgb,#f0c060 70%,var(--brd))}
     .card.danger{background:color-mix(in srgb,#c0453a 12%,var(--glass));border-color:color-mix(in srgb,#f09090 60%,var(--brd))}
     .card.critical{background:color-mix(in srgb,#c0453a 18%,var(--glass));border-color:#e05050;box-shadow:0 0 0 3px rgba(224,80,80,.2),inset 0 1px 0 rgba(255,255,255,0.4)!important}
@@ -1210,7 +1211,7 @@ function boot(){
   if(S.muteWater===undefined)S.muteWater=false;
   if(S.lastActiveId===undefined)S.lastActiveId=null;
   if(S.eco===undefined)S.eco={energy:0,peak:0};
-  S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;if(t.desc===undefined)t.desc='';if(t.continuous===undefined)t.continuous=!!S.continuous;});
+  S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;if(t.desc===undefined)t.desc='';if(t.continuous===undefined)t.continuous=!!S.continuous;if(t.skipped===undefined)t.skipped=false;});
   const now=Date.now(),td=today();
   if(S.date!==td){
     ecoDecayEnergy(); // ecosystem entropy — energy fades without work
@@ -1240,7 +1241,7 @@ function boot(){
     },600);
   }
 }
-function resetTask(t){t.completed=0;t.isRest=false;t.rem=t.workDur;t.running=false;t.done=false;t.savedAt=null;t._phaseStart=null;if(bubblePools[t.id])bubblePools[t.id]=[];delete window['_sf_'+t.id];}
+function resetTask(t){t.completed=0;t.isRest=false;t.rem=t.workDur;t.running=false;t.done=false;t.skipped=false;t.savedAt=null;t._phaseStart=null;if(bubblePools[t.id])bubblePools[t.id]=[];delete window['_sf_'+t.id];}
 function creditPartialAtMidnight(){
   S.tasks.forEach(t=>{
     if(!t.running||t.done)return;
@@ -1313,7 +1314,7 @@ function reconcileTask(t,now){
 // Orientation string for return-from-background — tells the user exactly where they are
 // blocksGained = individual blocks completed while away; tasksDoneGained = whole tasks completed while away
 function returnStatus(awayMin,blocksGained,tasksDoneGained){
-  const vis=S.tasks.filter(taskVisibleToday);
+  const vis=S.tasks.filter(t=>taskVisibleToday(t)&&!t.skipped);
   const rt=vis.find(t=>t.running&&!t.done);
   const allDone=vis.length&&vis.every(t=>t.done);
   const next=vis.find(t=>!t.done&&!t.running);
@@ -2841,14 +2842,14 @@ function onTaskDone(id){
     setTimeout(()=>{
       el.classList.remove('all-done-flash');
       renderCard(t);renderDaybar();updateLogoDot();updateScrollState();
-      const vis=S.tasks.filter(taskVisibleToday);
+      const vis=S.tasks.filter(t=>taskVisibleToday(t)&&!t.skipped);
       if(vis.length&&vis.every(x=>x.done)){
         setTimeout(()=>triggerDayCeremony(),600);
       }
     },720);
   } else {
     renderCards();
-    const vis=S.tasks.filter(taskVisibleToday);
+    const vis=S.tasks.filter(t=>taskVisibleToday(t)&&!t.skipped);
     if(vis.length&&vis.every(x=>x.done))setTimeout(()=>triggerDayCeremony(),600);
   }
 }
@@ -2911,7 +2912,7 @@ function checkBadges(){
   // first_boil
   if(S.tasks.some(t=>t.completed>0))add('first_boil');
   // full_boil
-  const vis=S.tasks.filter(taskVisibleToday);
+  const vis=S.tasks.filter(t=>taskVisibleToday(t)&&!t.skipped);
   if(vis.length&&vis.every(t=>t.done))add('full_boil');
   // streak badges
   if(S.streak>=7)add('faithful');
@@ -2969,7 +2970,7 @@ function p2(n){return String(n).padStart(2,'0');}
 
 function totalRemSecs(){
   return S.tasks.filter(taskVisibleToday).reduce((a,t)=>{
-    if(t.done)return a;
+    if(t.done||t.skipped)return a;
     const futureBlocks=t.total-t.completed-1;
     const extra=futureBlocks*t.workDur
       +(!t.isRest&&t.restDur>0?(futureBlocks+1)*t.restDur:0)
@@ -2995,7 +2996,7 @@ function renderDaybar(){
   const remS=Math.max(wr,1);
 
   // Bar represents NOW (left, 0%) → BEDTIME/MIDNIGHT (right, 100%)
-  const active=S.tasks.filter(t=>!t.done&&taskVisibleToday(t));
+  const active=S.tasks.filter(t=>!t.done&&!t.skipped&&taskVisibleToday(t));
   let cursor=0;
   const segs=[];
   active.forEach(t=>{
@@ -3173,6 +3174,21 @@ function cardHTML(t){
     </div>`;
   }
 
+  // ── SKIPPED: compact dimmed card ─────────────────────────────────────
+  if(t.skipped){
+    return`<div class="card skipped" id="c-${t.id}" style="--tc:${t.color}" onclick="event.stopPropagation();openEdit('${t.id}')">
+      <div class="c-bar"></div>
+      <div class="c-body">
+        <div class="done-row">
+          <div class="done-trophy">${t.emoji||'⏭'}</div>
+          <div class="done-name">${esc(t.name)}</div>
+          <div class="done-count" style="display:flex;align-items:center;gap:5px"><span style="color:var(--dim);font-size:11px;font-weight:600">skipped</span></div>
+          <button class="c-edit" onclick="event.stopPropagation();openEdit('${t.id}')">⋯</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
   // ── ACTIVE card ──────────────────────────────────────────────────────
   const phaseDur=t.isRest?t.restDur:t.workDur;
   const rawFill=phaseDur>0?((phaseDur-t.rem)/phaseDur*100):0;
@@ -3242,9 +3258,10 @@ function renderCards(){
   const el=document.getElementById('cards');
   const visible=S.tasks.filter(taskVisibleToday);
   if(!visible.length){el.innerHTML=`<div class="empty">nothing to boil yet.\ntap <b style="font-weight:800">+</b> to add a block</div>`;return;}
-  if(visible.length&&visible.every(t=>t.done)){
-    const taskCount=visible.length;
-    const blockCount=visible.reduce((a,t)=>a+t.total,0);
+  const unskipped=visible.filter(t=>!t.skipped);
+  if(unskipped.length&&unskipped.every(t=>t.done)){
+    const taskCount=unskipped.length;
+    const blockCount=unskipped.reduce((a,t)=>a+t.total,0);
     el.innerHTML=`<div style="text-align:center;padding:48px 20px 32px">
       <div style="font-size:48px;margin-bottom:16px">♨️</div>
       <div style="font-family:var(--fd);font-size:22px;font-weight:800;letter-spacing:-.03em;color:var(--ink);margin-bottom:6px">Everything boiled.</div>
@@ -3260,7 +3277,7 @@ function renderCards(){
   const hidden=S.tasks.filter(t=>!taskVisibleToday(t));
   // Flowing mode: running task floats to top, hide completed tasks
   const rt=visible.find(t=>t.running);
-  const sorted=rt?visible.filter(t=>!t.done||t.running):visible.slice();
+  const sorted=rt?visible.filter(t=>(!t.done&&!t.skipped)||t.running):visible.slice();
   const ri=sorted.findIndex(t=>t.running);
   if(ri>0){const[r]=sorted.splice(ri,1);sorted.unshift(r);}
   el.innerHTML=sorted.map(cardHTML).join('')+(hidden.length?`<div class="hidden-sched" style="text-align:center;padding:12px 0 4px;font-size:11px;font-weight:700;color:var(--dim)">${hidden.length} task${hidden.length!==1?'s':''} not scheduled for today</div>`:'');
@@ -3392,10 +3409,10 @@ function _attachSensors(){
             beginDay();
           } else if(S.startTs&&!S.tasks.some(t=>t.running&&!t.done)){
             // Day started, no task running: start last active or first undone
-            const _last=S.lastActiveId&&S.tasks.find(t=>t.id===S.lastActiveId&&!t.done);
+            const _last=S.lastActiveId&&S.tasks.find(t=>t.id===S.lastActiveId&&!t.done&&!t.skipped);
             if(_last){tapCard(_last.id);}
             else{
-              const _undone=S.tasks.filter(t=>taskVisibleToday(t)&&!t.done);
+              const _undone=S.tasks.filter(t=>taskVisibleToday(t)&&!t.done&&!t.skipped);
               if(_undone.length){tapCard(_undone[0].id);}
             }
           }
@@ -3518,7 +3535,7 @@ function spawnTaskBlocks(W,fillY){
   const rt=S.tasks.find(t=>t.running);
   if(!rt)return;
   const dpr=_bgDpr();
-  const inactive=S.tasks.filter(t=>t.id!==rt.id&&!t.done&&taskVisibleToday(t));
+  const inactive=S.tasks.filter(t=>t.id!==rt.id&&!t.done&&!t.skipped&&taskVisibleToday(t));
   const count=inactive.length;
   if(!count)return;
   // Spread across water surface, evenly spaced
@@ -4992,7 +5009,7 @@ function beginDay(){
   if(beginWaveRaf){cancelAnimationFrame(beginWaveRaf);beginWaveRaf=null;}
   renderDaybar();renderCards();updateLogoDot();updateScrollState();
   // "Start here" emphasis on first undone task (implementation intentions, d=0.99)
-  const _firstUndone=S.tasks.filter(taskVisibleToday).find(t=>!t.done);
+  const _firstUndone=S.tasks.filter(taskVisibleToday).find(t=>!t.done&&!t.skipped);
   if(_firstUndone){const _fe=document.getElementById('c-'+_firstUndone.id);if(_fe){_fe.scrollIntoView({behavior:'smooth',block:'nearest'});setTimeout(()=>_fe.classList.add('suggested'),150);}}
   if('Notification' in window && Notification.permission==='default'){
     Notification.requestPermission();
@@ -5274,7 +5291,7 @@ function doReset(){bgBubbles.length=0;activeFloaters.length=0;if(bgHF.h)bgHF.h.f
 }
 
 // ── FORMS ───────────────────────────────────────────────────────────
-let pomoOn=false,pickedCol=null,pickedEmoji=null,contOn=true;
+let pomoOn=false,pickedCol=null,pickedEmoji=null,contOn=true,skipOn=false;
 
 function taskForm(t,simple){
   const pomo=t?t.restDur>0:false;
@@ -5313,10 +5330,17 @@ function taskForm(t,simple){
       }).join('')}</div>
       <div style="font-size:10px;color:var(--dim);margin-top:4px">Leave all off = every day</div>
     </div>
+    ${t&&!simple?`<div class="field"><label>Skip</label>
+      <div class="tog-row">
+        <div><div class="tog-lbl">Skip today</div><div class="tog-sub">Hide from today, comes back tomorrow</div></div>
+        <button class="tog${skipOn?' on':''}" id="stog" onclick="toggleSkip()"></button>
+      </div>
+    </div>`:''}
     ${simple?'<div style="text-align:center;margin-top:4px"><button onclick="showAllFormFields(this)" style="background:none;border:none;color:var(--dim);font-size:11px;font-family:var(--fs);text-decoration:underline;cursor:pointer">more options</button></div>':''}`;
 }
 function togglePomo(){pomoOn=!pomoOn;document.getElementById('ptog').classList.toggle('on',pomoOn);document.getElementById('rfield').style.display=pomoOn?'block':'none';}
 function toggleCont(){contOn=!contOn;document.getElementById('ctog').classList.toggle('on',contOn);}
+function toggleSkip(){skipOn=!skipOn;document.getElementById('stog').classList.toggle('on',skipOn);}
 function pickCol(p){pickedCol=p;document.querySelectorAll('.sw:not(.ew)').forEach(s=>s.classList.toggle('on',s.dataset.p===p));}
 function pickEmoji(e){pickedEmoji=e;document.querySelectorAll('.ew').forEach(s=>s.classList.toggle('on',s.textContent===e));}
 function showAllFormFields(btn){
@@ -5357,7 +5381,7 @@ function openAdd(simple){
   if(simple)setTimeout(()=>applyPreset('focus',1,25,5),50);
   setTimeout(()=>document.getElementById('fn')?.focus(),80);
 }
-function openEdit(id){const t=S.tasks.find(x=>x.id===id);pickedCol=t.color;pickedEmoji=t.emoji;const undoBtn=t.done?`<button class="bs" onclick="uncreditBlock('${id}');closeSheet()">Undo last block</button>`:'';openSheet(`<div class="sh-ttl">Edit block</div>${taskForm(t)}<div class="sh-btns"><button class="bd" onclick="confirmDel('${id}')">Delete</button>${undoBtn}<button class="bs" onclick="closeSheet()">Cancel</button><button class="bp" onclick="saveTask('${id}')">Save</button></div>`);if(t.done)seenToast('undoDone','You can undo the last block from here.','#6b6258',1800);}
+function openEdit(id){const t=S.tasks.find(x=>x.id===id);pickedCol=t.color;pickedEmoji=t.emoji;skipOn=t.skipped||false;const undoBtn=t.done?`<button class="bs" onclick="uncreditBlock('${id}');closeSheet()">Undo last block</button>`:'';openSheet(`<div class="sh-ttl">Edit block</div>${taskForm(t)}<div class="sh-btns"><button class="bd" onclick="confirmDel('${id}')">Delete</button>${undoBtn}<button class="bs" onclick="closeSheet()">Cancel</button><button class="bp" onclick="saveTask('${id}')">Save</button></div>`);if(t.done)seenToast('undoDone','You can undo the last block from here.','#6b6258',1800);}
 
 function confirmDel(id){
   const conf=document.createElement('div');conf.className='conf-ask';
@@ -5375,7 +5399,7 @@ function saveTask(id){
   if(!name)return;
   if(id){
     const t=S.tasks.find(x=>x.id===id);
-    if(t){t.name=name;t.desc=desc;t.color=color;t.emoji=pickedEmoji||t.emoji;t.days=days;t.total=total;t.continuous=contOn;if(t.workDur!==workDur||t.restDur!==restDur){t.workDur=workDur;t.restDur=restDur;resetTask(t);}if(t.completed>=t.total){t.completed=t.total;t.done=true;t.running=false;t.isRest=false;t.rem=0;t.savedAt=null;t._phaseStart=null;}else if(t.done){t.done=false;t.isRest=false;t.rem=t.workDur;}}
+    if(t){t.name=name;t.desc=desc;t.color=color;t.emoji=pickedEmoji||t.emoji;t.days=days;t.total=total;t.continuous=contOn;t.skipped=skipOn;if(t.workDur!==workDur||t.restDur!==restDur){t.workDur=workDur;t.restDur=restDur;resetTask(t);}if(t.completed>=t.total){t.completed=t.total;t.done=true;t.running=false;t.isRest=false;t.rem=0;t.savedAt=null;t._phaseStart=null;}else if(t.done){t.done=false;t.isRest=false;t.rem=t.workDur;}}
   } else {
     const nt=mkTask('t-'+Date.now(),name,color,total,workDur,restDur,days,desc,pickedEmoji);nt.continuous=contOn;S.tasks.push(nt);
   }
