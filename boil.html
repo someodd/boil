@@ -399,8 +399,10 @@
     .card.danger   .c-time-cur{color:var(--text)!important}
     /* urgency pulse on danger */
     @keyframes danger-pulse{0%,100%{opacity:1}50%{opacity:.55}}
-    @keyframes tick-pulse{0%{transform:scale(1)}30%{transform:scale(1.04)}100%{transform:scale(1)}}
-    .tick-pulse{animation:tick-pulse .18s ease}
+    @keyframes tick-pulse-a{0%{transform:scale(1)}30%{transform:scale(1.04)}100%{transform:scale(1)}}
+    @keyframes tick-pulse-b{0%{transform:scale(1)}30%{transform:scale(1.04)}100%{transform:scale(1)}}
+    .tick-pulse-a{animation:tick-pulse-a .18s ease}
+    .tick-pulse-b{animation:tick-pulse-b .18s ease}
     .card.danger .c-time-cur{animation:danger-pulse .7s ease-in-out infinite}
     .c-time-divider{
       font-size:13px;font-weight:700;color:var(--dimmer);flex-shrink:0;
@@ -3038,8 +3040,9 @@ function renderCards(){
     return;
   }
   const hidden=S.tasks.filter(t=>!taskVisibleToday(t));
-  // Flowing mode: running task floats to top of card list
-  const sorted=visible.slice();
+  // Flowing mode: running task floats to top, hide completed tasks
+  const rt=visible.find(t=>t.running);
+  const sorted=rt?visible.filter(t=>!t.done||t.running):visible.slice();
   const ri=sorted.findIndex(t=>t.running);
   if(ri>0){const[r]=sorted.splice(ri,1);sorted.unshift(r);}
   el.innerHTML=sorted.map(cardHTML).join('')+(hidden.length?`<div class="hidden-sched" style="text-align:center;padding:12px 0 4px;font-size:11px;font-weight:700;color:var(--dim)">${hidden.length} task${hidden.length!==1?'s':''} not scheduled for today</div>`:'');
@@ -3060,7 +3063,7 @@ function fastUpdateCard(id){
   const t=S.tasks.find(x=>x.id===id);
   const el=document.getElementById('c-'+id);if(!el||!t)return;
   // overlay timer (new IDs)
-  const ptc=document.getElementById('ptc-'+t.id);if(ptc){const _qr=t._quickStart>0?Math.min(t.rem,t._quickStart):t.rem;ptc.textContent=fmtTime(_qr);ptc.classList.toggle('has-hours',_qr>=3600);if(t.running&&!t.isRest){ptc.classList.remove('tick-pulse');void ptc.offsetWidth;ptc.classList.add('tick-pulse');}}
+  const ptc=document.getElementById('ptc-'+t.id);if(ptc){const _qr=t._quickStart>0?Math.min(t.rem,t._quickStart):t.rem;ptc.textContent=fmtTime(_qr);ptc.classList.toggle('has-hours',_qr>=3600);if(t.running&&!t.isRest){const hasA=ptc.classList.contains('tick-pulse-a');ptc.classList.remove('tick-pulse-a','tick-pulse-b');ptc.classList.add(hasA?'tick-pulse-b':'tick-pulse-a');}}
   const ptt=document.getElementById('ptt-'+t.id);if(ptt&&!t.done)ptt.textContent='total: '+fmtHM(taskTotalRem(t));
   // rest progress bar
   if(t.isRest){
@@ -3290,7 +3293,7 @@ function spawnTaskBlocks(W,fillY){
   activeTaskBlocks.length=0;
   const rt=S.tasks.find(t=>t.running);
   if(!rt)return;
-  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const dpr=_bgDpr();
   const inactive=S.tasks.filter(t=>t.id!==rt.id&&!t.done&&taskVisibleToday(t));
   const count=inactive.length;
   if(!count)return;
@@ -3335,7 +3338,7 @@ function stepTaskBlocks(W,H,fillY,hf,step,dt){
   });
 }
 function drawTaskBlocks(ctx){
-  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const dpr=_bgDpr();
   activeTaskBlocks.forEach(f=>{
     ctx.save();
     ctx.translate(f.x,f.y);
@@ -3367,7 +3370,7 @@ function drawTaskBlocks(ctx){
 }
 let _poppedBlock=null; // stash for morph animation in tapCard
 function popTaskBlock(block){
-  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const dpr=_bgDpr();
   const cx=block.x/dpr, cy=block.y/dpr;
   // Particle burst
   burstAt(cx,cy,block.color,18);
@@ -3400,7 +3403,7 @@ function spawnFloaters(W,fillY){
   activeFloaters.length=0;
   const owned=S.shopItems&&S.shopItems.floaters?S.shopItems.floaters:[];
   const disabled=S.shopItems.disabledFloaters||[];
-  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const dpr=_bgDpr();
   let idx=0;
   owned.filter(id=>!disabled.includes(id)).forEach((id)=>{
     const def=FLOATER_DEFS[id];
@@ -3723,7 +3726,7 @@ function pushFloatersAt(tx,ty,vx,vy){
 
 // ── TOUCH PHYSICS (heightfield + bubble pop + floaters) ─────────────
 const waterTouches={};
-function _bgDpr(){return Math.min(window.devicePixelRatio||1,2);}
+function _bgDpr(){return Math.min(window.devicePixelRatio||1,_isMobile?1.5:2);}
 function _touchCol(tx){
   if(bgHF.cols===0)return -1;
   const W=window.innerWidth*_bgDpr();
@@ -3884,6 +3887,7 @@ document.addEventListener('pointerdown',(e)=>{
 },{passive:true});
 
 let _waveAlive=0;
+const _isMobile='ontouchstart' in window||navigator.maxTouchPoints>0;
 function startWaveLoop(){
   if(isBatterySaver())return;
   // Detect dead loop: waveRaf is set but loop hasn't run in 500ms
@@ -3975,7 +3979,7 @@ function waveLoop(now){
       const s=Math.min(dt*2,0.08);
       bgWaveState.color='#'+hex2(lerp(r1,r2,s))+hex2(lerp(g1,g2,s))+hex2(lerp(b1,b2,s));
     }
-    const dprBg=Math.min(window.devicePixelRatio||1,2);
+    const dprBg=_bgDpr();
     const W=Math.round(window.innerWidth*dprBg);
     const H=Math.round(window.innerHeight*dprBg);
     if(Math.abs(bgc.width-W)>2||Math.abs(bgc.height-H)>2){
@@ -4021,7 +4025,7 @@ function waveLoop(now){
       // ── Centered rest text (aquarium mode only — cards hidden) ──
       if(document.querySelector('.app-wrap.aquarium')){
         const textA=Math.min(1,restPct*1.5)*0.55;
-        const dprBgT=Math.min(window.devicePixelRatio||1,2);
+        const dprBgT=_bgDpr();
         ctx.save();
         ctx.textAlign='center';
         ctx.textBaseline='middle';
@@ -4426,7 +4430,7 @@ function tickBubbles(pool,W,H,fp,dt,color,isBg){
     const shakeBoost=shakeF>0?shakeF:0;
     const _sb=_waterSeed.sizeBias;
     const _crescR=(_cresc-1)*2; // 0→1 crescendo for radius boost
-    const maxR  =((isBg?(2+b2*9*_sb+highBoilBonus+Math.random()*(b2*4*_sb+highBoilBonus*0.5)):(1.0+b2*3.0*_sb+Math.random()*(b2*2.0*_sb)))+(isBg?shakeBoost*4:shakeBoost*2))*(1+_crescR*0.25);
+    const maxR  =((isBg?(2.5+b2*10*_sb+highBoilBonus+Math.random()*(b2*4.5*_sb+highBoilBonus*0.5)):(1.0+b2*3.0*_sb+Math.random()*(b2*2.0*_sb)))+(isBg?shakeBoost*4:shakeBoost*2))*(1+_crescR*0.25);
     const _sm=_waterSeed.speedMul;
     const speed=((isBg?(10+b2*140+Math.random()*(b2*80))
                       :(4+b2*35+Math.random()*(b2*20)))*_sm*_nd)*(1+shakeBoost*1.5);
@@ -4492,8 +4496,25 @@ function tickBubbles(pool,W,H,fp,dt,color,isBg){
       }
     }
   }
-  const cap=isBg?200:25;
+  const cap=isBg?120:25;
   if(pool.length>cap)pool.splice(0,pool.length-cap);
+}
+
+// Pre-rendered bubble sprite — one gradient baked to texture, drawImage per bubble
+let _bubbleSprite=null;
+function ensureBubbleSprite(){
+  if(_bubbleSprite)return _bubbleSprite;
+  const sz=48,c=document.createElement('canvas');
+  c.width=sz;c.height=sz;
+  const cx=c.getContext('2d'),r=sz/2;
+  const rg=cx.createRadialGradient(r*0.65,r*0.65,r*0.05,r,r,r);
+  rg.addColorStop(0,'rgba(255,255,255,1)');
+  rg.addColorStop(0.25,'rgba(255,255,255,0.35)');
+  rg.addColorStop(0.7,'rgba(255,255,255,0.06)');
+  rg.addColorStop(1,'rgba(255,255,255,0.65)');
+  cx.beginPath();cx.arc(r,r,r,0,Math.PI*2);
+  cx.fillStyle=rg;cx.fill();
+  _bubbleSprite=c;return c;
 }
 
 // ── DRAW WATER ────────────────────────────────────────────────────────
@@ -4665,33 +4686,24 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
     ctx.restore();
   }
 
-  // ── Bubbles: deformed glass spheres ─────────────────────────────────
+  // ── Bubbles: sprite-based rendering (pre-baked gradient texture) ─────
+  const _bsp=ensureBubbleSprite();
   bubbles.forEach(b=>{
-    if(b.r<0.2)return;
+    if(b.r<0.8)return;
     const fade=Math.min(1,b.born*10)*Math.min(1,(5-b.born)*0.8);
     if(fade<=0)return;
     if(b.y<fillY-b.r)return;
-    // Deformation: squash/stretch based on velocity
+    const boilAlpha=isBg?Math.max(0.4,fp/100):1.0;
+    const a=b.op*fade*boilAlpha;
+    if(a<0.03)return;
     const vyN=Math.min(Math.abs(b.vy||0)/80,0.5);
     const stretch=1+vyN*0.4;
     const squash=1/Math.sqrt(stretch);
-    const boilAlpha=isBg?Math.max(0.4,fp/100):1.0;
-    const a=b.op*fade*boilAlpha;
-    ctx.save();
-    ctx.translate(b.x,b.y);
-    ctx.scale(squash,stretch);
-    const rg=ctx.createRadialGradient(-b.r*0.35,-b.r*0.35,b.r*0.05,0,0,b.r);
-    rg.addColorStop(0,  `rgba(255,255,255,${a})`);
-    rg.addColorStop(0.25,`rgba(255,255,255,${a*0.35})`);
-    rg.addColorStop(0.7, `rgba(255,255,255,${a*0.06})`);
-    rg.addColorStop(1,   `rgba(255,255,255,${a*0.65})`);
-    ctx.beginPath();ctx.arc(0,0,b.r,0,Math.PI*2);
-    ctx.fillStyle=rg;ctx.fill();
-    ctx.strokeStyle=`rgba(255,255,255,${a*0.5})`;
-    ctx.lineWidth=0.6;
-    ctx.stroke();
-    ctx.restore();
+    const w=b.r*2*squash,h=b.r*2*stretch;
+    ctx.globalAlpha=a;
+    ctx.drawImage(_bsp,b.x-w/2,b.y-h/2,w,h);
   });
+  ctx.globalAlpha=1;
 }
 function drawContainerWalls(ctx,W,H){
   // Top: slightly darker (dry glass above waterline)
