@@ -949,15 +949,7 @@ function _wallClockNight(){
   return 0;
 }
 function nightT(){
-  const wall=_wallClockNight();
-  if(S&&S.startTs){
-    // Active day: use in-app timing (last 2 hours of day)
-    const rem=dayRem(),win=7200;
-    const app=Math.max(0,Math.min(1,(win-rem)/win));
-    // Use whichever is darker — real night always wins
-    return Math.max(app,wall);
-  }
-  return wall;
+  return _wallClockNight();
 }
 let _lastNightT=-1,_stars=[],_bedtimeNudged=false,_windDownNudged=false,_bedtimeReached=false,_bedtimeReachedAt=0,_pastBedtimeNudged=false,_noStartNudged=false;
 function applyNightTheme(){
@@ -4714,22 +4706,7 @@ function tickBubbles(pool,W,H,fp,dt,color,isBg){
       pool.splice(i,1);
     }
   }
-  // Merge nearby bubbles (bg only)
-  if(isBg&&pool.length>1){
-    for(let i=0;i<pool.length&&i<100;i++){
-      for(let j=i+1;j<pool.length&&j<100;j++){
-        const dx=pool[i].x-pool[j].x,dy=pool[i].y-pool[j].y;
-        if(dx*dx+dy*dy<(pool[i].r+pool[j].r)*(pool[i].r+pool[j].r)*0.36){
-          const big=pool[i].r>=pool[j].r?i:j,small=big===i?j:i;
-          pool[big].r=Math.min(pool[big].maxR*1.3,Math.sqrt(pool[big].r*pool[big].r+pool[small].r*pool[small].r));
-          pool[big].x=(pool[big].x+pool[small].x)/2;
-          pool[big].y=(pool[big].y+pool[small].y)/2;
-          pool.splice(small,1);if(small<=i)i--;j--;
-        }
-      }
-    }
-  }
-  const cap=isBg?120:25;
+  const cap=isBg?(_isMobile?60:120):25;
   if(pool.length>cap)pool.splice(0,pool.length-cap);
 }
 
@@ -4840,8 +4817,8 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
   ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();
   ctx.fillStyle=g;ctx.fill();
 
-  // ── Subsurface shimmer (depth layer) ──────────────────────────────
-  if(boil>0.08){
+  // ── Subsurface shimmer (depth layer, skip on mobile) ────────────────
+  if(boil>0.08&&!_isMobile){
     ctx.save();
     ctx.globalAlpha=boil*0.22;
     ctx.beginPath();
@@ -4891,11 +4868,13 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
   ctx.lineWidth=(isBg?2.0:1.3)*(1+_cg*0.5);
   ctx.strokeStyle=`rgba(255,${_hlG},${_hlB},${Math.min(1,(isBg?0.75:0.92)+_cg*0.15)})`;
   ctx.stroke();
-  // Soft glow below line — heat level amplifies
-  const glowMul=0.8+(_hm-1)*0.5;
-  ctx.lineWidth=isBg?(8+boil*12*glowMul):(2.5+boil*3*glowMul);
-  ctx.strokeStyle=`rgba(255,${_hlG},${_hlB},${isBg?Math.min(0.32,0.16*glowMul):Math.min(0.55,0.35*glowMul)})`;
-  ctx.stroke();
+  // Soft glow below line — heat level amplifies (skip on mobile: thin highlight suffices)
+  if(!_isMobile){
+    const glowMul=0.8+(_hm-1)*0.5;
+    ctx.lineWidth=isBg?(8+boil*12*glowMul):(2.5+boil*3*glowMul);
+    ctx.strokeStyle=`rgba(255,${_hlG},${_hlB},${isBg?Math.min(0.32,0.16*glowMul):Math.min(0.55,0.35*glowMul)})`;
+    ctx.stroke();
+  }
   ctx.restore();
 
   // ── Surface foam at high boil (pip only) ─────────────────────────
