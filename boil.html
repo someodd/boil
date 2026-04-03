@@ -170,7 +170,6 @@
     .app-wrap.flowing .card.running{background:rgba(250,248,244,0.25);backdrop-filter:blur(16px)}
     .app-wrap.flowing .card.running .c-sub{font-size:10px;opacity:.5}
     .app-wrap.flowing .card.running .pip-timer-overlay .pto-cur{font-size:16px}
-    .app-wrap.flowing .card.running .pip-timer-overlay .pto-tot{display:none}
     .app-wrap.flowing .card.running .c-desc{display:none}
 
     /* ── CARD ──────────────────────────── */
@@ -184,7 +183,7 @@
     .card{
       background:var(--glass);
       backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-      border:1.5px solid var(--glass-border);border-radius:16px;
+      border:1.5px solid var(--glass-border);border-radius:12px;
       box-shadow:0 1px 2px rgba(0,0,0,0.04),0 4px 12px rgba(0,0,0,0.03),inset 0 1px 0 rgba(255,255,255,0.5);
       cursor:pointer;position:relative;
       transition:transform .18s cubic-bezier(.34,1.2,.64,1),box-shadow .25s,border-color .25s,opacity .35s,filter .35s,background .35s;
@@ -219,11 +218,11 @@
     .card.critical .c-time-cur{color:#c0453a!important;animation:danger-pulse .45s ease-in-out infinite!important}
 
     /* top color bar */
-    .c-bar{height:4px;background:var(--tc);width:100%;border-radius:16px 16px 0 0}
+    .c-bar{height:3px;background:var(--tc);width:100%;border-radius:12px 12px 0 0}
 
-    .c-body{padding:14px 15px 16px}
+    .c-body{padding:10px 13px 12px}
 
-    .c-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+    .c-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
     .c-desc+.pips-wrap{margin-top:0}
     .c-name{font-family:var(--fd);font-size:18px;font-weight:800;letter-spacing:-.025em;color:var(--ink);flex:1;margin-right:8px;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
     .c-emoji{margin-right:6px;font-size:16px;vertical-align:middle}
@@ -323,7 +322,7 @@
     .card.running .prog,.card.resting .prog{opacity:1}
     .card.resting .prog{background:var(--tc)}
 
-    .c-sub{font-size:11px;font-weight:600;color:var(--dim);letter-spacing:.01em;margin-top:6px;transition:opacity .3s}
+    .c-sub{font-size:10px;font-weight:600;color:var(--dim);letter-spacing:.01em;transition:opacity .3s}
     .card.running .c-sub,.card.resting .c-sub{opacity:0.35}
 
     /* ── DONE CARD: collapsed with strikethrough ── */
@@ -2774,26 +2773,36 @@ function totalRemSecs(){
 
 // ── DAYBAR ─────────────────────────────────────────────────────────
 function renderDaybar(){
-  const we=dayEl(),wr=dayRem(),totalB=totalRemSecs();
-  const elPct=(we/DAY_S()*100).toFixed(2);
-  const nowPct=parseFloat(elPct);
+  // Remaining time: now → bedtime (or midnight if no bedtime)
+  // Calculated from real clock, not from start + dayHours
+  const now=new Date();
+  let endTime;
+  if(S.bedtime!=null){
+    endTime=new Date(now);endTime.setHours(Math.floor(S.bedtime),Math.round((S.bedtime%1)*60),0,0);
+    if(endTime<=now)endTime.setDate(endTime.getDate()+1);
+  } else {
+    endTime=new Date(now);endTime.setHours(24,0,0,0);
+  }
+  const wr=Math.max(0,Math.floor((endTime-now)/1000));
+  const totalB=totalRemSecs();
+  const remS=Math.max(wr,1);
 
-  // stack task segments from NOW
+  // Bar represents NOW (left, 0%) → BEDTIME/MIDNIGHT (right, 100%)
   const active=S.tasks.filter(t=>!t.done&&taskVisibleToday(t));
-  let cursor=nowPct;
+  let cursor=0;
   const segs=[];
   active.forEach(t=>{
     const fb=t.total-t.completed-1;
     const tSecs=t.rem+fb*t.workDur
       +(!t.isRest&&t.restDur>0?(fb+1)*t.restDur:0)
       +(t.isRest&&t.restDur>0?fb*t.restDur:0);
-    const w=Math.min(tSecs/DAY_S()*100, 100-cursor);
+    const w=Math.min(tSecs/remS*100, 100-cursor);
     if(w>0)segs.push({color:t.color,left:cursor,width:w});
-    cursor+=tSecs/DAY_S()*100;
+    cursor+=tSecs/remS*100;
   });
 
   const overflow=Math.max(0,cursor-100);
-  const hatchW=overflow>0?Math.min(100-nowPct,overflow):0;
+  const hatchW=overflow>0?Math.min(100,overflow):0;
   const slack=Math.round(wr-totalB);
   const isOver=slack<0;
 
@@ -2808,16 +2817,16 @@ function renderDaybar(){
     ?`<div class="db-stat warn"><span style="font-size:14px">💀</span> <b>${fmtHM(Math.abs(slack))}</b> over</div>`
     :`<div class="db-stat${totalB<=0?' go':''}"><b>${fmtHM(free)}</b> free</div>`;
 
-  // Dynamic tick labels based on actual start time and DAY_S() (respects midnight cap)
+  // Tick labels: now → bedtime/midnight, evenly spaced
+  const fmtT=h=>{const ap=h>=12?'pm':'am';const h12=h%12||12;return`${h12}${ap}`;};
   const dbTicks=(()=>{
-    if(!S.startTs)return['8 am','12 pm','6 pm','midnight'];
-    const start=new Date(S.startTs);
-    const fmtT=h=>{const ap=h>=12?'pm':'am';const h12=h%12||12;return`${h12}${ap}`;};
-    const s0=start.getHours()+start.getMinutes()/60;
-    const actualHours=DAY_S()/3600;
-    const step=actualHours/3;
+    const nowH=now.getHours()+now.getMinutes()/60;
+    const remH=wr/3600;
+    if(!S.startTs)return['now','','','end'];
+    const step=remH/3;
     return [0,1,2,3].map(i=>{
-      const h=(s0+i*step)%24;
+      if(i===0)return'now';
+      const h=(nowH+i*step)%24;
       if(i===3&&Math.round(h)%24===0)return'midnight';
       return fmtT(Math.round(h));
     });
@@ -2828,10 +2837,8 @@ function renderDaybar(){
       ${rightText}
     </div>
     <div class="db-track">
-      <div class="db-el" style="width:${elPct}%"></div>
       ${segs.map((s,i)=>`<div class="db-seg" style="left:${s.left.toFixed(2)}%;width:${s.width.toFixed(2)}%;background:${s.color};${i===segs.length-1?'border-radius:0 7px 7px 0':''}"></div>`).join('')}
-      ${hatchW>0?`<div class="db-hatch" style="width:${Math.min(hatchW,100-nowPct).toFixed(2)}%;right:0"></div>`:''}
-      <div class="db-now" style="left:${nowPct}%"></div>
+      ${hatchW>0?`<div class="db-hatch" style="width:${Math.min(hatchW,100).toFixed(2)}%;right:0"></div>`:''}
     </div>
     <div class="db-ticks">
       ${dbTicks.map(l=>`<span class="db-tick">${l}</span>`).join('')}
@@ -2921,6 +2928,16 @@ function cardState(t){
   return'';
 }
 
+function fmtDays(days){
+  if(!days||days.length===7||days.length===0)return days&&days.length===7?'daily':'';
+  const names=['Su','M','Tu','W','Th','F','Sa'];
+  const sorted=[...days].sort((a,b)=>a-b);
+  let consecutive=true;
+  for(let i=1;i<sorted.length;i++){if(sorted[i]-sorted[i-1]!==1){consecutive=false;break;}}
+  if(consecutive&&sorted.length>=3)return names[sorted[0]]+'\u2013'+names[sorted[sorted.length-1]];
+  return sorted.map(d=>names[d]).join(' ');
+}
+
 function taskTotalRem(t){
   if(t.done)return 0;
   const fullBlock=t.workDur+t.restDur;
@@ -2953,7 +2970,7 @@ function cardHTML(t){
   const phaseDur=t.isRest?t.restDur:t.workDur;
   const rawFill=phaseDur>0?((phaseDur-t.rem)/phaseDur*100):0;
   const fillPct=(t.isRest?rawFill:endowedFill(rawFill)).toFixed(1);
-  const PS=36, GAP=5;
+  const PS=36, GAP=4;
   const baseStyle=`width:${PS}px;height:${PS}px;display:inline-block;vertical-align:top;position:relative;overflow:hidden;margin-right:${GAP}px;margin-bottom:${GAP}px;border-radius:8px;box-sizing:border-box;`;
   const fp=parseFloat(fillPct);
   const bc=t.running&&t.isRest?"#2e9e6a":t.color;
@@ -2972,12 +2989,10 @@ function cardHTML(t){
     return`<div style="${baseStyle}border:2px solid var(--mid);overflow:hidden;"></div>`;
   }).join("");
 
-  // show total only if more than 1 block remaining
   const blocksLeft=t.total-t.completed;
-  const showTotal=blocksLeft>1;
   const totalRem=taskTotalRem(t);
-  const dayLabel=t.days?` · ${t.days.map(d=>['Su','Mo','Tu','We','Th','Fr','Sa'][d]).join('')}`:'';
-  const sub=`🪙 ${t.completed}/${t.total} · ${blocksLeft} left · ${fmtHM(t.workDur)} each${t.restDur>0?` · ${fmtHM(t.restDur)} rest`:''}${dayLabel}`;
+  const dayLabel=t.days?` · ${fmtDays(t.days)}`:'';
+  const sub=`${fmtHM(t.workDur)} each${t.restDur>0?` · ${fmtHM(t.restDur)} rest`:''}${dayLabel}`;
 
   return`<div class="card${stCls?' '+stCls:''}${cs?' '+cs:''}" id="c-${t.id}" style="--tc:${t.color}" onclick="tapCard('${t.id}')">
     <div class="c-bar"></div>
@@ -2987,31 +3002,28 @@ function cardHTML(t){
         <button class="c-edit" onclick="event.stopPropagation();openEdit('${t.id}')">⋯</button>
       </div>
       ${t.desc?`<div class="c-desc">${esc(t.desc)}</div>`:''}
-      <div class="pips-wrap">
-        <div style="display:block;line-height:0;font-size:0;padding-bottom:46px">${pips}</div>
-        ${t.isRest?`
-        <div class="rest-overlay" id="ro-${t.id}">
+      <div style="display:block;line-height:0;font-size:0">${pips}</div>
+      ${t.isRest?`
+      <div class="pips-wrap" style="position:relative;margin-top:4px">
+        <div class="rest-overlay" id="ro-${t.id}" style="position:relative">
           <div class="rest-emoji">${S.shopItems&&S.shopItems.restEmoji?S.shopItems.restEmoji:"☕"}</div>
           <div class="rest-label" id="rest-label-${t.id}">${(()=>{const bl=t.total-t.completed;if(bl<=1)return'last bit of steam';if(bl===2)return'almost cooked';if((S.streak||0)>=7)return'well earned';return['let some steam out','cooling off','rest is sacred','letting it settle','grace between blocks'][t.completed%5];})()}</div>
           <div class="rest-timer-big" id="ptc-${t.id}">${fmtTime(t.rem)}</div>
           <div class="rest-bar-wrap"><div class="rest-bar" id="rb-${t.id}" style="width:${((t.restDur-t.rem)/t.restDur*100).toFixed(1)}%"></div></div>
           <button onclick="event.stopPropagation();skipRest('${t.id}')" style="margin-top:6px;background:none;border:1.5px solid var(--brd);border-radius:100px;font-family:var(--fs);font-size:10px;font-weight:700;color:var(--mid);padding:4px 14px;cursor:pointer">skip rest →</button>
         </div>
-        `:`<div class="pip-timer-overlay">
-          <span class="pto-cur" id="ptc-${t.id}">${fmtTime(t.rem)}</span>
-          ${showTotal?`<span class="pto-tot" id="ptt-${t.id}">total: ${fmtHM(totalRem)}</span>`:''}
-        </div>`}
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
-        <div class="c-sub">${sub}</div>
-        <div style="display:flex;align-items:center;gap:8px">
-          ${S.mercyCoins>0&&t.running&&!t.done?`<button class="mercy-btn" onclick="event.stopPropagation();useMercy('${t.id}')" title="Use mercy — skip this block">🕊️</button>`:''}
-          ${!t.running&&!t.done&&t.workDur>600?`<button onclick="event.stopPropagation();quickStart('${t.id}')" style="background:none;border:none;font-family:var(--fs);font-size:10px;font-weight:700;color:var(--dim);cursor:pointer;padding:4px 6px;white-space:nowrap">just 5 min</button>`:''}
-          <button class="play-btn" aria-label="${t.running?'pause':'start'} ${esc(t.name)}" onclick="event.stopPropagation();tapCard('${t.id}')">
-            ${t.running?svgPause():svgPlay()}
-          </button>
+      `:`
+      <div style="display:flex;align-items:center;gap:12px;margin-top:6px">
+        <div style="flex:1;min-width:0">
+          ${(t.running||t.rem<phaseDur)?`<div style="font-size:22px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:${t.running?'var(--tc)':'var(--mid)'};line-height:1.1" id="ptc-${t.id}">${fmtTime(t.rem)}</div>`:`<div style="font-size:16px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--mid);line-height:1.1" id="ctt-${t.id}">${fmtTime(totalRem)}</div>`}
+          <div class="c-sub" style="margin-top:2px">${(t.running||t.rem<phaseDur)?`<span id="ctt-${t.id}" style="font-variant-numeric:tabular-nums">${fmtTime(totalRem)} left</span> · `:''}${sub}</div>
         </div>
-      </div>
+        ${S.mercyCoins>0&&t.running&&!t.done?`<button class="mercy-btn" onclick="event.stopPropagation();useMercy('${t.id}')" title="Use mercy — skip this block">🕊️</button>`:''}
+        <button class="play-btn" id="pb-${t.id}" aria-label="${t.running?'pause':'start'} ${esc(t.name)}" onclick="event.stopPropagation();tapCard('${t.id}')">
+          ${t.running?svgPause():svgPlay()}
+        </button>
+      </div>`}
     </div>
   </div>`;
 }
@@ -3062,8 +3074,11 @@ function fastUpdateCard(id){
   const t=S.tasks.find(x=>x.id===id);
   const el=document.getElementById('c-'+id);if(!el||!t)return;
   // overlay timer (new IDs)
-  const ptc=document.getElementById('ptc-'+t.id);if(ptc){const _qr=t._quickStart>0?Math.min(t.rem,t._quickStart):t.rem;ptc.textContent=fmtTime(_qr);ptc.classList.toggle('has-hours',_qr>=3600);if(t.running&&!t.isRest){const hasA=ptc.classList.contains('tick-pulse-a');ptc.classList.remove('tick-pulse-a','tick-pulse-b');ptc.classList.add(hasA?'tick-pulse-b':'tick-pulse-a');}}
-  const ptt=document.getElementById('ptt-'+t.id);if(ptt&&!t.done)ptt.textContent='total: '+fmtHM(taskTotalRem(t));
+  const ptc=document.getElementById('ptc-'+t.id);
+  const pb=document.getElementById('pb-'+t.id);
+  if(ptc){const _qr=t._quickStart>0?Math.min(t.rem,t._quickStart):t.rem;ptc.textContent=fmtTime(_qr);ptc.classList.toggle('has-hours',_qr>=3600);if(t.running&&!t.isRest){const hasA=ptc.classList.contains('tick-pulse-a');ptc.classList.remove('tick-pulse-a','tick-pulse-b');ptc.classList.add(hasA?'tick-pulse-b':'tick-pulse-a');if(pb){pb.classList.remove('tick-pulse-a','tick-pulse-b');pb.classList.add(hasA?'tick-pulse-b':'tick-pulse-a');}}}
+  // total time remaining (ticks down every second)
+  const ctt=document.getElementById('ctt-'+t.id);if(ctt)ctt.textContent=fmtTime(taskTotalRem(t));
   // rest progress bar
   if(t.isRest){
     const rb=document.getElementById('rb-'+t.id);
