@@ -2887,12 +2887,13 @@ function updateScrollState(){
       bgWaveState.targetColor='#a89e92';
       if(bgc)bgc.classList.add('active');
       startWaveLoop();
+      // Keep floaters alive in ambient — they respawn from waveLoop if needed
     } else {
       bgWaveState.active=false;
       bgWaveState.ambient=false;
       if(bgc)bgc.classList.remove('active');
+      activeFloaters.length=0; // only clear when water is actually off
     }
-    activeFloaters.length=0;
     activeTaskBlocks.length=0;
   } else {
     bgWaveState.ambient=false;
@@ -3280,7 +3281,7 @@ const FLOATER_DEFS={
   'float_ducky':{emoji:'🦆',size:28,buoyancy:0.06,drag:0.88},
   'float_boat': {emoji:'⛵',size:24,buoyancy:0.05,drag:0.90},
   'float_ice':  {emoji:'🧊',size:32,buoyancy:0.07,drag:0.86},
-  'float_ball': {emoji:'🏐',size:30,buoyancy:0.10,drag:0.88,bouncy:true},
+  'float_ball': {emoji:'🏐',size:22,buoyancy:0.10,drag:0.88,bouncy:true},
   'float_fish': {emoji:'🐟',size:22,buoyancy:0.06,drag:0.98,underwater:true},
 };
 // ── TASK BLOCKS: floating emoji representations of inactive tasks ──
@@ -3296,11 +3297,12 @@ function spawnTaskBlocks(W,fillY){
   // Spread across water surface, evenly spaced
   inactive.forEach((t,i)=>{
     const emoji=autoEmoji(t);
-    // Size proportional to remaining time, min 44px for tap target
-    const totalRem=(t.total-t.completed)*t.workDur;
-    const maxRem=Math.max(...inactive.map(x=>(x.total-x.completed)*x.workDur),1);
-    const frac=totalRem/maxRem;
-    const minSz=44*dpr, maxSz=72*dpr;
+    // Size proportional to ABSOLUTE remaining time (sqrt scale for readability)
+    // sqrt so a 4hr task is visibly bigger than 1hr, but not 4x the area
+    const totalRem=(t.total-t.completed)*t.workDur; // seconds remaining
+    const minSz=40*dpr, maxSz=84*dpr;
+    // Scale: 0s → minSz, ~2hr (7200s) → maxSz. sqrt compresses the range.
+    const frac=Math.min(Math.sqrt(totalRem/7200),1);
     const sz=minSz+frac*(maxSz-minSz);
     const spacing=W/(count+1);
     activeTaskBlocks.push({
@@ -3504,12 +3506,12 @@ function stepFloaters(W,H,fillY,hf,step,dt,boil){
       const aboveWater=f.y<targetY-2;
       if(f.bouncy&&aboveWater){
         // Ball in air: gravity + air drag
-        f.vy+=0.45;
-        f.vy*=0.993;
-        f.vx*=0.995;
+        f.vy+=0.55;
+        f.vy*=0.991;
+        f.vx*=0.991;
         f.y+=f.vy;
-        // Clamp: can't fly off top of screen
-        if(f.y<0){f.y=0;f.vy=Math.abs(f.vy)*0.3;}
+        // Bounce off top of screen
+        if(f.y<0){f.y=0;f.vy=Math.abs(f.vy)*0.6;}
         // Spin while airborne
         f.rot+=f.vx*0.015;
         // Splash on landing
@@ -3520,14 +3522,14 @@ function stepFloaters(W,H,fillY,hf,step,dt,boil){
             if(c>=0&&c<hf.cols)applyForce(hf,c,f.vy*0.3,5);
             if(f.juggleCount>0){try{tone(100,.08,.025);}catch(e){}haptic([5]);}
           }
-          f.vy*=-0.4;
+          f.vy*=-0.2; // weak water bounce — must tap before it sinks
         }
       } else if(f.bouncy){
-        // Ball on water surface — apply buoyancy
+        // Ball on water surface — buoyancy + drift
         f.vy+=(targetY-f.y)*f.buoyancy;
         f.vy*=f.drag;
         f.y+=f.vy;
-        // Ball touched water — combo ends
+        // Combo ends on water contact
         if(f.juggleCount>0)f.juggleCount=0;
       } else {
         f.vy+=(targetY-f.y)*f.buoyancy;
@@ -3551,11 +3553,11 @@ function stepFloaters(W,H,fillY,hf,step,dt,boil){
     else f.x+=f.vx;
     // Walls
     if(f.bouncy){
-      if(f.x<f.size){f.x=f.size;f.vx=Math.abs(f.vx)*0.6;}
-      if(f.x>W-f.size){f.x=W-f.size;f.vx=-Math.abs(f.vx)*0.6;}
+      if(f.x<f.size){f.x=f.size;f.vx=Math.abs(f.vx)*0.8;}
+      if(f.x>W-f.size){f.x=W-f.size;f.vx=-Math.abs(f.vx)*0.8;}
       // Hard velocity cap — prevents any edge case from sending ball to space
-      f.vy=Math.max(-12,Math.min(f.vy,15));
-      f.vx=Math.max(-8,Math.min(f.vx,8));
+      f.vy=Math.max(-18,Math.min(f.vy,18));
+      f.vx=Math.max(-14,Math.min(f.vx,14));
     } else {
       if(f.x<f.size){f.x=f.size;f.vx*=-0.3;}
       if(f.x>W-f.size){f.x=W-f.size;f.vx*=-0.3;}
@@ -3645,17 +3647,23 @@ function pushFloatersAt(tx,ty,vx,vy){
     // Juggling disabled during work — it's a toy for idle/rest
     if(f.bouncy){
       if(_workRunning())return;
-      if(dist<f.size*2){
+      if(dist<f.size*1.6){
         // Only count juggles when ball is above water surface
         const _H=window.innerHeight*_bgDpr();
         const _waterSurf=_H*(1-bgWaveState.fill/100);
         const aboveSurf=f.y<_waterSurf+f.size*0.5;
+        // Direction from tap point to ball center — tap position matters
         const nx=f.x-tx, ny=f.y-ty;
         const mag=Math.sqrt(nx*nx+ny*ny)||1;
-        const power=6+Math.min(dist/f.size,1)*4;
-        f.vx=nx/mag*power*0.6;
+        // Direction from tap → ball center determines angle
+        // Off-center hits send ball flying sideways
+        const offCenter=Math.min(dist/(f.size*1.3),1);
+        const power=15+offCenter*5;
+        f.vx=nx/mag*power*(1+offCenter*0.8);
         f.vy=ny/mag*power;
-        if(f.vy>-3) f.vy=-3;
+        // Random sideways nudge on every hit — ball always drifts, you always chase
+        f.vx+=(Math.random()-0.5)*8;
+        if(f.vy>-6) f.vy=-6;
         if(aboveSurf){
           f.juggleCount=(f.juggleCount||0)+1;
           f.juggleHitT=performance.now();
