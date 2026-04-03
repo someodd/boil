@@ -35,8 +35,10 @@
       --glass-border: rgba(226,219,208,0.6);
       --fs: 'Plus Jakarta Sans', system-ui, sans-serif;
       --fd: 'Syne', sans-serif;
+      --spring: linear(0, 0.006, 0.025 2.8%, 0.101 6.1%, 0.236 10.1%, 0.44 15.3%, 0.684, 0.903 26.3%, 1.029 30.9%, 1.124 36.2%, 1.157, 1.171, 1.168, 1.149 48.1%, 1.104 52.2%, 1.012 60.8%, 0.981 67.5%, 0.974, 0.975, 0.984 78.8%, 1.001 87.4%, 1.007 100%);
     }
     html.battery-saver .card,html.battery-saver .hdr,html.battery-saver .daybar,html.battery-saver .sheet{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:0.01ms!important;animation-iteration-count:1!important;transition-duration:0.01ms!important}.tap-ripple{display:none!important}}
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
     html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
     :focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:4px}
@@ -174,7 +176,7 @@
 
     /* ── CARD ──────────────────────────── */
     @keyframes cardIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-    .scroll .card{animation:cardIn .28s ease backwards}
+    .scroll .card{animation:cardIn .4s var(--spring) backwards}
     .scroll .card:nth-child(2){animation-delay:.05s}
     .scroll .card:nth-child(3){animation-delay:.1s}
     .scroll .card:nth-child(4){animation-delay:.15s}
@@ -517,7 +519,7 @@
     /* ── SHEET ─────────────────────────── */
     .ov{position:fixed;inset:0;background:rgba(0,0,0,0);z-index:200;display:flex;align-items:flex-end;transition:background .25s;pointer-events:none}
     .ov.open{background:rgba(0,0,0,.42);pointer-events:all}
-    .sheet{background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1.5px solid var(--glass-border);border-bottom:none;border-radius:22px 22px 0 0;padding:6px 16px 52px;width:100%;max-width:680px;margin:0 auto;max-height:90dvh;overflow-y:auto;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,.72,0,1)}
+    .sheet{background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1.5px solid var(--glass-border);border-bottom:none;border-radius:22px 22px 0 0;padding:6px 16px 52px;width:100%;max-width:680px;margin:0 auto;max-height:90dvh;overflow-y:auto;transform:translateY(100%);transition:transform .35s var(--spring)}
     .ov.open .sheet{transform:translateY(0)}
     .sh-hnd{width:36px;height:4px;background:var(--brd);border-radius:2px;margin:10px auto 18px}
     .sh-ttl{font-family:var(--fd);font-size:20px;font-weight:800;letter-spacing:-.03em;margin-bottom:18px;text-wrap:balance}
@@ -1350,11 +1352,19 @@ function save(){
 function today(){const d=new Date();return`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;}
 
 let _tabHiddenAt=null;
+let _tabHidden=document.hidden;
 let _bgNotifTimers=[];
 function clearBgNotifs(){_bgNotifTimers.forEach(clearTimeout);_bgNotifTimers=[];}
 document.addEventListener('visibilitychange',()=>{
+  _tabHidden=document.hidden;
   if(document.hidden){
     _tabHiddenAt=Date.now();save();schedBgNotifs();
+    // ── Background hibernation: stop all visual + non-essential work ──
+    stopWaveLoop();
+    if(ticker){clearInterval(ticker);ticker=null;}
+    _detachSensors();
+    if(_ambOsc){try{_ambOsc.stop();}catch(e){}_ambOsc=null;_ambGain=null;}
+    _stopWaterAudio();
     // "Haven't started" nudge: 30min after day-start with no blocks started (intention-action gap)
     if(S.startTs&&!_noStartNudged&&!S.tasks.some(t=>t.completed>0||t.running)){
       _noStartNudged=true;
@@ -1399,6 +1409,16 @@ document.addEventListener('visibilitychange',()=>{
     acquireWakeLock();
     // Resume AudioContext (mobile browsers suspend it in background)
     if(aC&&aC.state==='suspended')aC.resume().catch(()=>{});
+    // ── Resume from hibernation ──
+    if(!isBatterySaver()){
+      _attachSensors();
+      startWaveLoop();
+      startAmbient();
+    }
+  } else if(!isBatterySaver()){
+    // No running task but may need wave for bgWaveState
+    _attachSensors();
+    if(bgWaveState.active)startWaveLoop();
   }
   // Return warmth: welcome back if away >60s (PRODUCT.md: visibilitychange is first-class)
   // Orientation toast tells the user exactly where they are — task, phase, position, time left
@@ -1477,10 +1497,10 @@ function ensureTicker(){
       // +15min past bedtime: gentle sister (visible only)
       if(_bedtimeReached&&!_pastBedtimeNudged&&_bedtimeReachedAt&&Date.now()-_bedtimeReachedAt>=900000){_pastBedtimeNudged=true;if(!document.hidden)sisterMsg(sisterSays('pastBedtime'),3500);}
     }
-    if(!S.tasks.some(t=>t.running)){clearInterval(ticker);ticker=null;}
+    if(!S.tasks.some(t=>t.running)){clearInterval(ticker);ticker=null;stopAmbient();}
   },1000);
 }
-setInterval(()=>{renderDaybar();applyNightTheme();},1000);
+setInterval(()=>{if(_tabHidden)return;renderDaybar();applyNightTheme();},1000);
 
 const BOIL_THEMES={
   default:{
@@ -1854,7 +1874,7 @@ let _curToast=null,_curToastTimer=null;
 function showToast(msg,color='#3d3530',duration=2000){
   if(_curToast){_curToast.remove();clearTimeout(_curToastTimer);}
   const d=document.createElement('div');
-  d.style.cssText=`position:fixed;top:60px;left:50%;transform:translateX(-50%) translateY(-8px);background:${color};color:#fff;font-family:var(--fs);font-size:13px;font-weight:800;padding:9px 20px;border-radius:100px;z-index:1001;pointer-events:none;opacity:0;transition:opacity .25s,transform .25s;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,0.25)`;
+  d.style.cssText=`position:fixed;top:60px;left:50%;transform:translateX(-50%) translateY(-8px);background:${color};color:#fff;font-family:var(--fs);font-size:13px;font-weight:800;padding:9px 20px;border-radius:100px;z-index:1001;pointer-events:none;opacity:0;transition:opacity .25s,transform .3s var(--spring);white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,0.25)`;
   d.textContent=msg;
   _curToast=d;
   document.body.appendChild(d);
@@ -1960,55 +1980,250 @@ function releaseWakeLock(){
 }
 // Ambient focus drone — very faint 40hz sine while block runs
 let _ambOsc=null,_ambGain=null;
-// Procedural water audio — filtered noise that scales with fill (Buxton 2021: water sounds #1 for positive affect)
+// ── PROCEDURAL WATER AUDIO ──────────────────────────────────────────
+// Multi-layer ambient water soundscape (Buxton 2021: water sounds #1 for positive affect)
+// Architecture: AudioWorklet (inline via Blob URL) generates three layers:
+//   1. Filtered noise bed (base ambience)
+//   2. Stochastic bubble events (alive texture)
+//   3. Surface fizz/grain detail (high-freq sparkle)
+// All parameters modulated by fill level (0-100%) with anticipatory crescendo >80%
+
+const _waterWorkletCode=`
+class WaterSynthProcessor extends AudioWorkletProcessor {
+  static get parameterDescriptors(){
+    return [
+      {name:'fill',defaultValue:0,minValue:0,maxValue:1,automationRate:'k-rate'},
+      {name:'volume',defaultValue:0,minValue:0,maxValue:1,automationRate:'k-rate'},
+      {name:'nightDamp',defaultValue:1,minValue:0,maxValue:1,automationRate:'k-rate'}
+    ];
+  }
+  constructor(){
+    super();
+    // Pre-allocate state (zero allocation in process())
+    // --- Noise bed state ---
+    this.noisePhase=0;
+    this.filterState={x1:0,x2:0,y1:0,y2:0};
+    this.lfoPhase=Math.random()*6.28;
+    // --- Bubble state (pool of 8 concurrent bubbles) ---
+    this.bubbles=[];
+    for(let i=0;i<8;i++)this.bubbles.push({active:false,phase:0,freq:0,decay:0,amp:0,pan:0,life:0});
+    this.bubbleClock=0;
+    this.nextBubble=0.05+Math.random()*0.2;
+    // --- Fizz grain state ---
+    this.grainClock=0;
+    this.grainAmp=0;
+    this.grainDecay=0;
+    // --- Filter coefficients (computed per quantum in _calcCoeffs) ---
+    this._b0=0;this._b2=0;this._a1=0;this._a2=0;
+    // --- Seed for deterministic-ish randomness ---
+    this.seed=Math.random()*65536|0;
+  }
+  // Fast pseudo-random (xorshift32, no allocation)
+  _rand(){this.seed^=this.seed<<13;this.seed^=this.seed>>17;this.seed^=this.seed<<5;return(this.seed>>>0)/4294967296;}
+  // 2nd-order bandpass filter (apply pre-computed coefficients)
+  _bp(x,st){
+    const y=this._b0*x+this._b2*st.x2-this._a1*st.y1-this._a2*st.y2;
+    st.x2=st.x1;st.x1=x;st.y2=st.y1;st.y1=y;
+    return y;
+  }
+  // Pre-compute filter coefficients (called once per render quantum, not per sample)
+  _calcCoeffs(fc,Q,sr){
+    const w0=6.283185*fc/sr,alpha=Math.sin(w0)/(2*Q);
+    const a0=1+alpha;
+    this._b0=alpha/a0;this._b2=-alpha/a0;
+    this._a1=-2*Math.cos(w0)/a0;this._a2=(1-alpha)/a0;
+  }
+  process(inputs,outputs,params){
+    const out=outputs[0];
+    const outL=out[0],outR=out[1]||out[0];
+    const fill=params.fill[0];
+    const vol=params.volume[0];
+    const nd=params.nightDamp[0];
+    if(vol<0.0001){return true;}
+    const sr=sampleRate;
+    const dt=1/sr;
+    const cresc=fill>0.8?((fill-0.8)/0.2)*((fill-0.8)/0.2):0;
+    // --- Layer 1: Filtered noise bed ---
+    const bpFreq=(250+fill*250+cresc*150)*nd+250*(1-nd);
+    const bpQ=1.2+cresc*0.8;
+    const lfoSpeed=(0.3+fill*0.8+cresc*0.6)*nd;
+    const lfoDepth=(80+cresc*60)*nd;
+    // LFO: advance once per quantum, compute filter coefficients once
+    this.lfoPhase+=lfoSpeed*(outL.length*dt)*6.283185;
+    if(this.lfoPhase>6.283185)this.lfoPhase-=6.283185;
+    const lfo=Math.sin(this.lfoPhase)*lfoDepth;
+    const fc=Math.max(60,Math.min(bpFreq+lfo,sr*0.45));
+    this._calcCoeffs(fc,bpQ,sr);
+    // --- Layer 2: Bubble parameters ---
+    const bubbleRate=(0.15+fill*2+cresc*4)*nd;
+    const bubbleVol=(0.004+fill*0.008+cresc*0.006)*nd;
+    // --- Layer 3: Fizz/grain ---
+    const fizzRate=(fill*12+cresc*25)*nd;
+    const fizzVol=(0.001+fill*0.003+cresc*0.003)*nd;
+    for(let i=0;i<outL.length;i++){
+      // Noise source (white noise)
+      const noise=this._rand()*2-1;
+      // Bandpass filtered noise (coefficients pre-computed above)
+      const bed=this._bp(noise,this.filterState)*vol;
+      // --- Bubble events ---
+      let bL=0,bR=0;
+      this.bubbleClock+=dt;
+      if(this.bubbleClock>=this.nextBubble&&fill>0.01){
+        this.bubbleClock=0;
+        this.nextBubble=0.04+this._rand()*(1.5/(bubbleRate+0.1));
+        // Find inactive bubble slot
+        for(let j=0;j<this.bubbles.length;j++){
+          const b=this.bubbles[j];
+          if(!b.active){
+            // Bubble frequency: higher pitch = smaller bubble (real bubbles are 400-1500Hz)
+            b.freq=400+this._rand()*800+cresc*300;
+            b.decay=12+this._rand()*18; // faster exponential decay — short blips not thuds
+            b.amp=bubbleVol*(0.5+this._rand()*0.5);
+            b.pan=this._rand()*0.6-0.3; // slight stereo spread
+            b.phase=0;b.life=0;b.active=true;
+            break;
+          }
+        }
+      }
+      for(let j=0;j<this.bubbles.length;j++){
+        const b=this.bubbles[j];
+        if(!b.active)continue;
+        b.life+=dt;
+        b.phase+=b.freq*dt*6.283185;
+        // Pitch drops rapidly (characteristic water bubble sound)
+        b.freq*=(1-b.decay*0.0003);
+        const env=b.amp*Math.exp(-b.decay*b.life);
+        if(env<0.0001){b.active=false;continue;}
+        const s=Math.sin(b.phase)*env;
+        bL+=s*(0.5-b.pan);
+        bR+=s*(0.5+b.pan);
+      }
+      // --- Fizz grains (Gaussian-ish envelope: smooth attack + decay, no click) ---
+      let fizz=0;
+      this.grainClock+=dt;
+      if(this.grainClock>=1/(fizzRate+0.1)&&fill>0.05){
+        this.grainClock=0;
+        this.grainAmp=fizzVol*(0.3+this._rand()*0.7);
+        this.grainDecay=0;
+      }
+      if(this.grainAmp>0.00001){
+        this.grainDecay+=dt*200;
+        // Gaussian-ish: ramp up then decay (peak at grainDecay≈1)
+        const gEnv=this.grainDecay*Math.exp(1-this.grainDecay);
+        fizz=(this._rand()*2-1)*this.grainAmp*gEnv;
+        if(this.grainDecay>5)this.grainAmp=0;
+      }
+      outL[i]=bed+bL+fizz;
+      outR[i]=bed+bR+fizz;
+    }
+    return true;
+  }
+}
+registerProcessor('water-synth',WaterSynthProcessor);
+`;
+
+let _waterNode=null,_waterMasterGain=null,_waterWorkletReady=false;
+// Fallback refs (used when AudioWorklet unavailable)
 let _waterNoise=null,_waterGain=null,_waterFilter=null,_waterLfo=null,_waterLfoGain=null;
+
+async function _initWaterWorklet(){
+  if(_waterWorkletReady)return true;
+  try{
+    const c=ac();
+    if(!c.audioWorklet)return false;
+    const blob=new Blob([_waterWorkletCode],{type:'text/javascript'});
+    const url=URL.createObjectURL(blob);
+    await c.audioWorklet.addModule(url);
+    URL.revokeObjectURL(url);
+    _waterWorkletReady=true;
+    return true;
+  }catch(e){return false;}
+}
+
 function _startWaterAudio(){
   if(isBatterySaver()||S.muteWater)return;
+  if(_waterNode||_waterNoise)return;
+  _initWaterWorklet().then(ok=>{
+    if(isBatterySaver()||S.muteWater)return; // re-check after async
+    if(ok)_startWaterWorklet();
+    else _startWaterFallback();
+  }).catch(()=>_startWaterFallback());
+}
+
+function _startWaterWorklet(){
+  try{
+    if(_waterNode)return;
+    const c=ac();
+    _waterNode=new AudioWorkletNode(c,'water-synth',{
+      numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[2]
+    });
+    _waterMasterGain=c.createGain();
+    _waterMasterGain.gain.setValueAtTime(0,c.currentTime);
+    _waterMasterGain.gain.linearRampToValueAtTime(1,c.currentTime+1); // fade in over 1s
+    _waterNode.connect(_waterMasterGain);_waterMasterGain.connect(c.destination);
+  }catch(e){_startWaterFallback();}
+}
+
+// Fallback: original filtered-noise approach (pre-AudioWorklet)
+function _startWaterFallback(){
   try{
     if(_waterNoise)return;
     const c=ac();
-    // White noise source
     const buf=c.createBuffer(1,c.sampleRate*2,c.sampleRate);
     const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
     _waterNoise=c.createBufferSource();_waterNoise.buffer=buf;_waterNoise.loop=true;
-    // Bandpass filter — center frequency rises with fill level
     _waterFilter=c.createBiquadFilter();_waterFilter.type='bandpass';_waterFilter.frequency.value=300;_waterFilter.Q.value=1.5;
-    // LFO for organic burble modulation
     _waterLfo=c.createOscillator();_waterLfoGain=c.createGain();
     _waterLfo.type='sine';_waterLfo.frequency.value=0.4+Math.random()*0.3;
     _waterLfoGain.gain.value=80;
     _waterLfo.connect(_waterLfoGain);_waterLfoGain.connect(_waterFilter.frequency);
-    // Master gain — starts silent, updateWaterAudio sets level
     _waterGain=c.createGain();_waterGain.gain.setValueAtTime(0,c.currentTime);
     _waterNoise.connect(_waterFilter);_waterFilter.connect(_waterGain);_waterGain.connect(c.destination);
     _waterNoise.start();_waterLfo.start();
   }catch(e){}
 }
+
 function _stopWaterAudio(){
   try{
-    if(!_waterNoise)return;
-    const c=ac();
-    _waterGain.gain.linearRampToValueAtTime(0,c.currentTime+1.5);
-    const n=_waterNoise,l=_waterLfo;
-    setTimeout(()=>{try{n.stop();l.stop();}catch(e){}},1600);
-    _waterNoise=null;_waterGain=null;_waterFilter=null;_waterLfo=null;_waterLfoGain=null;
+    // Stop AudioWorklet path
+    if(_waterNode){
+      const c=ac();
+      _waterMasterGain.gain.linearRampToValueAtTime(0,c.currentTime+1.5);
+      const n=_waterNode,g=_waterMasterGain;
+      setTimeout(()=>{try{n.disconnect();g.disconnect();}catch(e){}},1600);
+      _waterNode=null;_waterMasterGain=null;
+    }
+    // Stop fallback path
+    if(_waterNoise){
+      const c=ac();
+      _waterGain.gain.linearRampToValueAtTime(0,c.currentTime+1.5);
+      const n=_waterNoise,l=_waterLfo;
+      setTimeout(()=>{try{n.stop();l.stop();}catch(e){}},1600);
+      _waterNoise=null;_waterGain=null;_waterFilter=null;_waterLfo=null;_waterLfoGain=null;
+    }
   }catch(e){}
 }
+
 function updateWaterAudio(fillPct){
-  if(!_waterGain||!_waterFilter)return;
   try{
-    const c=ac(),t=c.currentTime;
     const f=fillPct/100;
-    // Anticipatory crescendo: quadratic boost in final 20% (Salimpoor — caudate anticipation via sound)
     const cresc=f>0.8?Math.pow((f-0.8)/0.2,2):0;
-    const _nd=1-nightT()*0.4; // night damping: quieter, calmer water sound
-    // Volume: scales with fill + crescendo boost, damped at night
-    _waterGain.gain.linearRampToValueAtTime((f*0.035+cresc*0.018)*_nd,t+0.5);
-    // Filter center: 250Hz→500Hz base + crescendo, lower ceiling at night
+    const _nd=1-nightT()*0.4; // night damping
+    const vol=(f*0.035+cresc*0.018)*_nd;
+    // AudioWorklet path — worklet self-mixes; master gain is fade envelope only
+    if(_waterNode){
+      const p=_waterNode.parameters;
+      p.get('fill').value=f;
+      p.get('volume').value=vol;
+      p.get('nightDamp').value=_nd;
+      return;
+    }
+    // Fallback path
+    if(!_waterGain||!_waterFilter)return;
+    const c=ac(),t=c.currentTime;
+    _waterGain.gain.linearRampToValueAtTime(vol,t+0.5);
     _waterFilter.frequency.linearRampToValueAtTime((250+f*250+cresc*150)*_nd+250*(1-_nd),t+0.5);
-    // LFO speed: faster modulation at higher fill + crescendo, calmer at night
     if(_waterLfo)_waterLfo.frequency.linearRampToValueAtTime((0.3+f*0.8+cresc*0.6)*_nd,t+0.5);
-    // LFO depth: wider modulation during crescendo, steadier at night
     if(_waterLfoGain)_waterLfoGain.gain.linearRampToValueAtTime((80+cresc*60)*_nd,t+0.5);
   }catch(e){}
 }
@@ -3224,6 +3439,7 @@ function toggleBatterySaver(){
   if(S.batterySaver){
     _detachSensors();releaseWakeLock();stopWaveLoop();
     if(_ambOsc){try{_ambOsc.stop();}catch(e){}_ambOsc=null;_ambGain=null;}
+    _stopWaterAudio();
   } else {
     _attachSensors();startWaveLoop();
     if(S.tasks.some(t=>t.running))startAmbient();
@@ -3232,6 +3448,8 @@ function toggleBatterySaver(){
   showToast(S.batterySaver?'⚡ Battery saver on':'⚡ Battery saver off','#3d3530',1500);
 }
 (function(){try{requestMotionPermission();}catch(e){}})();
+// Auto battery-saver when battery drops below 15%
+if(navigator.getBattery){try{navigator.getBattery().then(b=>{function chk(){if(b.level<=0.15&&!b.charging&&!S.batterySaver){toggleBatterySaver();}}b.addEventListener('levelchange',chk);b.addEventListener('chargingchange',chk);chk();}).catch(()=>{});}catch(e){}}
 
 // Per-pip bubble pools keyed by task id
 const bubblePools={};
@@ -3740,7 +3958,7 @@ function pushFloatersAt(tx,ty,vx,vy){
 
 // ── TOUCH PHYSICS (heightfield + bubble pop + floaters) ─────────────
 const waterTouches={};
-function _bgDpr(){return Math.min(window.devicePixelRatio||1,_isMobile?1.5:2);}
+function _bgDpr(){if(isBatterySaver())return 1;return Math.min(window.devicePixelRatio||1,_isMobile?1.5:2);}
 function _touchCol(tx){
   if(bgHF.cols===0)return -1;
   const W=window.innerWidth*_bgDpr();
@@ -3902,8 +4120,9 @@ document.addEventListener('pointerdown',(e)=>{
 
 let _waveAlive=0;
 const _isMobile='ontouchstart' in window||navigator.maxTouchPoints>0;
+const _reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
 function startWaveLoop(){
-  if(isBatterySaver())return;
+  if(isBatterySaver()||_reducedMotion.matches)return;
   // Detect dead loop: waveRaf is set but loop hasn't run in 500ms
   if(waveRaf&&performance.now()-_waveAlive<500)return;
   if(waveRaf){cancelAnimationFrame(waveRaf);waveRaf=null;}
