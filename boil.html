@@ -1092,6 +1092,7 @@ function defaults(){
     dayHours:14,
     bedtime:22,
     batterySaver:false,
+    muteAll:false,
     muteWater:false,
     continuous:true,
     streak:0,
@@ -1208,6 +1209,7 @@ function boot(){
   if(S.ballRecord===undefined)S.ballRecord=0;
   if(S.bedtime===undefined)S.bedtime=null;
   if(S.batterySaver===undefined)S.batterySaver=false;
+  if(S.muteAll===undefined)S.muteAll=false;
   if(S.muteWater===undefined)S.muteWater=false;
   if(S.lastActiveId===undefined)S.lastActiveId=null;
   if(S.eco===undefined)S.eco={energy:0,peak:0};
@@ -1780,6 +1782,18 @@ function openProfile(){
       <button class="tog${S.batterySaver?' on':''}" onclick="toggleBatterySaver();closeSheet()"></button>
     </div>
 
+    <!-- Mute all sound -->
+    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:2px solid var(--brd);padding:11px 13px;border-radius:12px;margin-bottom:12px">
+      <div><div style="font-size:15px;font-weight:600;color:var(--ink)">🔇 Mute all sound</div><div style="font-size:11px;color:var(--dim);margin-top:1px">Silences everything</div></div>
+      <button class="tog${S.muteAll?' on':''}" onclick="toggleMuteAll();closeSheet()"></button>
+    </div>
+
+    <!-- Mute background audio -->
+    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:2px solid var(--brd);padding:11px 13px;border-radius:12px;margin-bottom:12px">
+      <div><div style="font-size:15px;font-weight:600;color:var(--ink)">🌊 Mute background</div><div style="font-size:11px;color:var(--dim);margin-top:1px">Water and ambient sounds</div></div>
+      <button class="tog${S.muteWater?' on':''}" onclick="toggleMuteWater();closeSheet()"></button>
+    </div>
+
     <!-- Bedtime setting -->
     <div style="margin-bottom:20px">
       <div style="font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin-bottom:8px">bedtime</div>
@@ -1896,6 +1910,7 @@ document.addEventListener('touchstart',function _aw(){
   document.removeEventListener('touchstart',_aw);
 },{once:true,passive:true});
 function tone(hz,dur,vol,t0,type='sine'){
+  if(S&&S.muteAll)return;
   try{
     const c=ac(),o=c.createOscillator(),g=c.createGain();
     o.connect(g);g.connect(c.destination);o.type=type;o.frequency.value=hz;
@@ -1908,6 +1923,7 @@ function tone(hz,dur,vol,t0,type='sine'){
 const sndTap=()=>{try{const now=ac().currentTime;tone(_jHz(440),.12,.025,now);tone(_jHz(660),.10,.02,now+_jDt(.06));tone(_jHz(880),.08,.015,now+_jDt(.12));}catch(e){}haptic([12,20,8]);};
 // Water surface tap — hollow plop with pitch scaled by force
 function sndPlop(force){
+  if(S&&S.muteAll)return;
   try{
     const c=ac(),now=c.currentTime;
     const f=Math.min(Math.abs(force||25),50);
@@ -2134,10 +2150,10 @@ async function _initWaterWorklet(){
 }
 
 function _startWaterAudio(){
-  if(isBatterySaver()||S.muteWater)return;
+  if(isBatterySaver()||S.muteWater||S.muteAll)return;
   if(_waterNode||_waterNoise)return;
   _initWaterWorklet().then(ok=>{
-    if(isBatterySaver()||S.muteWater)return; // re-check after async
+    if(isBatterySaver()||S.muteWater||S.muteAll)return; // re-check after async
     if(ok)_startWaterWorklet();
     else _startWaterFallback();
   }).catch(()=>_startWaterFallback());
@@ -2223,7 +2239,7 @@ function updateWaterAudio(fillPct){
 function startAmbient(){
   if(!isBatterySaver()){
     try{
-      if(!_ambOsc){
+      if(!_ambOsc&&!S.muteWater&&!S.muteAll){
         const c=ac();
         _ambOsc=c.createOscillator();_ambGain=c.createGain();
         _ambOsc.type='sine';_ambOsc.frequency.value=40;
@@ -2258,6 +2274,7 @@ function sndUncredit(){const now=ac().currentTime;tone(880,.25,.04,now);tone(660
 // Shake fizz: bubbly noise burst
 let _lastSndShake=0;
 function sndShake(mag){
+  if(S&&S.muteAll)return;
   const now=Date.now();if(now-_lastSndShake<300)return;_lastSndShake=now;
   const t=ac().currentTime,v=Math.min(mag/30,1)*0.04;
   try{const c=ac(),buf=c.createBuffer(1,c.sampleRate*.12,c.sampleRate),d=buf.getChannelData(0);
@@ -2278,6 +2295,7 @@ function _jDt(dt){return Math.max(0,dt+(Math.random()-.5)*.03);} // ±15ms timin
 function _nHz(hz){return _jHz(hz*(1-nightT()*0.1));}
 function _nVol(v){return v*(1-nightT()*0.2);}
 function sndSub(){
+  if(S&&S.muteAll)return;
   const now=ac().currentTime;
   // punchy attack transient then ascending chime
   tone(_nHz(1760),.04,_nVol(.05),now,'square');
@@ -3455,6 +3473,28 @@ function toggleBatterySaver(){
   }
   save();render();
   showToast(S.batterySaver?'⚡ Battery saver on':'⚡ Battery saver off','#3d3530',1500);
+}
+function toggleMuteAll(){
+  S.muteAll=!S.muteAll;
+  if(S.muteAll){
+    if(_ambOsc){try{_ambOsc.stop();}catch(e){}_ambOsc=null;_ambGain=null;}
+    _stopWaterAudio();
+  } else if(!S.muteWater&&!isBatterySaver()&&S.tasks.some(t=>t.running)){
+    startAmbient();
+  }
+  save();render();
+  showToast(S.muteAll?'🔇 All sound muted':'🔊 Sound on','#3d3530',1500);
+}
+function toggleMuteWater(){
+  S.muteWater=!S.muteWater;
+  if(S.muteWater){
+    if(_ambOsc){try{_ambOsc.stop();}catch(e){}_ambOsc=null;_ambGain=null;}
+    _stopWaterAudio();
+  } else if(!S.muteAll&&!isBatterySaver()&&S.tasks.some(t=>t.running)){
+    startAmbient();
+  }
+  save();render();
+  showToast(S.muteWater?'🌊 Background audio muted':'🌊 Background audio on','#3d3530',1500);
 }
 (function(){try{requestMotionPermission();}catch(e){}})();
 // Auto battery-saver when battery drops below 15%
