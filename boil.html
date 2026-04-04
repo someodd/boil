@@ -196,6 +196,21 @@
     .bedtime-active .card{opacity:0.4;transition:opacity 2s ease,transform .18s cubic-bezier(.34,1.2,.64,1),box-shadow .25s,border-color .25s,filter .35s,background .35s}
     .bedtime-active .card.running{opacity:0.7}
     .bedtime-active .fab{opacity:0.3}
+    /* Night rest: 30min+ past bedtime — cards collapse, start buttons hidden */
+    .bedtime-night .card:not(.running):not(.done-all):not(.skipped) .c-body>:not(.c-head){display:none!important}
+    .bedtime-night .card:not(.running):not(.done-all):not(.skipped){padding:6px 14px;opacity:0.3}
+    .bedtime-night .card:not(.running):not(.done-all):not(.skipped) .c-head{margin-bottom:0}
+    .bedtime-night .card.running .play-btn{display:inline-flex!important}
+    .bedtime-night .play-btn{display:none!important}
+    .bedtime-night .mercy-btn{display:none!important}
+    .bedtime-night .fab{display:none}
+    .bedtime-rest-msg{display:none;text-align:center;padding:24px 20px 12px;font-family:var(--fs);font-size:14px;font-weight:600;color:var(--dim);letter-spacing:-.01em;opacity:0;transition:opacity 1.5s ease}
+    .bedtime-night .bedtime-rest-msg{display:block;opacity:1}
+    /* Daybar summary mode (past bedtime) */
+    .db-summary{background:var(--glass);border-radius:10px;height:10px;width:100%;overflow:hidden}
+    .db-summary-fill{height:100%;border-radius:10px;background:var(--dim);opacity:0.4}
+    .db-now-marker{position:absolute;top:0;bottom:0;width:2px;background:var(--ink);border-radius:1px;opacity:0.7;z-index:2}
+    .db-elapsed{position:absolute;top:0;bottom:0;left:0;background:var(--dim);opacity:0.15;border-radius:10px 0 0 10px}
     .card.running{
       background:var(--glass-hi);
       backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
@@ -875,6 +890,7 @@
   <span class="cont-label"><span class="cont-icon">♾️</span>Always auto-continue</span>
   <button class="cont-tog" id="cont-tog" onclick="toggleContinuous()"></button>
 </div>
+<div class="bedtime-rest-msg" id="bedtime-rest-msg">The water rests. Tomorrow is its own day.</div>
 <div class="scroll" id="cards"></div>
 <button class="fab" onclick="openAdd()" title="Add block">+</button>
 
@@ -920,16 +936,17 @@ function DAY_S(){
   const raw=(S?.dayHours??14)*3600;
   if(!S?.startTs)return raw;
   const start=new Date(S.startTs);
-  const midnight=new Date(start);midnight.setHours(24,0,0,0);
-  const secsToMid=Math.floor((midnight-start)/1000);
-  let cap=Math.min(raw,secsToMid);
   if(S.bedtime!=null){
+    // Bedtime is the day boundary — no midnight cap needed
     const bed=new Date(start);bed.setHours(Math.floor(S.bedtime),Math.round((S.bedtime%1)*60),0,0);
     if(bed<=start)bed.setDate(bed.getDate()+1);
     const secsToBed=Math.floor((bed-start)/1000);
-    cap=Math.min(cap,secsToBed);
+    return Math.min(raw,secsToBed);
   }
-  return cap;
+  // No bedtime — cap at midnight (fallback)
+  const midnight=new Date(start);midnight.setHours(24,0,0,0);
+  const secsToMid=Math.floor((midnight-start)/1000);
+  return Math.min(raw,secsToMid);
 }
 function dayEl(){if(!S?.startTs)return 0;return Math.min(DAY_S(),Math.max(0,Math.floor((Date.now()-S.startTs)/1000)));}
 function dayRem(){return Math.max(0,DAY_S()-dayEl());}
@@ -952,7 +969,7 @@ function _wallClockNight(){
 function nightT(){
   return _wallClockNight();
 }
-let _lastNightT=-1,_stars=[],_bedtimeNudged=false,_windDownNudged=false,_bedtimeReached=false,_bedtimeReachedAt=0,_pastBedtimeNudged=false,_noStartNudged=false;
+let _lastNightT=-1,_stars=[],_bedtimeNudged=false,_windDownNudged=false,_bedtimeReached=false,_bedtimeReachedAt=0,_pastBedtimeNudged=false,_noStartNudged=false,_graceEnded=false;
 function applyNightTheme(){
   const t=nightT();
   if(Math.abs(t-_lastNightT)<0.005)return;
@@ -994,8 +1011,20 @@ function applyNightTheme(){
   if(meta)meta.content=c3('#f5f0e8','#b89070','#0e1420',bgT,P);
   // Bedtime dimming — also checked here so it activates even without ticker
   if(S&&S.bedtime!=null&&S.startTs&&dayRem()<=0){
-    document.querySelector('.app-wrap')?.classList.add('bedtime-active');
-    if(!_bedtimeReached){_bedtimeReached=true;_bedtimeReachedAt=Date.now();}
+    const aw=document.querySelector('.app-wrap');
+    aw?.classList.add('bedtime-active');
+    if(!_bedtimeReached){
+      _bedtimeReached=true;
+      // Calculate actual bedtime timestamp (not "now") for accurate grace period
+      const _bt=new Date(S.startTs);_bt.setHours(Math.floor(S.bedtime),Math.round((S.bedtime%1)*60),0,0);
+      if(_bt.getTime()<=S.startTs)_bt.setDate(_bt.getDate()+1);
+      _bedtimeReachedAt=_bt.getTime();
+    }
+    // Night rest: 30min+ past bedtime
+    if(_bedtimeReachedAt&&Date.now()-_bedtimeReachedAt>=1800000&&!_graceEnded){
+      _graceEnded=true;aw?.classList.add('bedtime-night');
+    }
+    if(_graceEnded)aw?.classList.add('bedtime-night');
   }
 }
 function resetNightTheme(){
@@ -1213,13 +1242,14 @@ function boot(){
   if(S.muteWater===undefined)S.muteWater=false;
   if(S.lastActiveId===undefined)S.lastActiveId=null;
   if(S.eco===undefined)S.eco={energy:0,peak:0};
+  if(S.wakeUp===undefined)S.wakeUp=null;
   S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;if(t.desc===undefined)t.desc='';if(t.continuous===undefined)t.continuous=!!S.continuous;if(t.skipped===undefined)t.skipped=false;});
-  const now=Date.now(),td=today();
-  if(S.date!==td){
+  const now=Date.now();
+  if(shouldRollover()){
     ecoDecayEnergy(); // ecosystem entropy — energy fades without work
     creditPartialAtMidnight();S.tasks.forEach(resetTask);S.lastActiveId=null;
-    S.date=td;S.startTs=null;S.isTrial=false;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;
-    document.querySelector('.app-wrap')?.classList.remove('bedtime-active');
+    S.date=today();S.startTs=null;S.isTrial=false;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;_graceEnded=false;
+    document.querySelector('.app-wrap')?.classList.remove('bedtime-active','bedtime-night');
     delete S._daySnap; // day ended naturally — rewards earned
     resetNightTheme();bgBubbles.length=0;
   } else {
@@ -1345,6 +1375,36 @@ function save(){
   }
 }
 function today(){const d=new Date();return`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;}
+// Wake-up time: explicit override, or bedtime + 8h, or null (midnight fallback)
+function effectiveWakeUp(){
+  if(S.wakeUp!=null)return S.wakeUp;
+  if(S.bedtime!=null)return(S.bedtime+8)%24;
+  return null;
+}
+// Should we reset the day? Replaces the old S.date!==today() check.
+// Uses wake-up time as the rollover boundary instead of midnight.
+function shouldRollover(){
+  const wu=effectiveWakeUp();
+  if(wu==null)return S.date!==today(); // no bedtime → midnight fallback
+  const now=new Date();
+  const nowH=now.getHours()+now.getMinutes()/60;
+  if(nowH<wu)return false; // before wake-up, no rollover even if date changed
+  return S.date!==today();
+}
+// Next rollover time (for scheduling the timer)
+function rolloverTime(){
+  const wu=effectiveWakeUp();
+  const now=new Date(),target=new Date(now);
+  if(wu==null){
+    target.setHours(24,0,2,0); // midnight+2s
+  } else {
+    target.setHours(Math.floor(wu),Math.round((wu%1)*60),2,0);
+    if(target<=now)target.setDate(target.getDate()+1);
+  }
+  return target;
+}
+// Is the user's current day active (started and not yet rolled over)?
+function isDayActive(){return!!S.startTs&&!shouldRollover();}
 
 let _tabHiddenAt=null;
 let _tabHidden=document.hidden;
@@ -1371,16 +1431,17 @@ document.addEventListener('visibilitychange',()=>{
     }
     return;
   }
-  // Resumed — compute actual away time before anything resets it
+  // Resumed — invalidate emoji canvas cache (backing stores lost during suspension)
+  for(const k in _emojiCache) delete _emojiCache[k];
+  // Compute actual away time before anything resets it
   const _actualAway=_tabHiddenAt?Math.floor((Date.now()-_tabHiddenAt)/1000):0;
   _tabHiddenAt=null;
   clearBgNotifs();
-  // Check for date rollover
-  const td=today();
-  if(S.date!==td){
+  // Check for day rollover (wake-up time, or midnight if no bedtime)
+  if(shouldRollover()){
     creditPartialAtMidnight();
-    stopAmbient();S.tasks.forEach(resetTask);S.date=td;S.startTs=null;S.isTrial=false;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;
-    document.querySelector('.app-wrap')?.classList.remove('bedtime-active');
+    stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;S.isTrial=false;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;_graceEnded=false;
+    document.querySelector('.app-wrap')?.classList.remove('bedtime-active','bedtime-night');
     delete S._daySnap; // day ended naturally — rewards earned
     resetNightTheme();clearInterval(ticker);ticker=null;bgBubbles.length=0;
     save();render();return;
@@ -1444,11 +1505,11 @@ window.addEventListener('beforeunload',save);
 function ensureTicker(){
   if(ticker)return;
   ticker=setInterval(()=>{
-    // Date rollover guard (foreground past midnight)
-    if(S.date!==today()){
+    // Day rollover guard (wake-up time, or midnight if no bedtime)
+    if(shouldRollover()){
       creditPartialAtMidnight();
-      stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;S.isTrial=false;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;
-      document.querySelector('.app-wrap')?.classList.remove('bedtime-active');
+      stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;S.isTrial=false;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;_graceEnded=false;
+      document.querySelector('.app-wrap')?.classList.remove('bedtime-active','bedtime-night');
       delete S._daySnap;resetNightTheme(); // day ended naturally — rewards earned
       clearInterval(ticker);ticker=null;bgBubbles.length=0;
       save();render();return;
@@ -1487,10 +1548,16 @@ function ensureTicker(){
       if(!_windDownNudged&&_dr<=1800&&_dr>0){_windDownNudged=true;if(!document.hidden)sisterMsg(sisterSays('windDown'),3000);}
       // -15min: notification (hidden) or sister (visible)
       if(!_bedtimeNudged&&_dr<=900&&_dr>0){_bedtimeNudged=true;if(document.hidden)notify('15 minutes to bedtime',sisterSays('bedtimeNudge'));else sisterMsg(sisterSays('bedtimeNudge'),3000);}
-      // Bedtime reached: dimming + notification/sister
-      if(!_bedtimeReached&&_dr<=0){_bedtimeReached=true;_bedtimeReachedAt=Date.now();document.querySelector('.app-wrap')?.classList.add('bedtime-active');if(document.hidden)notify('Bedtime',sisterSays('bedtime'));else sisterMsg(sisterSays('bedtime'),4000);}
+      // Bedtime reached: dimming + notification/sister (grace period begins)
+      if(!_bedtimeReached&&_dr<=0){_bedtimeReached=true;_bedtimeReachedAt=Date.now();document.querySelector('.app-wrap')?.classList.add('bedtime-active');if(document.hidden)notify('Bedtime',sisterSays('bedtime'));else sisterMsg(sisterSays('bedtime'),4000);renderDaybar();}
       // +15min past bedtime: gentle sister (visible only)
       if(_bedtimeReached&&!_pastBedtimeNudged&&_bedtimeReachedAt&&Date.now()-_bedtimeReachedAt>=900000){_pastBedtimeNudged=true;if(!document.hidden)sisterMsg(sisterSays('pastBedtime'),3500);}
+      // +30min past bedtime: night rest — collapse cards, hide start buttons
+      if(_bedtimeReached&&!_graceEnded&&_bedtimeReachedAt&&Date.now()-_bedtimeReachedAt>=1800000){
+        _graceEnded=true;
+        document.querySelector('.app-wrap')?.classList.add('bedtime-night');
+        if(!document.hidden)sisterMsg('Go gently. The door is open tomorrow.',3500);
+      }
     }
     if(!S.tasks.some(t=>t.running)){clearInterval(ticker);ticker=null;stopAmbient();}
   },1000);
@@ -1795,13 +1862,23 @@ function openProfile(){
     </div>
 
     <!-- Bedtime setting -->
-    <div style="margin-bottom:20px">
+    <div style="margin-bottom:12px">
       <div style="font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin-bottom:8px">bedtime</div>
       <div style="display:flex;align-items:center;gap:10px">
         <input type="time" id="profile-bed" value="${decimalToTime(S.bedtime)}" onchange="S.bedtime=timeToDecimal(this.value);save();renderDaybar();showToast(S.bedtime!=null?'Bedtime saved':'Bedtime cleared','#6b6258',1500)" style="background:var(--bg);border:2px solid var(--brd);color:var(--ink);font-size:16px;font-weight:600;font-family:var(--fs);padding:9px 12px;border-radius:12px;outline:none;width:140px">
         <button onclick="document.getElementById('profile-bed').value='';S.bedtime=null;save();renderDaybar();showToast('Bedtime cleared','#6b6258',1500)" style="background:none;border:none;font-family:var(--fs);font-size:12px;font-weight:700;color:var(--dim);cursor:pointer;padding:4px 8px">clear</button>
       </div>
       <div style="font-size:10px;color:var(--dim);margin-top:4px">Day ends here. Never sacrificed.</div>
+    </div>
+
+    <!-- Wake-up setting (progressive disclosure: hidden until daysCompleted > 3) -->
+    <div style="margin-bottom:20px;${(S.daysCompleted||0)<=3?'display:none':''}">
+      <div style="font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin-bottom:8px">wake-up</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="time" id="profile-wake" value="${decimalToTime(S.wakeUp!=null?S.wakeUp:effectiveWakeUp())}" onchange="S.wakeUp=timeToDecimal(this.value);save();showToast('Wake-up saved','#6b6258',1500)" style="background:var(--bg);border:2px solid var(--brd);color:var(--ink);font-size:16px;font-weight:600;font-family:var(--fs);padding:9px 12px;border-radius:12px;outline:none;width:140px">
+        <button onclick="S.wakeUp=null;document.getElementById('profile-wake').value=decimalToTime(effectiveWakeUp());save();showToast('Wake-up set to auto','#6b6258',1500)" style="background:none;border:none;font-family:var(--fs);font-size:12px;font-weight:700;color:var(--dim);cursor:pointer;padding:4px 8px">${S.wakeUp!=null?'auto':'auto ✓'}</button>
+      </div>
+      <div style="font-size:10px;color:var(--dim);margin-top:4px">Day resets here. Default: bedtime + 8h.</div>
     </div>
 
     <!-- Data backup -->
@@ -1888,9 +1965,9 @@ function showToast(msg,color='#3d3530',duration=2000){
   requestAnimationFrame(()=>{d.style.opacity='1';d.style.transform='translateX(-50%) translateY(0)';});
   _curToastTimer=setTimeout(()=>{d.style.opacity='0';d.style.transform='translateX(-50%) translateY(-8px)';setTimeout(()=>{d.remove();if(_curToast===d)_curToast=null;},300);},duration);
 }
-function schedMidnight(){
-  const now=new Date(),mid=new Date(now);mid.setHours(24,0,2,0);
-  setTimeout(()=>{stopAmbient();if(ticker){clearInterval(ticker);ticker=null;}bgBubbles.length=0;resetNightTheme();boot();render();schedMidnight();},mid-now);
+function schedRollover(){
+  const target=rolloverTime(),now=new Date();
+  setTimeout(()=>{stopAmbient();if(ticker){clearInterval(ticker);ticker=null;}bgBubbles.length=0;resetNightTheme();boot();render();schedRollover();},target-now);
 }
 
 // ── HAPTICS ────────────────────────────────────────────────────────
@@ -2999,21 +3076,58 @@ function totalRemSecs(){
 
 // ── DAYBAR ─────────────────────────────────────────────────────────
 function renderDaybar(){
-  // Remaining time: now → bedtime (or midnight if no bedtime)
-  // Calculated from real clock, not from start + dayHours
   const now=new Date();
-  let endTime;
+  const nowH=now.getHours()+now.getMinutes()/60;
+  const fmtT=h=>{h=((h%24)+24)%24;const ap=h>=12?'pm':'am';const h12=Math.round(h)%12||12;return`${h12}${ap}`;};
+  const totalB=totalRemSecs();
+  const pastBed=S.bedtime!=null&&S.startTs&&dayRem()<=0;
+
+  // Compute total work done today (for summary mode)
+  const workDone=S.tasks.filter(taskVisibleToday).reduce((a,t)=>{
+    if(t.skipped)return a;
+    const doneBlocks=t.completed;
+    return a+doneBlocks*t.workDur+(t.running&&!t.isRest&&t.rem<t.workDur?t.workDur-t.rem:0);
+  },0);
+
+  // ── Summary mode: past bedtime ──
+  if(pastBed){
+    const leftText=`<div class="db-stat"><b>${fmtHM(workDone)}</b> today</div>`;
+    const rightText=`<div class="db-stat" style="opacity:0.6">rest</div>`;
+    document.getElementById('daybar').innerHTML=`
+      <div class="db-top">${leftText}${rightText}</div>
+      <div class="db-track"><div class="db-summary-fill" style="width:100%;background:var(--dim);opacity:0.3;height:100%;border-radius:7px"></div></div>
+      <div class="db-ticks"><span class="db-tick"></span><span class="db-tick"></span><span class="db-tick"></span><span class="db-tick"></span></div>`;
+    return;
+  }
+
+  // ── Full-day mode: wake → bed with "you are here" ──
+  // Determine wake and bed hours for the bar span
+  const wu=effectiveWakeUp();
+  const wakeH=wu!=null?wu:(S.startTs?new Date(S.startTs).getHours()+new Date(S.startTs).getMinutes()/60:nowH);
+  const bedH=S.bedtime!=null?S.bedtime:24; // midnight if no bedtime
+
+  // Total day span in hours (handle wrap-around for late bedtimes)
+  let spanH=bedH-wakeH;
+  if(spanH<=0)spanH+=24;
+
+  // "Now" position as fraction of span [0,1]
+  let nowOff=nowH-wakeH;
+  if(nowOff<0)nowOff+=24;
+  const nowPct=Math.max(0,Math.min(nowOff/spanH*100,100));
+
+  // Wall-clock seconds from now to bedtime/midnight
+  let endTime=new Date(now);
   if(S.bedtime!=null){
-    endTime=new Date(now);endTime.setHours(Math.floor(S.bedtime),Math.round((S.bedtime%1)*60),0,0);
+    endTime.setHours(Math.floor(S.bedtime),Math.round((S.bedtime%1)*60),0,0);
     if(endTime<=now)endTime.setDate(endTime.getDate()+1);
   } else {
-    endTime=new Date(now);endTime.setHours(24,0,0,0);
+    endTime.setHours(24,0,0,0);
   }
   const wr=Math.max(0,Math.floor((endTime-now)/1000));
-  const totalB=totalRemSecs();
+  const futureW=100-nowPct; // % of bar for future
   const remS=Math.max(wr,1);
 
-  // Bar represents NOW (left, 0%) → BEDTIME/MIDNIGHT (right, 100%)
+  // Task segments positioned in the future portion
   const active=S.tasks.filter(t=>!t.done&&!t.skipped&&taskVisibleToday(t));
   let cursor=0;
   const segs=[];
@@ -3022,49 +3136,51 @@ function renderDaybar(){
     const tSecs=t.rem+fb*t.workDur
       +(!t.isRest&&t.restDur>0?(fb+1)*t.restDur:0)
       +(t.isRest&&t.restDur>0?fb*t.restDur:0);
-    const w=Math.min(tSecs/remS*100, 100-cursor);
-    if(w>0)segs.push({color:t.color,left:cursor,width:w});
-    cursor+=tSecs/remS*100;
+    const wPct=tSecs/remS*futureW;
+    const left=nowPct+cursor;
+    const w=Math.min(wPct,100-left);
+    if(w>0.1)segs.push({color:t.color,left,width:w});
+    cursor+=wPct;
   });
 
-  const overflow=Math.max(0,cursor-100);
-  const hatchW=overflow>0?Math.min(100,overflow):0;
+  const totalTaskPct=cursor;
+  const overflow=Math.max(0,nowPct+totalTaskPct-100);
+  const hatchW=overflow>0?Math.min(futureW,overflow):0;
   const slack=Math.round(wr-totalB);
   const isOver=slack<0;
 
-  // Left stat: remaining work time
+  // Left stat
   const leftText=totalB<=0
     ?`<div class="db-stat go"><b>done</b> ✓</div>`
     :`<div class="db-stat"><b>${fmtHM(totalB)}</b> of work</div>`;
 
-  // Right stat: free time or overbooked
+  // Right stat
   const free=Math.max(0,Math.round(wr-totalB));
   const rightText=isOver
     ?`<div class="db-stat warn"><span style="font-size:14px">💀</span> <b>${fmtHM(Math.abs(slack))}</b> over</div>`
     :`<div class="db-stat${totalB<=0?' go':''}"><b>${fmtHM(free)}</b> free</div>`;
 
-  // Tick labels: now → bedtime/midnight, evenly spaced
-  const fmtT=h=>{const ap=h>=12?'pm':'am';const h12=h%12||12;return`${h12}${ap}`;};
+  // Tick labels spanning wake → bed
   const dbTicks=(()=>{
-    const nowH=now.getHours()+now.getMinutes()/60;
-    const remH=wr/3600;
-    if(!S.startTs)return['now','','','end'];
-    const step=remH/3;
+    if(!S.startTs)return['','','',''];
     return [0,1,2,3].map(i=>{
-      if(i===0)return'now';
-      const h=(nowH+i*step)%24;
+      const h=(wakeH+i*(spanH/3))%24;
+      if(i===3&&S.bedtime!=null)return fmtT(S.bedtime);
       if(i===3&&Math.round(h)%24===0)return'midnight';
-      return fmtT(Math.round(h));
+      return fmtT(h);
     });
   })();
+
   document.getElementById('daybar').innerHTML=`
     <div class="db-top">
       ${leftText}
       ${rightText}
     </div>
     <div class="db-track">
+      <div class="db-elapsed" style="width:${nowPct.toFixed(2)}%"></div>
       ${segs.map((s,i)=>`<div class="db-seg" style="left:${s.left.toFixed(2)}%;width:${s.width.toFixed(2)}%;background:${s.color};${i===segs.length-1?'border-radius:0 7px 7px 0':''}"></div>`).join('')}
       ${hatchW>0?`<div class="db-hatch" style="width:${Math.min(hatchW,100).toFixed(2)}%;right:0"></div>`:''}
+      <div class="db-now-marker" style="left:${nowPct.toFixed(2)}%"></div>
     </div>
     <div class="db-ticks">
       ${dbTicks.map(l=>`<span class="db-tick">${l}</span>`).join('')}
@@ -3114,7 +3230,7 @@ function updateScrollState(){
   const bgc=document.getElementById('bg-canvas');
   if(!rt){
     // Ambient water: gentle sway when day is active but no task running
-    if(S.startTs&&S.date===today()){
+    if(isDayActive()){
       bgWaveState.ambient=true;
       bgWaveState.active=true;
       bgWaveState.targetFill=10;
@@ -4996,7 +5112,7 @@ function updateSiteWave(t,pct){
     bgWaveState.ambient=false;
     bgc.classList.add('active');
     startWaveLoop();
-  } else if(S.startTs&&S.date===today()){
+  } else if(isDayActive()){
     // Fall back to ambient water
     bgWaveState.ambient=true;
     bgWaveState.active=true;
@@ -5157,7 +5273,7 @@ function renderBeginStreak(){
 function checkBeginScreen(){
   const bs=document.getElementById('begin-screen');
   if(!bs)return;
-  const needsBegin=!S.startTs||S.date!==today();
+  const needsBegin=!S.startTs||shouldRollover();
   bs.style.display=needsBegin?'flex':'none';
   // First-run: simplified begin screen
   const sub=document.getElementById('begin-sub');
@@ -5683,7 +5799,7 @@ function checkBeginWater(){
 
 // ── INIT ────────────────────────────────────────────────────────────
 boot();
-schedMidnight();
+schedRollover();
 if(S.tasks.some(t=>t.running))ensureTicker();
 render();
 </script>

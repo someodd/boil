@@ -161,6 +161,7 @@ See `boil.html` CSS custom properties. Warm neutrals, task colors from `PAL` arr
 - `S.continuous` — auto-advance through blocks without pausing
 - `S.dayHours` — planned day length in hours (default 14)
 - `S.bedtime` — bedtime as decimal hours (e.g., 22.5 = 10:30 PM), null = no bedtime
+- `S.wakeUp` — wake-up time as decimal hours, null = derived from bedtime + 8h (used for day rollover)
 - `S.streak`, `S.lastCompletedDate`, `S.bestScore`, `S.lifetimeCoins`, `S.stars`
 - `S.fullBoils` — count of fully completed days (all tasks done)
 - `S.shopItems` — purchased customizations (avatar, theme, floaters, unlocks)
@@ -183,7 +184,8 @@ See `boil.html` CSS custom properties. Warm neutrals, task colors from `PAL` arr
 - `reconcileTask(t, now)` — catches up elapsed time on resume, looping through multiple phase completions. Used in both `boot()` and `visibilitychange`.
 - `resolvePhaseEnd(t, animate)` — handles work→rest→next-block transitions. Returns true if task fully done.
 - `GOD_MODE` constant — set to `true` for 1min=1sec, free shop, infinite coins/stars. Shows a "god mode" badge.
-- Date rollover checked in: visibilitychange handler, ticker interval, and `schedMidnight()` timeout.
+- Day rollover uses `shouldRollover()` which checks wake-up time (not midnight) when bedtime is set. Checked in: `boot()`, visibilitychange handler, ticker, and `schedRollover()` timeout.
+- After-bedtime lifecycle: bedtime → grace period (30min, dimmed cards) → night rest (collapsed cards, hidden start buttons, `bedtime-night` class) → rollover at wake-up time → begin screen.
 
 ---
 
