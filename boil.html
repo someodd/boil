@@ -3085,6 +3085,7 @@ function totalRemSecs(){
 
 // ── DAYBAR ─────────────────────────────────────────────────────────
 function renderDaybar(){
+  if(!S)return; // called before boot() on initial script load
   const now=new Date();
   const nowH=now.getHours()+now.getMinutes()/60;
   const fmtT=h=>{h=((h%24)+24)%24;const ap=h>=12?'pm':'am';const h12=Math.round(h)%12||12;return`${h12}${ap}`;};
