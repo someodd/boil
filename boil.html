@@ -1423,7 +1423,7 @@ document.addEventListener('visibilitychange',()=>{
   if(document.hidden){
     _tabHiddenAt=Date.now();save();schedBgNotifs();
     // ── Background hibernation: stop all visual + non-essential work ──
-    stopWaveLoop();
+    stopWaveLoop();stopDaybar();
     if(ticker){clearInterval(ticker);ticker=null;}
     _detachSensors();
     if(_ambOsc){try{_ambOsc.stop();}catch(e){}_ambOsc=null;_ambGain=null;}
@@ -1452,7 +1452,7 @@ document.addEventListener('visibilitychange',()=>{
     document.querySelector('.app-wrap')?.classList.remove('bedtime-active','bedtime-night');
     delete S._daySnap; // day ended naturally — rewards earned
     resetNightTheme();clearInterval(ticker);ticker=null;bgBubbles.length=0;
-    save();render();return;
+    save();render();ensureDaybar();return;
   }
   // Same day — reconcile elapsed time for running tasks
   const now=Date.now();
@@ -1484,6 +1484,7 @@ document.addEventListener('visibilitychange',()=>{
     _attachSensors();
     if(bgWaveState.active)startWaveLoop();
   }
+  ensureDaybar(); // resume day-scale UI updates
   // Return warmth: welcome back if away >60s (PRODUCT.md: visibilitychange is first-class)
   // Orientation toast tells the user exactly where they are — task, phase, position, time left
   if(_actualAway>=60){
@@ -1570,7 +1571,15 @@ function ensureTicker(){
     if(!S.tasks.some(t=>t.running)){clearInterval(ticker);ticker=null;stopAmbient();}
   },1000);
 }
-setInterval(()=>{if(_tabHidden)return;renderDaybar();applyNightTheme();},1000);
+// Daybar + night theme: managed interval (cleared on hidden, slow cadence — daybar is day-scale)
+let _daybarIv=null;
+function ensureDaybar(){
+  if(_daybarIv)return;
+  _daybarIv=setInterval(()=>{renderDaybar();applyNightTheme();},15000);
+  renderDaybar();applyNightTheme(); // immediate first tick
+}
+function stopDaybar(){if(_daybarIv){clearInterval(_daybarIv);_daybarIv=null;}}
+ensureDaybar();
 
 const BOIL_THEMES={
   default:{
