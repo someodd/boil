@@ -970,6 +970,7 @@ function nightT(){
   return _wallClockNight();
 }
 let _lastNightT=-1,_stars=[],_bedtimeNudged=false,_windDownNudged=false,_bedtimeReached=false,_bedtimeReachedAt=0,_pastBedtimeNudged=false,_noStartNudged=false,_graceEnded=false;
+let _togHidden=false;
 function applyNightTheme(){
   const t=nightT();
   if(Math.abs(t-_lastNightT)<0.005)return;
@@ -1128,6 +1129,7 @@ function defaults(){
     lastCompletedDate:'',
     bestScore:0,
     lifetimeCoins:0,
+    heatCoins:0,
     stars:0,
     streakFreezes:0,
     badges:[],
@@ -1136,7 +1138,7 @@ function defaults(){
     daysCompleted:isFirstRun?0:99,
     seen:{},
     isTrial:isFirstRun,
-    eco:{energy:0,peak:0},
+    eco:{energy:0,peak:0,lastWorkDate:null},
   };
 }
 function mkTask(id,name,color,total,workDur,restDur,days,desc,emoji){
@@ -1232,6 +1234,9 @@ function boot(){
   if(S.aquariumOn===undefined)S.aquariumOn=false;
   if(S.mercyCoins===undefined)S.mercyCoins=0;
   if(S.daysCompleted===undefined)S.daysCompleted=99; // existing users skip progressive disclosure
+  // Unstick users who have real usage but got trapped behind progressive disclosure gates
+  if(S.daysCompleted<5&&(S.lifetimeCoins>0||S.fullBoils>0||S.streak>0))S.daysCompleted=99;
+  if(S._lastBeganDate===undefined)S._lastBeganDate=null;
   if(S.seen===undefined)S.seen={};
   if(S.isTrial===undefined)S.isTrial=false;
   if(S.fullBoils===undefined)S.fullBoils=0;
@@ -1242,13 +1247,15 @@ function boot(){
   if(S.muteWater===undefined)S.muteWater=false;
   if(S.lastActiveId===undefined)S.lastActiveId=null;
   if(S.eco===undefined)S.eco={energy:0,peak:0};
+  if(S.eco.lastWorkDate===undefined)S.eco.lastWorkDate=null;
+  if(S.heatCoins===undefined)S.heatCoins=Math.max(0,S.lifetimeCoins||0); // non-decreasing heat accumulator
   if(S.wakeUp===undefined)S.wakeUp=null;
   S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;if(t.desc===undefined)t.desc='';if(t.continuous===undefined)t.continuous=!!S.continuous;if(t.skipped===undefined)t.skipped=false;});
   const now=Date.now();
   if(shouldRollover()){
     ecoDecayEnergy(); // ecosystem entropy — energy fades without work
     creditPartialAtMidnight();S.tasks.forEach(resetTask);S.lastActiveId=null;
-    S.date=today();S.startTs=null;S.isTrial=false;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;_graceEnded=false;
+    S.date=today();S.startTs=null;S.isTrial=false;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;_graceEnded=false;_togHidden=false;
     document.querySelector('.app-wrap')?.classList.remove('bedtime-active','bedtime-night');
     delete S._daySnap; // day ended naturally — rewards earned
     resetNightTheme();bgBubbles.length=0;
@@ -1281,6 +1288,7 @@ function creditPartialAtMidnight(){
     if(!t.isRest&&t.rem<t.workDur/2){
       t.completed++;
       S.lifetimeCoins=(S.lifetimeCoins||0)+1;
+      S.heatCoins=(S.heatCoins||0)+1;
       if(t.completed>=t.total)t.done=true;
     }
     t.running=false;t.savedAt=null;t._phaseStart=null;
@@ -1293,7 +1301,7 @@ function resolvePhaseEnd(t,animate){
   if(t.isRest){
     // Rest finished → next work block
     t.isRest=false;t.completed++;
-    S.lifetimeCoins=(S.lifetimeCoins||0)+1; // accumulate in real-time
+    S.lifetimeCoins=(S.lifetimeCoins||0)+1;S.heatCoins=(S.heatCoins||0)+1;
     if(t.completed>=t.total){t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;return true;}
     t.rem=t.workDur;t._halfShown=false;t._almostShown=false;
     if(cont){const _n=animate?Date.now():null;t.savedAt=_n;t._phaseStart=_n;}
@@ -1307,7 +1315,7 @@ function resolvePhaseEnd(t,animate){
     } else {
       // Work finished, no rest
       t.completed++;
-      S.lifetimeCoins=(S.lifetimeCoins||0)+1; // accumulate in real-time
+      S.lifetimeCoins=(S.lifetimeCoins||0)+1;S.heatCoins=(S.heatCoins||0)+1;
       ecoAddEnergy(2); // work block feeds the ecosystem
       if(t.completed>=t.total){t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;return true;}
       t.rem=t.workDur;t._halfShown=false;t._almostShown=false;
@@ -1440,7 +1448,7 @@ document.addEventListener('visibilitychange',()=>{
   // Check for day rollover (wake-up time, or midnight if no bedtime)
   if(shouldRollover()){
     creditPartialAtMidnight();
-    stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;S.isTrial=false;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;_graceEnded=false;
+    stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;S.isTrial=false;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;_graceEnded=false;_togHidden=false;
     document.querySelector('.app-wrap')?.classList.remove('bedtime-active','bedtime-night');
     delete S._daySnap; // day ended naturally — rewards earned
     resetNightTheme();clearInterval(ticker);ticker=null;bgBubbles.length=0;
@@ -1508,7 +1516,7 @@ function ensureTicker(){
     // Day rollover guard (wake-up time, or midnight if no bedtime)
     if(shouldRollover()){
       creditPartialAtMidnight();
-      stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;S.isTrial=false;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;_graceEnded=false;
+      stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;S.isTrial=false;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;_graceEnded=false;_togHidden=false;
       document.querySelector('.app-wrap')?.classList.remove('bedtime-active','bedtime-night');
       delete S._daySnap;resetNightTheme(); // day ended naturally — rewards earned
       clearInterval(ticker);ticker=null;bgBubbles.length=0;
@@ -1776,13 +1784,16 @@ function equipBoilTheme(id){
   showToast(`${BOIL_THEMES[id]?BOIL_THEMES[id].emoji:'💧'} ${BOIL_THEMES[id]?BOIL_THEMES[id].name:'Water'} equipped`,'#2e9e6a',1500);
   openShop();
 }
+function ecoPhaseDesc(){
+  const p=ecoPhase();
+  if(p==='mature')return'your water remembers you';
+  if(p==='bloom')return'stirring with life';
+  if(p==='growing')return'something is growing';
+  if(p==='seed')return'beginning to wake';
+  return'still waters';
+}
 function openProfile(){
   const lvl=getHeatLevel();
-  const lvlIdx=HEAT_LEVELS.findIndex(h=>h===lvl);
-  const nextLvl=HEAT_LEVELS[lvlIdx+1];
-  const coins=S.lifetimeCoins||0;
-  const coinsToNext=nextLvl?nextLvl[0]-coins:null;
-  const progressPct=nextLvl&&nextLvl[0]>lvl[0]?Math.max(0,Math.min(100,Math.round((coins-lvl[0])/(nextLvl[0]-lvl[0])*100))):100;
 
   // Badge rows: earned only
   const earned=BADGE_DEFS.filter(b=>S.badges.includes(b.id));
@@ -1801,23 +1812,13 @@ function openProfile(){
 
     <!-- Heat level card -->
     <div style="background:var(--bg);border-radius:14px;padding:14px 16px;margin-bottom:16px">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:12px">
         <div style="font-size:36px;line-height:1">${lvl[1]}</div>
         <div>
           <div style="font-family:var(--fd);font-size:18px;font-weight:800;letter-spacing:-.03em">${lvl[2]}</div>
-          <div style="font-size:11px;font-weight:700;color:var(--dim)">heat level</div>
-        </div>
-        <div style="margin-left:auto;text-align:right">
-          <div style="font-size:22px;font-weight:800;font-family:var(--fd)">${coins>=1000?(coins/1000).toFixed(1)+'k':coins} 🪙</div>
-          <div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:.05em;text-transform:uppercase">total coins</div>
+          <div style="font-size:11px;font-weight:700;color:var(--dim)">${ecoPhaseDesc()}</div>
         </div>
       </div>
-      ${nextLvl?`
-      <div style="height:5px;background:var(--brd);border-radius:100px;overflow:hidden">
-        <div style="height:100%;width:${progressPct}%;background:var(--ink);border-radius:100px;transition:width 1s ease"></div>
-      </div>
-      <div style="font-size:10px;color:var(--dim);font-weight:700;margin-top:4px">${lvl[1]} → ${nextLvl[1]} ${nextLvl[2]}</div>
-      `:'<div style="font-size:11px;color:#c8841a;font-weight:800;margin-top:4px">Maximum heat. 🌟</div>'}
     </div>
 
     <!-- Stats grid -->
@@ -1871,8 +1872,8 @@ function openProfile(){
       <div style="font-size:10px;color:var(--dim);margin-top:4px">Day ends here. Never sacrificed.</div>
     </div>
 
-    <!-- Wake-up setting (progressive disclosure: hidden until daysCompleted > 3) -->
-    <div style="margin-bottom:20px;${(S.daysCompleted||0)<=3?'display:none':''}">
+    <!-- Wake-up setting -->
+    <div style="margin-bottom:20px">
       <div style="font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin-bottom:8px">wake-up</div>
       <div style="display:flex;align-items:center;gap:10px">
         <input type="time" id="profile-wake" value="${decimalToTime(S.wakeUp!=null?S.wakeUp:effectiveWakeUp())}" onchange="S.wakeUp=timeToDecimal(this.value);save();showToast('Wake-up saved','#6b6258',1500)" style="background:var(--bg);border:2px solid var(--brd);color:var(--ink);font-size:16px;font-weight:600;font-family:var(--fs);padding:9px 12px;border-radius:12px;outline:none;width:140px">
@@ -2701,7 +2702,7 @@ function creditBlock(id){
   // credit the block
   t.isRest=false;
   t.completed++;
-  S.lifetimeCoins=(S.lifetimeCoins||0)+1;
+  S.lifetimeCoins=(S.lifetimeCoins||0)+1;S.heatCoins=(S.heatCoins||0)+1;
   if(t.completed>=t.total){
     t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;
     save();onTaskDone(id);renderCard(t);renderDaybar();updateLogoDot();return;
@@ -2951,7 +2952,7 @@ function onTaskDone(id){
 
 const HEAT_LEVELS=[[0,"🌡️","Cold"],[10,"☁️","Warming"],[30,"🔆","Heating"],[75,"🌶️","Hot"],[150,"🫧","Boiling"],[300,"🔥","Raging"],[600,"🌋","Inferno"],[1000,"⭐","White Hot"],[2000,"⚡","Plasma"],[5000,"💥","Supernova"]];
 function getHeatLevel(){
-  const coins=S.lifetimeCoins||0;
+  const coins=S.heatCoins||S.lifetimeCoins||0;
   let lvl=HEAT_LEVELS[0];
   for(const h of HEAT_LEVELS){if(coins>=h[0])lvl=h;}
   return lvl;
@@ -2983,7 +2984,7 @@ function checkStreakMilestone(n){
   setTimeout(()=>{
     const d=document.createElement('div');
     d.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);background:var(--card);border:2px solid var(--brd);border-radius:24px;padding:32px 40px;text-align:center;z-index:1000;box-shadow:0 20px 60px rgba(0,0,0,.2);transition:transform .5s cubic-bezier(.34,1.56,.64,1)';
-    d.innerHTML=`<div style="font-size:48px;margin-bottom:8px">${m.emoji}</div><div style="font-family:var(--fd);font-size:20px;font-weight:800;letter-spacing:-.03em;margin-bottom:6px;max-width:220px">${m.msg}</div><div style="font-size:13px;color:var(--dim);font-weight:700">${n} days</div>`;
+    d.innerHTML=`<div style="font-size:48px;margin-bottom:8px">${m.emoji}</div><div style="font-family:var(--fd);font-size:20px;font-weight:800;letter-spacing:-.03em;margin-bottom:6px;max-width:220px">${m.msg}</div><div style="font-size:13px;color:var(--dim);font-weight:700">${n} day${n===1?'':'s'}</div>`;
     document.body.appendChild(d);
     requestAnimationFrame(()=>d.style.transform='translate(-50%,-50%) scale(1)');
     haptic([30,50,30,50,100]);
@@ -3039,7 +3040,6 @@ function checkRuntimeBadges(t){
 function triggerDayCeremony(){
   const firstComplete=S.lastCompletedDate!==today();
   if(firstComplete){
-    S.daysCompleted=(S.daysCompleted||0)+1;
     S.fullBoils=(S.fullBoils||0)+1;
   }
   updateStreak();
@@ -3386,6 +3386,19 @@ function cardHTML(t){
 }
 
 function taskVisibleToday(t){return !t.days||t.days.includes(new Date().getDay());}
+function cardHTMLHidden(t){
+  const dayLabel=t.days?fmtDays(t.days):'daily';
+  return`<div class="card" style="--tc:${t.color};opacity:.45" onclick="openEdit('${t.id}')">
+    <div class="c-bar"></div>
+    <div class="c-body">
+      <div class="c-head">
+        <div class="c-name"><span class="c-emoji">${autoEmoji(t)}</span>${esc(t.name)}</div>
+        <button class="c-edit" onclick="event.stopPropagation();openEdit('${t.id}')">⋯</button>
+      </div>
+      <div class="c-sub">${dayLabel}</div>
+    </div>
+  </div>`;
+}
 // Endowed progress: water starts at 2% so pressing start is visible (Nunes & Dreze 2006)
 function endowedFill(raw){return 2+raw*0.98;}
 function renderCards(){
@@ -3414,7 +3427,7 @@ function renderCards(){
   const sorted=rt?visible.filter(t=>(!t.done&&!t.skipped)||t.running):visible.slice();
   const ri=sorted.findIndex(t=>t.running);
   if(ri>0){const[r]=sorted.splice(ri,1);sorted.unshift(r);}
-  el.innerHTML=sorted.map(cardHTML).join('')+(hidden.length?`<div class="hidden-sched" style="text-align:center;padding:12px 0 4px;font-size:11px;font-weight:700;color:var(--dim)">${hidden.length} task${hidden.length!==1?'s':''} not scheduled for today</div>`:'');
+  el.innerHTML=sorted.map(cardHTML).join('')+(hidden.length?`<div class="hidden-sched" onclick="_togHidden=!_togHidden;renderCards()" style="text-align:center;padding:12px 0 4px;font-size:11px;font-weight:700;color:var(--dim);cursor:pointer">${hidden.length} task${hidden.length!==1?'s':''} not scheduled today ${_togHidden?'▾':'▸'}</div>`+(_togHidden?hidden.map(cardHTMLHidden).join(''):''):'');
   updateScrollState();
   setTimeout(attachDrag,0);
 }
@@ -4573,12 +4586,30 @@ function ecoPopTarget(){
 }
 function ecoAddEnergy(n){
   if(!S||!S.eco)return;
+  // "Glad to see you" — boost on return after absence
+  const last=S.eco.lastWorkDate;
+  const td=today();
+  if(last&&last!==td){
+    const gap=Math.floor((new Date(td)-new Date(last))/(86400000));
+    if(gap>=2)n=n+1; // small warmth bonus on return
+  }
+  S.eco.lastWorkDate=td;
   S.eco.energy=Math.min(100,(S.eco.energy||0)+n);
   if(S.eco.energy>S.eco.peak)S.eco.peak=S.eco.energy;
 }
 function ecoDecayEnergy(){
   if(!S||!S.eco||!S.eco.energy)return;
-  S.eco.energy=Math.max(0,S.eco.energy-Math.max(2,Math.floor(S.eco.energy*0.12)));
+  // Gentler decay for consistent users, steeper for longer gaps
+  const last=S.eco.lastWorkDate;
+  const td=today();
+  let rate=0.12; // default 12%
+  if(last){
+    const gap=Math.floor((new Date(td)-new Date(last))/(86400000));
+    if(gap<=1)rate=0.06; // worked yesterday — gentle fade
+    else if(gap<=3)rate=0.12; // couple days — normal
+    else rate=0.18; // longer gap — noticeable but recoverable
+  }
+  S.eco.energy=Math.max(0,S.eco.energy-Math.max(1,Math.floor(S.eco.energy*rate)));
 }
 
 // ── Plankton (luminous dots) ────────────────────────────────────────
@@ -5157,6 +5188,8 @@ function onRestStart(id){
 
 function beginDay(){
   if(!_sensorsAttached)requestMotionPermission();
+  // Progressive disclosure: count days of engagement (not perfection)
+  const td=today();if(S._lastBeganDate!==td){S.daysCompleted=(S.daysCompleted||0)+1;S._lastBeganDate=td;}
   S.startTs=Date.now();S.dayHours=24;
   S.bedtime=timeToDecimal(document.getElementById('begin-bed').value);
   _snapshotDay();
@@ -5196,6 +5229,8 @@ function quickBoil(){
   const qt=mkTask(qid,'Quick boil','#c8841a',1,5*60,0);
   qt._isQuick=true;
   S.tasks.push(qt);
+  // Progressive disclosure: count days of engagement
+  const td=today();if(S._lastBeganDate!==td){S.daysCompleted=(S.daysCompleted||0)+1;S._lastBeganDate=td;}
   // Start the day
   S.startTs=Date.now();S.dayHours=14;
   _snapshotDay();
@@ -5209,6 +5244,8 @@ function quickBoil(){
 function skipTutorial(){
   S.isTrial=false;
   S.tasks=[];
+  // Progressive disclosure: count days of engagement
+  const td=today();if(S._lastBeganDate!==td){S.daysCompleted=(S.daysCompleted||0)+1;S._lastBeganDate=td;}
   S.startTs=Date.now();S.dayHours=24;
   S.bedtime=S.bedtime||22;
   _snapshotDay();save();
@@ -5413,10 +5450,10 @@ function askReset(){
 function _snapshotDay(){
   S._daySnap={
     lifetimeCoins:S.lifetimeCoins||0,
+    heatCoins:S.heatCoins||0,
     stars:S.stars||0,
     streak:S.streak||0,
     lastCompletedDate:S.lastCompletedDate||null,
-    daysCompleted:S.daysCompleted||0,
     fullBoils:S.fullBoils||0,
     streakFreezes:S.streakFreezes||0,
     mercyCoins:S.mercyCoins||0,
@@ -5430,7 +5467,6 @@ function _restoreSnap(){
   S.stars=sn.stars;
   S.streak=sn.streak;
   S.lastCompletedDate=sn.lastCompletedDate;
-  S.daysCompleted=sn.daysCompleted;
   S.fullBoils=sn.fullBoils;
   S.streakFreezes=sn.streakFreezes;
   S.mercyCoins=sn.mercyCoins;

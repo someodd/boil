@@ -59,6 +59,22 @@ Therefore:
 
 ---
 
+## Time-Blocking as Structural Constraint
+
+Boil's core mechanism is time-blocking: the user declares "I will work on X for Y minutes" and the system holds that container open. This is a deliberate cybernetic choice — time as **structure**, not time as **metric**.
+
+**Time-blocking is prospective.** "I will work on this for 50 minutes" is an implementation intention (Gollwitzer; see NEUROSCIENCE.md), a commitment device that externalizes executive function. The block creates a container for attention. Its value is in the holding — the temporal boundary within which work happens. The block does not ask "what did you produce?" It asks "were you present?"
+
+**Time-tracking is retrospective.** "I spent 4.5 hours on deep work today" is a metric, subject to all the drift patterns documented above. Hours-worked totals are **exchange-values** (Marx): abstractable, comparable, optimizable. The moment "hours worked" becomes visible as a number, it invites Fisher's metric-induced deformation (padding time, keeping timers running during breaks, reclassifying shallow work as deep) and Debord's spectacle (reviewing time logs as a substitute for the work itself). The time log *becomes* the workday in retrospect — the representation consumes the experience.
+
+**The water is structural, not metric.** Water rising during a block renders time as felt duration — Bergson's *durée réelle*, the qualitative experience of time passing — not as measured quantity. The user perceives time through sensation, not through number. When the block ends, the water resets. There is no accumulated "time worked" display. Each block is a discrete present-tense experience, not a row in a ledger. This is the difference between a sundial (which shows where you are in the day) and a timesheet (which tallies what you owe).
+
+**The monastic analogy.** The Benedictine *Liturgy of the Hours* (Lauds, Prime, Terce, Sext, None, Vespers, Compline) structures the day without measuring it. The monk does not clock in. The bell marks transitions between modes of attention — prayer, labor, study, rest — and each mode has intrinsic value independent of its duration. Boil's blocks function as secular hours: they hold space for different kinds of work without quantifying the output or accumulating a total. The constraint is temporal (you work for this duration) but the measure is qualitative (were you present?), not quantitative (how many hours?). The Rule of St. Benedict is an architecture document (see ARCHITECTURE.md: Constraints), and its temporal structure is the clearest example: fixed hours create freedom within them.
+
+**Anti-pattern: time dashboards.** If the system ever displays "total time worked today," "weekly hours," or "time per task," it converts structural time into metric time. The block becomes a unit of account rather than a container for attention. This is the point where time-blocking degrades into time-tracking, and the Goodhart mechanism engages. Users will pad blocks, avoid pausing (because it "wastes" time), and optimize for hours-logged rather than work-done. The number replaces the experience — Baudrillard's second-order simulacrum, masking the divergence between measured time and lived time. The system must never accumulate blocks into totals.
+
+---
+
 ## Anti-Patterns
 
 For the neurochemical mechanisms underlying these drifts, see NEUROSCIENCE.md: Anti-Patterns.
