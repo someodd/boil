@@ -196,6 +196,7 @@
     .bedtime-active .card{opacity:0.4;transition:opacity 2s ease,transform .18s cubic-bezier(.34,1.2,.64,1),box-shadow .25s,border-color .25s,filter .35s,background .35s}
     .bedtime-active .card.running{opacity:0.7}
     .bedtime-active .fab{opacity:0.3}
+    .bedtime-active .daybar{display:none!important}
     /* Night rest: 30min+ past bedtime — cards collapse, start buttons hidden */
     .bedtime-night .card:not(.running):not(.done-all):not(.skipped) .c-body>:not(.c-head){display:none!important}
     .bedtime-night .card:not(.running):not(.done-all):not(.skipped){padding:6px 14px;opacity:0.3}
@@ -206,9 +207,6 @@
     .bedtime-night .fab{display:none}
     .bedtime-rest-msg{display:none;text-align:center;padding:24px 20px 12px;font-family:var(--fs);font-size:14px;font-weight:600;color:var(--dim);letter-spacing:-.01em;opacity:0;transition:opacity 1.5s ease}
     .bedtime-night .bedtime-rest-msg{display:block;opacity:1}
-    /* Daybar summary mode (past bedtime) */
-    .db-summary{background:var(--glass);border-radius:10px;height:10px;width:100%;overflow:hidden}
-    .db-summary-fill{height:100%;border-radius:10px;background:var(--dim);opacity:0.4}
     .db-now-marker{position:absolute;top:0;bottom:0;width:2px;background:var(--ink);border-radius:1px;opacity:0.7;z-index:2}
     .db-elapsed{position:absolute;top:0;bottom:0;left:0;background:var(--dim);opacity:0.15;border-radius:10px 0 0 10px}
     .card.running{
@@ -3127,25 +3125,9 @@ function renderDaybar(){
   const nowH=now.getHours()+now.getMinutes()/60;
   const fmtT=h=>{h=((h%24)+24)%24;const ap=h>=12?'pm':'am';const h12=Math.round(h)%12||12;return`${h12}${ap}`;};
   const totalB=totalRemSecs();
-  const pastBed=S.bedtime!=null&&S.startTs&&dayRem()<=0;
 
-  // Compute total work done today (for summary mode)
-  const workDone=S.tasks.filter(taskVisibleToday).reduce((a,t)=>{
-    if(t.skipped)return a;
-    const doneBlocks=t.completed;
-    return a+doneBlocks*t.workDur+(t.running&&!t.isRest&&t.rem<t.workDur?t.workDur-t.rem:0);
-  },0);
-
-  // ── Summary mode: past bedtime ──
-  if(pastBed){
-    const leftText=`<div class="db-stat"><b>${fmtHM(workDone)}</b> today</div>`;
-    const rightText=`<div class="db-stat" style="opacity:0.6">rest</div>`;
-    document.getElementById('daybar').innerHTML=`
-      <div class="db-top">${leftText}${rightText}</div>
-      <div class="db-track"><div class="db-summary-fill" style="width:100%;background:var(--dim);opacity:0.3;height:100%;border-radius:7px"></div></div>
-      <div class="db-ticks"><span class="db-tick"></span><span class="db-tick"></span><span class="db-tick"></span><span class="db-tick"></span></div>`;
-    return;
-  }
+  // Past bedtime: daybar hidden via CSS (.bedtime-active), nothing to render
+  if(S.bedtime!=null&&S.startTs&&dayRem()<=0)return;
 
   // ── Full-day mode: wake → bed with "you are here" ──
   // Determine wake and bed hours for the bar span
