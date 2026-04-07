@@ -197,10 +197,10 @@
     .bedtime-active .card.running{opacity:0.7}
     .bedtime-active .fab{opacity:0.3}
     .bedtime-active .daybar{display:none!important}
-    /* Night rest: 30min+ past bedtime — cards collapse, start buttons hidden */
-    .bedtime-night .card:not(.running):not(.done-all):not(.skipped) .c-body>:not(.c-head){display:none!important}
-    .bedtime-night .card:not(.running):not(.done-all):not(.skipped){padding:6px 14px;opacity:0.3}
-    .bedtime-night .card:not(.running):not(.done-all):not(.skipped) .c-head{margin-bottom:0}
+    /* Bedtime: collapse incomplete non-running cards immediately (Zeigarnik overload) */
+    .bedtime-active .card:not(.running):not(.done-all):not(.skipped) .c-body>:not(.c-head){display:none!important}
+    .bedtime-active .card:not(.running):not(.done-all):not(.skipped){padding:6px 14px;opacity:0.3}
+    .bedtime-active .card:not(.running):not(.done-all):not(.skipped) .c-head{margin-bottom:0}
     .bedtime-night .card.running .play-btn{display:inline-flex!important}
     .bedtime-night .play-btn{display:none!important}
     .bedtime-night .mercy-btn{display:none!important}
