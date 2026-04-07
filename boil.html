@@ -928,6 +928,13 @@
     document.head.appendChild(link);
   }catch(e){}
 })();
+// ── SERVICE WORKER (notification relay — PRODUCT.md: notifications are the lifeline) ──
+let _swReg=null;
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').then(r=>{_swReg=r;}).catch(()=>{});}
+function _swNotify(title,body,tag){
+  if(_swReg&&_swReg.active){try{_swReg.active.postMessage({type:'notify',title,body,tag,vibrate:[200,100,200]});return true;}catch(e){}}
+  try{new Notification(title,{body,vibrate:[200,100,200]});}catch(e){}return false;
+}
 // ── CONSTANTS ──────────────────────────────────────────────────────
 // Day window: min(dayHours, time until midnight from startTs)
 function timeToDecimal(s){if(!s)return null;const[h,m]=s.split(':').map(Number);return h+m/60;}
@@ -1417,7 +1424,10 @@ function isDayActive(){return!!S.startTs&&!shouldRollover();}
 let _tabHiddenAt=null;
 let _tabHidden=document.hidden;
 let _bgNotifTimers=[];
-function clearBgNotifs(){_bgNotifTimers.forEach(clearTimeout);_bgNotifTimers=[];}
+function clearBgNotifs(){
+  _bgNotifTimers.forEach(clearTimeout);_bgNotifTimers=[];
+  try{if(_swReg&&_swReg.active)_swReg.active.postMessage({type:'clear',tagPrefix:'boil-'});}catch(e){}
+}
 document.addEventListener('visibilitychange',()=>{
   _tabHidden=document.hidden;
   if(document.hidden){
@@ -1431,11 +1441,15 @@ document.addEventListener('visibilitychange',()=>{
     // "Haven't started" nudge: 30min after day-start with no blocks started (intention-action gap)
     if(S.startTs&&!_noStartNudged&&!S.tasks.some(t=>t.completed>0||t.running)){
       _noStartNudged=true;
-      scheduleBgNotif(30*60*1000,'Boil',sisterSays('noStart'));
+      const _nsBody=sisterSays('noStart');
+      try{if(_swReg&&_swReg.active)_swReg.active.postMessage({type:'schedule',items:[{ms:30*60*1000,title:'Boil',body:_nsBody,tag:'boil-nudge-start'}]});}catch(e){}
+      _pageBgNotif(30*60*1000,'Boil',_nsBody,'boil-nudge-start');
     }
     // Idle re-engagement: 2hr with incomplete tasks, during day window, not past bedtime
     if(S.startTs&&S.tasks.some(t=>!t.done)&&!(S.bedtime!=null&&dayRem()<=0)){
-      scheduleBgNotif(2*60*60*1000,'Boil',sisterSays('idle'));
+      const _idBody=sisterSays('idle');
+      try{if(_swReg&&_swReg.active)_swReg.active.postMessage({type:'schedule',items:[{ms:2*60*60*1000,title:'Boil',body:_idBody,tag:'boil-nudge-idle'}]});}catch(e){}
+      _pageBgNotif(2*60*60*1000,'Boil',_idBody,'boil-nudge-idle');
     }
     return;
   }
@@ -1513,7 +1527,7 @@ window.addEventListener('beforeunload',save);
 // ── TICKER ─────────────────────────────────────────────────────────
 function ensureTicker(){
   if(ticker)return;
-  ticker=setInterval(()=>{
+  ticker=setInterval(()=>{try{
     // Day rollover guard (wake-up time, or midnight if no bedtime)
     if(shouldRollover()){
       creditPartialAtMidnight();
@@ -1569,8 +1583,19 @@ function ensureTicker(){
       }
     }
     if(!S.tasks.some(t=>t.running)){clearInterval(ticker);ticker=null;stopAmbient();}
-  },1000);
+  }catch(e){console.error('ticker:',e);}},1000);
 }
+// Self-heal: if a task is running but ticker/waveLoop died, restart on touch or focus
+// Chrome Android doesn't always fire visibilitychange visible after notification shade, PiP, etc.
+function _selfHeal(){
+  if(!S||!S.tasks)return;
+  const running=S.tasks.some(t=>t.running&&!t.done);
+  if(running&&!ticker)ensureTicker();
+  if(running&&!waveRaf&&!isBatterySaver())startWaveLoop();
+  if(!_daybarIv)ensureDaybar();
+}
+document.addEventListener('pointerdown',_selfHeal,{passive:true});
+window.addEventListener('focus',_selfHeal);
 // Daybar + night theme: managed interval (cleared on hidden, slow cadence — daybar is day-scale)
 let _daybarIv=null;
 function ensureDaybar(){
@@ -2600,13 +2625,17 @@ function tapCard(id){
   const wasRunning=t.running;
   // single-block rule: pause anything else (don't render individually — render() rebuilds all)
   S.tasks.forEach(o=>{
-    if(o.id!==id&&o.running){o.running=false;o.savedAt=null;o._phaseStart=null;}
+    if(o.id!==id&&o.running){
+      // Snapshot rem from wall-clock before clearing phase anchor (avoids ~1s drift)
+      if(o._phaseStart){const pd=o.isRest?o.restDur:o.workDur;const ws=Math.floor((Date.now()-o._phaseStart)/1000);o.rem=Math.max(0,pd-ws*godTick());}
+      o.running=false;o.savedAt=null;o._phaseStart=null;
+    }
   });
   t.running=!wasRunning;
   if(t.running){
     S.lastActiveId=null; // running card has .running emphasis; clear residual glow
     document.querySelectorAll('.card.suggested').forEach(e=>e.classList.remove('suggested'));
-    t.savedAt=Date.now();t._phaseStart=Date.now();sndTap();startAmbient();ensureTicker();showToast('Heating up. ↑','var(--tc)',1200);if(!_sensorsAttached)requestMotionPermission();
+    t.savedAt=Date.now();setPhaseStart(t);sndTap();startAmbient();ensureTicker();showToast('Heating up. ↑','var(--tc)',1200);if(!_sensorsAttached)requestMotionPermission();
     // First block of the day: enhanced ceremony (Bandura — self-efficacy seeds the spiral)
     const _isFirst=!S.tasks.some(x=>x.completed>0||x.running&&x.id!==id);
     // Water kick-start: brief surge for instant feedback (1.5× for first block)
@@ -2763,20 +2792,23 @@ function useMercy(id){
 
 function notify(title,body){
   if('Notification' in window&&Notification.permission==='granted'&&document.hidden){
-    try{new Notification(title,{body,icon:'',vibrate:[200,100,200]});}catch(e){}
+    _swNotify(title,body,'boil-fg');
   }
 }
 function notifyAlways(title,body){
   if('Notification' in window&&Notification.permission==='granted'){
-    try{new Notification(title,{body,icon:'',vibrate:[200,100,200]});}catch(e){}
+    _swNotify(title,body,'boil-always-'+Date.now());
   }
 }
 // Pre-schedule notifications for block completions while tab is hidden
 // (ticker is suspended on mobile — these are the lifeline, PRODUCT.md)
-function scheduleBgNotif(ms,title,body){
+// Tier 1: SW + Notification Triggers API (OS-level, survives everything)
+// Tier 2: SW + waitUntil/setTimeout (~5min budget, covers rest blocks)
+// Tier 3: Page setTimeout fallback (unreliable on mobile, belt-and-suspenders)
+function _pageBgNotif(ms,title,body,tag){
   _bgNotifTimers.push(setTimeout(()=>{
     if(!document.hidden)return;
-    try{new Notification(title,{body,vibrate:[200,100,200]});}catch(e){}
+    _swNotify(title,body,tag);
   },ms));
 }
 function schedBgNotifs(){
@@ -2786,37 +2818,42 @@ function schedBgNotifs(){
   if(!t)return;
   const name=t.name,total=t.total,cont=S.continuous||t.continuous;
   const lastTask=S.tasks.filter(x=>!x.done&&x.id!==t.id).length===0;
-  let rem=t.rem,comp=t.completed,rest=t.isRest,off=0;
+  let rem=t.rem,comp=t.completed,rest=t.isRest,off=0,idx=0;
   const bedSec=S.bedtime!=null?dayRem():Infinity;
+  const items=[];
   while(comp<total){
     off+=rem;
-    if(off>=bedSec){scheduleBgNotif(bedSec*1000,'Bedtime',sisterSays('bedtimeNudge'));break;}
+    if(off>=bedSec){items.push({ms:bedSec*1000,title:'Bedtime',body:sisterSays('bedtimeNudge'),tag:'boil-bg-bed'});break;}
     if(rest){
       comp++;
       if(comp>=total){
-        scheduleBgNotif(off*1000,name+' complete',total+'/'+total+' blocks done.');
-        if(lastTask)scheduleBgNotif(off*1000+2000,'Fully boiled','Every task done. Go gently.');
+        items.push({ms:off*1000,title:name+' complete',body:total+'/'+total+' blocks done.',tag:'boil-bg-done'});
+        if(lastTask)items.push({ms:off*1000+2000,title:'Fully boiled',body:'Every task done. Go gently.',tag:'boil-bg-full'});
         break;
       }
-      scheduleBgNotif(off*1000,name+': '+comp+'/'+total+' blocks',(total-comp)+' to go.');
-      if(!cont){scheduleBgNotif((off+120)*1000,'The water\u2019s waiting when you are',name);break;}
+      items.push({ms:off*1000,title:name+': '+comp+'/'+total+' blocks',body:(total-comp)+' to go.',tag:'boil-bg-'+idx++});
+      if(!cont){items.push({ms:(off+120)*1000,title:'The water\u2019s waiting when you are',body:name,tag:'boil-bg-wait'});break;}
       rest=false;rem=t.workDur;
     } else {
       if(t.restDur>0){rest=true;rem=t.restDur;}
       else{
         comp++;
         if(comp>=total){
-          scheduleBgNotif(off*1000,name+' complete',total+'/'+total+' blocks done.');
-          if(lastTask)scheduleBgNotif(off*1000+2000,'Fully boiled','Every task done. Go gently.');
+          items.push({ms:off*1000,title:name+' complete',body:total+'/'+total+' blocks done.',tag:'boil-bg-done'});
+          if(lastTask)items.push({ms:off*1000+2000,title:'Fully boiled',body:'Every task done. Go gently.',tag:'boil-bg-full'});
           break;
         }
-        scheduleBgNotif(off*1000,name+': '+comp+'/'+total+' blocks',(total-comp)+' to go.');
-        if(!cont){scheduleBgNotif((off+120)*1000,'The water\u2019s waiting when you are',name);break;}
+        items.push({ms:off*1000,title:name+': '+comp+'/'+total+' blocks',body:(total-comp)+' to go.',tag:'boil-bg-'+idx++});
+        if(!cont){items.push({ms:(off+120)*1000,title:'The water\u2019s waiting when you are',body:name,tag:'boil-bg-wait'});break;}
         rem=t.workDur;
       }
     }
-    if(_bgNotifTimers.length>20)break;
+    if(items.length>20)break;
   }
+  // Dispatch to SW (Triggers API or waitUntil timers handled inside SW)
+  try{if(items.length&&_swReg&&_swReg.active)_swReg.active.postMessage({type:'schedule',items});}catch(e){}
+  // Belt-and-suspenders: page-level timers too (tag dedup prevents doubles)
+  items.forEach(n=>_pageBgNotif(n.ms,n.title,n.body,n.tag));
 }
 // Cross-modal emphasis rotation (sensory-specific satiety prevention — Rolls, HAP model)
 function _completionMode(){const r=Math.random();return r<0.4?'audio':r<0.7?'haptic':'visual';}
@@ -4306,7 +4343,7 @@ document.addEventListener('pointerdown',(e)=>{
   }
 },{passive:true});
 
-let _waveAlive=0;
+let _waveAlive=0,_waveErrors=0;
 const _isMobile='ontouchstart' in window||navigator.maxTouchPoints>0;
 const _reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
 function startWaveLoop(){
@@ -4556,9 +4593,9 @@ function waveLoop(now){
     }
   }
 
-  _anyContinue=anyRunning||bgWaveState.active;
+  _anyContinue=anyRunning||bgWaveState.active;_waveErrors=0;
   if(GOD_MODE&&_tiltRaw!==undefined){const td=document.getElementById('tilt-debug');if(td)td.textContent=`tilt: ${_tiltRaw===null?'NO DATA':_tiltRaw.toFixed(1)}° smooth: ${tiltSmooth.toFixed(1)} | sensors: ${_sensorsAttached?'ON':'OFF'}`;}
-  }catch(e){console.error('waveLoop:',e);_anyContinue=true;}
+  }catch(e){console.error('waveLoop:',e);_waveErrors=(_waveErrors||0)+1;if(_waveErrors>10){_anyContinue=false;_waveErrors=0;}}
   if(_anyContinue){
     waveRaf=requestAnimationFrame(waveLoop);
   } else {

@@ -162,6 +162,12 @@ That's it.
 
 For mobile, serve it statically and add to home screen.
 
+### Optional: `sw.js`
+
+If you serve boil over HTTPS, place `sw.js` alongside `boil.html`. It enables mobile notifications — Chrome on Android requires a service worker to show notifications (the page-level `new Notification()` API silently fails). Browsers enforce that service workers must be separate files; this cannot be inlined into `boil.html`.
+
+Without it, everything works except mobile notifications.
+
 ---
 
 ## Philosophy
