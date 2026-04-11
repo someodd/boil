@@ -836,6 +836,16 @@
 <canvas id="fx" style="position:fixed;inset:0;pointer-events:none;z-index:999;width:100%;height:100%"></canvas>
 <script>if(typeof GOD_MODE==='undefined')window.GOD_MODE=false;</script>
 <div id="god-badge" onclick="toggleGodMode()" style="display:none;position:fixed;bottom:80px;left:12px;z-index:998;background:linear-gradient(135deg,#c8841a,#e05898);color:#fff;font-family:'Syne',sans-serif;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:100px;cursor:pointer;opacity:0.75;box-shadow:0 2px 8px rgba(0,0,0,.2);transition:opacity .2s">⚡ god mode</div>
+<div id="dbg-panel" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.85);color:#eee;font-family:monospace;font-size:11px;overflow:auto;padding:16px;-webkit-overflow-scrolling:touch">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <b style="font-size:14px">Debug Log</b>
+    <span onclick="document.getElementById('dbg-panel').style.display='none'" style="font-size:22px;cursor:pointer;padding:4px 8px">✕</span>
+  </div>
+  <div id="dbg-content"></div>
+  <div style="margin-top:12px;display:flex;gap:8px">
+    <button onclick="_clearDebugLogs()" style="padding:6px 12px;border-radius:8px;border:none;background:#c0392b;color:#fff;font-weight:700;font-size:12px">Clear logs</button>
+  </div>
+</div>
 <div id="tilt-debug" style="display:none;position:fixed;bottom:110px;left:12px;z-index:998;background:rgba(0,0,0,.7);color:#0f0;font-family:monospace;font-size:10px;padding:4px 8px;border-radius:6px;pointer-events:none"></div>
 
 <div class="begin-screen" id="begin-screen" style="display:none">
@@ -1344,7 +1354,9 @@ function reconcileTask(t,now){
   if(!t.running||t.done||!t.savedAt)return;
   if(t._quickStart)t._quickStart=0; // perceptual trick window passed during background
   let el=Math.max(0,Math.floor((now-t.savedAt)/1000));
+  const _dbgEl=el,_dbgT0=performance.now();let _dbgIter=0;
   while(el>0&&t.running&&!t.done){
+    _dbgIter++;
     if(el>=t.rem){
       el-=t.rem;t.rem=0;
       const allDone=resolvePhaseEnd(t,false);
@@ -1353,6 +1365,8 @@ function reconcileTask(t,now){
       t.rem-=el;el=0;
     }
   }
+  const _dbgMs=performance.now()-_dbgT0;
+  if(_dbgEl>10)console.log(`[reconcile] "${t.name}" elapsed=${_dbgEl}s iters=${_dbgIter} took=${_dbgMs.toFixed(1)}ms`);
   if(t.running&&!t.done)t.savedAt=now;
   else{t.savedAt=null;t._phaseStart=null;}
 }
@@ -1452,29 +1466,50 @@ document.addEventListener('visibilitychange',()=>{
     return;
   }
   // Resumed — invalidate emoji canvas cache (backing stores lost during suspension)
+  performance.mark('vis-return-start');
+  const _visT0=performance.now();
+  console.log('[vis] ── return from background ──');
+  try{
+    const vlog=JSON.parse(localStorage.getItem('_visLog')||'[]');
+    vlog.push({ts:new Date().toISOString(),away:_tabHiddenAt?Math.floor((Date.now()-_tabHiddenAt)/1000):0});
+    if(vlog.length>20)vlog.splice(0,vlog.length-20);
+    localStorage.setItem('_visLog',JSON.stringify(vlog));
+  }catch(e){}
   for(const k in _emojiCache) delete _emojiCache[k];
   // Compute actual away time before anything resets it
   const _actualAway=_tabHiddenAt?Math.floor((Date.now()-_tabHiddenAt)/1000):0;
+  console.log(`[vis] away=${_actualAway}s tasks=${S.tasks.length} running=${S.tasks.filter(t=>t.running&&!t.done).length}`);
   _tabHiddenAt=null;
   clearBgNotifs();
   // Check for day rollover (wake-up time, or midnight if no bedtime)
   if(shouldRollover()){
+    console.log('[vis] day rollover triggered');
     creditPartialAtMidnight();
     stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;S.isTrial=false;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;_graceEnded=false;_togHidden=false;
     document.querySelector('.app-wrap')?.classList.remove('bedtime-active','bedtime-night');
     delete S._daySnap; // day ended naturally — rewards earned
     resetNightTheme();clearInterval(ticker);ticker=null;bgBubbles.length=0;
-    save();render();ensureDaybar();return;
+    save();render();ensureDaybar();
+    console.log(`[vis] rollover done in ${(performance.now()-_visT0).toFixed(1)}ms`);
+    return;
   }
   // Same day — reconcile elapsed time for running tasks
   const now=Date.now();
   const _preComp=S.tasks.reduce((a,t)=>a+t.completed,0);
   const _preDone=S.tasks.filter(t=>t.done).length;
+  performance.mark('vis-reconcile-start');
   S.tasks.forEach(t=>reconcileTask(t,now));
   S.tasks.forEach(setPhaseStart);
+  performance.mark('vis-reconcile-end');
+  performance.measure('vis:reconcile','vis-reconcile-start','vis-reconcile-end');
   const _postComp=S.tasks.reduce((a,t)=>a+t.completed,0);
   const _postDone=S.tasks.filter(t=>t.done).length;
+  performance.mark('vis-render-start');
   save();render();
+  performance.mark('vis-render-end');
+  performance.measure('vis:render','vis-render-start','vis-render-end');
+  console.log(`[vis] reconcile=${performance.getEntriesByName('vis:reconcile')[0]?.duration.toFixed(1)}ms render=${performance.getEntriesByName('vis:render')[0]?.duration.toFixed(1)}ms`);
+  performance.clearMeasures('vis:reconcile');performance.clearMeasures('vis:render');
   // Audio feedback for blocks completed while away
   if(_postDone>_preDone)sndTask();
   else if(_postComp>_preComp)sndSub();
@@ -1488,7 +1523,9 @@ document.addEventListener('visibilitychange',()=>{
     // ── Resume from hibernation ──
     if(!isBatterySaver()){
       _attachSensors();
+      performance.mark('vis-wave-start');
       startWaveLoop();
+      performance.mark('vis-wave-end');
       startAmbient();
     }
   } else if(!isBatterySaver()){
@@ -1497,6 +1534,7 @@ document.addEventListener('visibilitychange',()=>{
     if(bgWaveState.active)startWaveLoop();
   }
   ensureDaybar(); // resume day-scale UI updates
+  console.log(`[vis] ── return complete in ${(performance.now()-_visT0).toFixed(1)}ms ──`);
   // Return warmth: welcome back if away >60s (PRODUCT.md: visibilitychange is first-class)
   // Orientation toast tells the user exactly where they are — task, phase, position, time left
   if(_actualAway>=60){
@@ -1580,8 +1618,87 @@ function ensureTicker(){
         if(!document.hidden)sisterMsg('Go gently. The door is open tomorrow.',3500);
       }
     }
-    if(!S.tasks.some(t=>t.running)){clearInterval(ticker);ticker=null;stopAmbient();}
-  }catch(e){console.error('ticker:',e);}},1000);
+    if(!S.tasks.some(t=>t.running)){
+      console.warn('[ticker] self-stopping: no running tasks',S.tasks.map(t=>({n:t.name,run:t.running,done:t.done,isRest:t.isRest,rem:t.rem})));
+      try{const tl=JSON.parse(localStorage.getItem('_tickerLog')||'[]');tl.push({ts:new Date().toISOString(),event:'self-stop',tasks:S.tasks.map(t=>({n:t.name,run:t.running,done:t.done,rem:t.rem}))});if(tl.length>20)tl.splice(0,tl.length-20);localStorage.setItem('_tickerLog',JSON.stringify(tl));}catch(e){}
+      clearInterval(ticker);ticker=null;stopAmbient();
+    }
+  }catch(e){
+    console.error('ticker:',e);
+    try{const tl=JSON.parse(localStorage.getItem('_tickerLog')||'[]');tl.push({ts:new Date().toISOString(),event:'error',msg:e.message});if(tl.length>20)tl.splice(0,tl.length-20);localStorage.setItem('_tickerLog',JSON.stringify(tl));}catch(e2){}
+  }},1000);
+}
+// ── FREEZE DETECTOR ─────────────────────────────────────────────────
+// rAF heartbeat: logs when main thread was blocked for >2s while tab is visible
+// Persists to localStorage so phone freezes can be reviewed after the fact
+(function(){
+  let _lastBeat=performance.now(),_wasHidden=document.hidden;
+  function _freezeLog(entry){
+    console.warn('[FREEZE]',entry);
+    try{
+      const log=JSON.parse(localStorage.getItem('_freezeLog')||'[]');
+      log.push(entry);
+      if(log.length>20)log.splice(0,log.length-20); // keep last 20
+      localStorage.setItem('_freezeLog',JSON.stringify(log));
+    }catch(e){}
+  }
+  function _heartbeat(now){
+    const gap=now-_lastBeat;
+    // Only report freezes that happened while tab was VISIBLE (not background suspension)
+    if(gap>2000&&!_wasHidden){
+      _freezeLog({
+        ts:new Date().toISOString(),gap:Math.round(gap),
+        ticker:!!ticker,daybarIv:!!_daybarIv,waveRaf:!!waveRaf,
+        tasks:S?.tasks?.map(t=>({n:t.name,run:t.running,done:t.done,rem:t.rem}))
+      });
+    }
+    _wasHidden=document.hidden;
+    _lastBeat=now;
+    requestAnimationFrame(_heartbeat);
+  }
+  requestAnimationFrame(_heartbeat);
+  // Expose reader: type showFreezeLog() in console or tap the debug button
+  window.showFreezeLog=function(){
+    const log=JSON.parse(localStorage.getItem('_freezeLog')||'[]');
+    if(!log.length){console.log('[FREEZE] no freezes recorded');return log;}
+    console.table(log);return log;
+  };
+})();
+function _showDebugPanel(){
+  const panel=document.getElementById('dbg-panel');
+  const content=document.getElementById('dbg-content');
+  if(!panel||!content)return;
+  const freeze=JSON.parse(localStorage.getItem('_freezeLog')||'[]');
+  const vis=JSON.parse(localStorage.getItem('_visLog')||'[]');
+  const tick=JSON.parse(localStorage.getItem('_tickerLog')||'[]');
+  let html='<b style="color:#f39c12">Freeze log ('+freeze.length+')</b><br>';
+  if(!freeze.length)html+='<span style="color:#888">No freezes recorded yet.</span><br>';
+  freeze.forEach(f=>{
+    html+='<div style="margin:4px 0;padding:4px;background:rgba(255,255,255,0.05);border-radius:4px">';
+    if(f.type==='thermal')html+=`⚠️ THERMAL ${f.ts?.slice(11,19)||''} avg=${f.avgFrame}ms max=${f.maxFrame}ms slow=${f.slow} parts=${f.parts} bub=${f.bgBub}`;
+    else html+=`🧊 FREEZE ${f.ts?.slice(11,19)||''} gap=${f.gap}ms ticker=${f.ticker} wave=${f.waveRaf}`;
+    html+='</div>';
+  });
+  html+='<br><b style="color:#3498db">Visibility returns ('+vis.length+')</b><br>';
+  vis.slice(-10).forEach(v=>{html+=`${v.ts?.slice(11,19)||''} away=${v.away}s<br>`;});
+  html+='<br><b style="color:#e74c3c">Ticker events ('+tick.length+')</b><br>';
+  tick.forEach(t=>{html+=`${t.ts?.slice(11,19)||''} ${t.event} ${t.msg||''}<br>`;});
+  // Current state
+  html+='<br><b style="color:#2ecc71">Current state</b><br>';
+  html+=`ticker: ${!!ticker} | daybarIv: ${!!_daybarIv} | waveRaf: ${!!waveRaf}<br>`;
+  html+=`parts: ${parts.length} | bgBubbles: ${bgBubbles.length}<br>`;
+  if(_frameTimeLog.length){
+    const avg=_frameTimeLog.reduce((a,b)=>a+b,0)/_frameTimeLog.length;
+    const max=Math.max(..._frameTimeLog);
+    html+=`frame avg: ${avg.toFixed(1)}ms max: ${max.toFixed(0)}ms<br>`;
+  }
+  html+=`tasks: ${S?.tasks?.map(t=>t.name+(t.running?' ▶':'')+(t.done?' ✓':'')).join(', ')||'none'}<br>`;
+  content.innerHTML=html;
+  panel.style.display='block';
+}
+function _clearDebugLogs(){
+  localStorage.removeItem('_freezeLog');localStorage.removeItem('_visLog');localStorage.removeItem('_tickerLog');
+  _showDebugPanel(); // refresh
 }
 // Self-heal: if a task is running but ticker/waveLoop died, restart on touch or focus
 // Chrome Android doesn't always fire visibilitychange visible after notification shade, PiP, etc.
@@ -1922,6 +2039,9 @@ function openProfile(){
       <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(this)">
     </div>
     <div style="font-size:10px;color:var(--dim);margin-top:-12px;margin-bottom:16px">Your data lives only in this browser. Back it up.</div>
+
+    <!-- Debug -->
+    <button onclick="closeSheet();setTimeout(_showDebugPanel,300)" style="display:block;width:100%;background:var(--bg);border:2px solid var(--brd);color:var(--dim);font-family:var(--fs);font-size:13px;font-weight:700;padding:10px 0;border-radius:12px;cursor:pointer;margin-bottom:20px">🔧 debug log</button>
 
     <div class="sh-btns">
       <button class="bs" onclick="closeSheet()">close</button>
@@ -4340,11 +4460,31 @@ function stopWaveLoop(){
   if(waveRaf){cancelAnimationFrame(waveRaf);waveRaf=null;}
 }
 
+let _frameTimeLog=[],_frameLogTimer=0;
 function waveLoop(now){
   _waveAlive=now;
   let _anyContinue=false;
   try{
   const dt=Math.min((now-lastFrame)/1000,0.05);
+  // Frame time tracking: detect progressive slowdown (thermal throttling)
+  const _ft=now-lastFrame;
+  _frameTimeLog.push(_ft);
+  if(_frameTimeLog.length>300)_frameTimeLog.shift(); // keep last 5s at 60fps
+  _frameLogTimer+=dt;
+  if(_frameLogTimer>10){ // log every 10s
+    _frameLogTimer=0;
+    const avg=_frameTimeLog.reduce((a,b)=>a+b,0)/_frameTimeLog.length;
+    const max=Math.max(..._frameTimeLog);
+    const slow=_frameTimeLog.filter(f=>f>50).length; // frames >50ms = dropped
+    console.log(`[wave] avg=${avg.toFixed(1)}ms max=${max.toFixed(0)}ms slow=${slow}/${_frameTimeLog.length} parts=${parts.length} bgBub=${bgBubbles.length}`);
+    if(avg>100){
+      try{const fl=JSON.parse(localStorage.getItem('_freezeLog')||'[]');
+        fl.push({ts:new Date().toISOString(),type:'thermal',avgFrame:Math.round(avg),maxFrame:Math.round(max),slow,parts:parts.length,bgBub:bgBubbles.length});
+        if(fl.length>20)fl.splice(0,fl.length-20);
+        localStorage.setItem('_freezeLog',JSON.stringify(fl));
+      }catch(e){}
+    }
+  }
   lastFrame=now;
   waveT=(waveT+dt)%10000;
   if(shakeF>0.001)shakeF*=Math.pow(0.4,dt);else shakeF=0;
