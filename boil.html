@@ -228,6 +228,7 @@
     @keyframes suggest-pulse{0%,100%{box-shadow:0 2px 8px rgba(0,0,0,.06),inset 0 1px 0 rgba(255,255,255,0.5)}50%{box-shadow:0 2px 16px color-mix(in srgb,var(--tc) 25%,rgba(0,0,0,.12)),0 0 0 2px color-mix(in srgb,var(--tc) 30%,transparent),inset 0 1px 0 rgba(255,255,255,0.5);transform:translateY(-2px)}}
     .card.done-all{background:color-mix(in srgb,var(--card) 82%,transparent);border-style:dashed;border-color:var(--dimmer)}
     .card.skipped{background:color-mix(in srgb,var(--card) 60%,transparent);border-style:dashed;border-color:var(--dimmer);opacity:0.55}
+    .card.swiping{transition:none!important;will-change:transform,opacity;z-index:50}
     .card.warn{border-color:color-mix(in srgb,#f0c060 70%,var(--brd))}
     .card.danger{background:color-mix(in srgb,#c0453a 12%,var(--glass));border-color:color-mix(in srgb,#f09090 60%,var(--brd))}
     .card.critical{background:color-mix(in srgb,#c0453a 18%,var(--glass));border-color:#e05050;box-shadow:0 0 0 3px rgba(224,80,80,.2),inset 0 1px 0 rgba(255,255,255,0.4)!important}
@@ -1350,6 +1351,20 @@ function skipRest(id){
   if(allDone){onTaskDone(id);}
   renderCard(t);updateHeader();
 }
+// Swipe-to-skip: same effect as the edit dialog's "skip today" toggle.
+// Earned coins on completed blocks stay (they were credited at completion).
+// Pause if running so background ticking doesn't keep advancing a hidden task.
+function toggleSkipTask(id){
+  const t=S.tasks.find(x=>x.id===id);
+  if(!t||t.done)return;
+  const wasSkipped=!!t.skipped;
+  t.skipped=!wasSkipped;
+  if(t.skipped&&t.running){t.running=false;t.savedAt=null;t._phaseStart=null;}
+  haptic([20]);
+  save();
+  render();
+  showToast(wasSkipped?`${t.name} — back on today's list`:`${t.name} — skipped today · swipe to undo`);
+}
 function reconcileTask(t,now){
   if(!t.running||t.done||!t.savedAt)return;
   if(t._quickStart)t._quickStart=0; // perceptual trick window passed during background
@@ -1632,7 +1647,13 @@ function ensureTicker(){
 // rAF heartbeat: logs when main thread was blocked for >2s while tab is visible
 // Persists to localStorage so phone freezes can be reviewed after the fact
 (function(){
-  let _lastBeat=performance.now(),_wasHidden=document.hidden;
+  let _lastBeat=performance.now();
+  // Sticky flag: visibilitychange observes hidden transitions that rAF can't
+  // (rAF pauses in background, so _wasHidden sampled post-hoc is always stale).
+  let _hiddenSinceLastBeat=document.hidden;
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden)_hiddenSinceLastBeat=true;
+  },{capture:true});
   function _freezeLog(entry){
     console.warn('[FREEZE]',entry);
     try{
@@ -1644,15 +1665,15 @@ function ensureTicker(){
   }
   function _heartbeat(now){
     const gap=now-_lastBeat;
-    // Only report freezes that happened while tab was VISIBLE (not background suspension)
-    if(gap>2000&&!_wasHidden){
+    // Report only if the tab was visible for the entire gap
+    if(gap>2000&&!_hiddenSinceLastBeat&&!document.hidden){
       _freezeLog({
         ts:new Date().toISOString(),gap:Math.round(gap),
         ticker:!!ticker,daybarIv:!!_daybarIv,waveRaf:!!waveRaf,
         tasks:S?.tasks?.map(t=>({n:t.name,run:t.running,done:t.done,rem:t.rem}))
       });
     }
-    _wasHidden=document.hidden;
+    _hiddenSinceLastBeat=false;
     _lastBeat=now;
     requestAnimationFrame(_heartbeat);
   }
@@ -1960,7 +1981,7 @@ function openProfile(){
     <div class="sh-ttl">profile</div>
 
     <!-- Heat level card -->
-    <div style="background:var(--bg);border-radius:14px;padding:14px 16px;margin-bottom:16px">
+    <div style="background:var(--bg);border-radius:14px;padding:14px 16px;margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:12px">
         <div style="font-size:36px;line-height:1">${lvl[1]}</div>
         <div>
@@ -1968,6 +1989,7 @@ function openProfile(){
           <div style="font-size:11px;font-weight:700;color:var(--dim)">${ecoPhaseDesc()}</div>
         </div>
       </div>
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--brd);font-size:11px;line-height:1.55;color:var(--dim)">Your water holds life. It wakes when you work and fades when you don't. A long absence makes the water quieter, not empty. Return always matters.</div>
     </div>
 
     <!-- Stats grid -->
@@ -3573,7 +3595,8 @@ function renderCards(){
   const hidden=S.tasks.filter(t=>!taskVisibleToday(t));
   // Flowing mode: running task floats to top, hide completed tasks
   const rt=visible.find(t=>t.running);
-  const sorted=rt?visible.filter(t=>(!t.done&&!t.skipped)||t.running):visible.slice();
+  // Keep skipped tasks visible (as compact dimmed rows) so swipe-to-undo stays reachable
+  const sorted=rt?visible.filter(t=>!t.done||t.running):visible.slice();
   const ri=sorted.findIndex(t=>t.running);
   if(ri>0){const[r]=sorted.splice(ri,1);sorted.unshift(r);}
   el.innerHTML=sorted.map(cardHTML).join('')+(hidden.length?`<div class="hidden-sched" onclick="_togHidden=!_togHidden;renderCards()" style="text-align:center;padding:12px 0 4px;font-size:11px;font-weight:700;color:var(--dim);cursor:pointer">${hidden.length} task${hidden.length!==1?'s':''} not scheduled today ${_togHidden?'▾':'▸'}</div>`+(_togHidden?hidden.map(cardHTMLHidden).join(''):''):'');
@@ -4755,16 +4778,22 @@ function ecoPopTarget(){
 }
 function ecoAddEnergy(n){
   if(!S||!S.eco)return;
+  const oldPhase=ecoPhase();
   // "Glad to see you" — boost on return after absence
   const last=S.eco.lastWorkDate;
   const td=today();
+  let returning=false;
   if(last&&last!==td){
     const gap=Math.floor((new Date(td)-new Date(last))/(86400000));
-    if(gap>=2)n=n+1; // small warmth bonus on return
+    if(gap>=2){n=n+1;returning=true;} // small warmth bonus on return
   }
   S.eco.lastWorkDate=td;
   S.eco.energy=Math.min(100,(S.eco.energy||0)+n);
   if(S.eco.energy>S.eco.peak)S.eco.peak=S.eco.energy;
+  const newPhase=ecoPhase();
+  _onEcoBlockPulse();
+  if(newPhase!==oldPhase)_onEcoPhaseTransition(oldPhase,newPhase);
+  if(returning)_onEcoReturn();
 }
 function ecoDecayEnergy(){
   if(!S||!S.eco||!S.eco.energy)return;
@@ -4779,6 +4808,67 @@ function ecoDecayEnergy(){
     else rate=0.18; // longer gap — noticeable but recoverable
   }
   S.eco.energy=Math.max(0,S.eco.energy-Math.max(1,Math.floor(S.eco.energy*rate)));
+}
+
+// ── Ecosystem legibility moments ────────────────────────────────────
+// Couple invisible state changes (phase up, return after absence, block feed)
+// to perceptible events so the ecosystem is legible, not mysterious.
+const _ECO_PHASE_ORDER=['dormant','seed','growing','bloom','mature'];
+const _ECO_PHASE_LINES={
+  seed:'Something is stirring.',
+  growing:'The water is waking up.',
+  bloom:'It feels alive today.',
+  mature:'Your water remembers you.',
+};
+const _ECO_RETURN_LINES=['Glad you came back.','The water remembers.','Welcome back to your water.'];
+function _onEcoPhaseTransition(oldP,newP){
+  // Only celebrate upward transitions — downward fades are silent (no shame)
+  if(_ECO_PHASE_ORDER.indexOf(newP)<=_ECO_PHASE_ORDER.indexOf(oldP))return;
+  const line=_ECO_PHASE_LINES[newP];
+  if(line&&!document.hidden)sisterMsg(line,2800);
+  _spawnLifePulse(2.6,0.95);
+}
+function _onEcoReturn(){
+  if(document.hidden)return;
+  sisterMsg(_ECO_RETURN_LINES[Math.floor(Math.random()*_ECO_RETURN_LINES.length)],2600);
+}
+function _onEcoBlockPulse(){_spawnLifePulse(1.6,0.55);}
+
+// Life pulses — expanding glows that fade. Rendered in waveLoop + begin-screen.
+const _lifePulses=[];
+function _spawnLifePulse(life,intensity){
+  _lifePulses.push({
+    xFrac:0.15+Math.random()*0.7, yFrac:0.2+Math.random()*0.7,
+    age:0,life:life,intensity:intensity||0.6,
+  });
+  if(_lifePulses.length>8)_lifePulses.shift();
+}
+function _stepLifePulses(dt){
+  for(let i=_lifePulses.length-1;i>=0;i--){
+    _lifePulses[i].age+=dt;
+    if(_lifePulses[i].age>=_lifePulses[i].life)_lifePulses.splice(i,1);
+  }
+}
+function _drawLifePulses(ctx,W,H,fillY){
+  if(!_lifePulses.length)return;
+  const nA=(typeof nightT==='function')?nightT():0;
+  const bR=Math.round(Math.max(0,110-nA*60));
+  const bG=Math.round(Math.max(0,Math.min(255,235-nA*40)));
+  const bB=Math.round(Math.min(255,210+nA*45));
+  ctx.save();
+  ctx.beginPath();ctx.moveTo(0,fillY);ctx.lineTo(W,fillY);ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.clip();
+  ctx.globalCompositeOperation='lighter';
+  for(const p of _lifePulses){
+    const t=p.age/p.life;
+    const x=p.xFrac*W, y=fillY+(H-fillY)*p.yFrac;
+    const r=20+t*70;
+    const alpha=p.intensity*(1-t)*0.4;
+    const rg=ctx.createRadialGradient(x,y,0,x,y,r);
+    rg.addColorStop(0,`rgba(${bR},${bG},${bB},${alpha})`);
+    rg.addColorStop(1,`rgba(${bR},${bG},${bB},0)`);
+    ctx.fillStyle=rg;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+  }
+  ctx.restore();
 }
 
 // ── Plankton (luminous dots) ────────────────────────────────────────
@@ -4994,9 +5084,11 @@ function drawEcosystem(ctx,W,H,fillY,hf,step,N,dt){
   stepPlankton(dt,W,H,fillY,hf,step);
   stepOrganisms(dt,W,H,fillY);
   stepBioTrails(dt);
+  _stepLifePulses(dt);
   drawPlankton(ctx,W,H,fillY,N,step,reg);
   drawOrganisms(ctx,W,H,fillY,N,step);
   drawBioTrails(ctx,W,H,fillY,N,step);
+  _drawLifePulses(ctx,W,H,fillY);
 }
 
 
@@ -5831,12 +5923,13 @@ function attachDrag(){
 function onDragTouchStart(e){
   const card=e.currentTarget;
   const id=card.id.replace('c-','');
+  const task=S.tasks.find(x=>x.id===id);
   const touch=e.touches[0];
   const startX=touch.clientX, startY=touch.clientY;
-  let fired=false;
+  const COMMIT_PX=100;
+  let swiping=false, swipeDx=0, hapticCommit=false;
 
   const longTimer=setTimeout(()=>{
-    fired=true;
     cleanup();
     startDrag(id,card,{clientX:startX,clientY:startY});
   },LONG_MS);
@@ -5844,16 +5937,66 @@ function onDragTouchStart(e){
   function onMove(ev){
     const t=ev.touches[0];
     const dx=t.clientX-startX, dy=t.clientY-startY;
-    // Only cancel if finger moved >8px — allows natural hand tremor
-    if(Math.sqrt(dx*dx+dy*dy)>8){clearTimeout(longTimer);cleanup();}
+    const adx=Math.abs(dx), ady=Math.abs(dy);
+    if(!swiping){
+      // Horizontal swipe → toggle skip-today. Disabled on already-done tasks.
+      if(adx>10 && adx>ady*1.3 && task && !task.done){
+        clearTimeout(longTimer);
+        swiping=true;
+        card.classList.add('swiping');
+      } else if(adx>8 || ady>8){
+        // Vertical/diagonal motion outside the long-press dead zone — cancel both
+        clearTimeout(longTimer);
+        cleanup();
+        return;
+      }
+    }
+    if(swiping){
+      swipeDx=dx;
+      const limited=Math.sign(dx)*Math.min(adx,220);
+      card.style.transform=`translateX(${limited}px)`;
+      card.style.opacity=String(Math.max(0.25, 1-adx/320));
+      const past=adx>=COMMIT_PX;
+      if(past&&!hapticCommit){haptic([14]);hapticCommit=true;}
+      else if(!past&&hapticCommit){hapticCommit=false;}
+    }
   }
-  function onEnd(){clearTimeout(longTimer);cleanup();}
+  function onEnd(){
+    clearTimeout(longTimer);
+    if(swiping){
+      const commit=Math.abs(swipeDx)>=COMMIT_PX;
+      if(commit){
+        const dir=Math.sign(swipeDx)||1;
+        card.style.transition='transform .22s ease-out, opacity .22s ease-out';
+        card.style.transform=`translateX(${dir*window.innerWidth}px)`;
+        card.style.opacity='0';
+        setTimeout(()=>{
+          card.style.transition='';
+          card.style.transform='';
+          card.style.opacity='';
+          card.classList.remove('swiping');
+          toggleSkipTask(id);
+        },220);
+      } else {
+        card.style.transition='transform .24s cubic-bezier(.34,1.4,.64,1), opacity .24s';
+        card.style.transform='';
+        card.style.opacity='';
+        setTimeout(()=>{
+          card.style.transition='';
+          card.classList.remove('swiping');
+        },260);
+      }
+    }
+    cleanup();
+  }
   function cleanup(){
     card.removeEventListener('touchmove',onMove);
     card.removeEventListener('touchend',onEnd);
+    card.removeEventListener('touchcancel',onEnd);
   }
   card.addEventListener('touchmove',onMove,{passive:true});
   card.addEventListener('touchend',onEnd,{passive:true});
+  card.addEventListener('touchcancel',onEnd,{passive:true});
 }
 
 function startDrag(id,card,touch){
@@ -5937,12 +6080,17 @@ function onDragEnd(e){
 }
 
 // ── BEGIN SCREEN WATER ──────────────────────────────────────────────
-let beginWaveRaf=null;
+let beginWaveRaf=null, _beginLastT=0;
 function animateBeginWater(){
   const cv=document.getElementById('begin-water');
-  if(!cv||cv.offsetParent===null){beginWaveRaf=null;return;}
+  if(!cv||cv.offsetParent===null){beginWaveRaf=null;_beginLastT=0;return;}
   applyNightTheme(); // keep night colors current on begin screen
   const nA=nightT();
+  // Advance life-pulse timers here too — begin screen has its own RAF loop
+  const _nowT=performance.now()/1000;
+  const _dt=_beginLastT?Math.min(0.1,_nowT-_beginLastT):0;
+  _beginLastT=_nowT;
+  if(_dt>0)_stepLifePulses(_dt);
   const dpr=Math.min(window.devicePixelRatio||1,2);
   const W=Math.round(cv.clientWidth*dpr);
   const H=Math.round(cv.clientHeight*dpr);
@@ -5976,23 +6124,42 @@ function animateBeginWater(){
     c.lineTo(x,y);
   }
   c.lineWidth=1.5;c.strokeStyle=`rgba(255,255,255,${0.45-nA*0.25})`;c.stroke();
-  // Subtle bioluminescent life on begin screen
-  if(S&&S.eco&&S.eco.energy>2&&!isBatterySaver()){
-    const nDots=Math.min(10,Math.max(3,Math.floor((S.eco.energy||0)/6)));
+  // Ecosystem on begin screen — phase-scaled life
+  // Reflection surface: user sees their water's state before the day begins.
+  // Plankton density + drifting organism blobs scale with ecoPhase.
+  if(S&&S.eco&&!isBatterySaver()){
+    const phase=ecoPhase();
+    const nDots=phase==='dormant'?3:phase==='seed'?10:phase==='growing'?20:phase==='bloom'?30:42;
+    const nOrg=phase==='dormant'?0:phase==='seed'?0:phase==='growing'?1:phase==='bloom'?2:3;
     c.save();
     // Clip to water body
     c.beginPath();c.moveTo(0,fillY);c.lineTo(W,fillY);c.lineTo(W,H);c.lineTo(0,H);c.closePath();c.clip();
     c.globalCompositeOperation='lighter';
     const eR=Math.round(Math.max(0,80-nA*40)),eG=Math.round(Math.max(0,Math.min(255,220-nA*60))),eB=Math.round(Math.min(255,200+nA*40));
+    // Plankton layer
     for(let i=0;i<nDots;i++){
       const px=W*((Math.sin(t*0.08+i*2.39)+1)/2);
       const py=fillY+(H-fillY)*(0.08+0.84*((Math.cos(t*0.06+i*1.73)+1)/2));
       const gl=(Math.sin(t*(0.25+i*0.07)+i*1.1)+1)/2;
-      c.globalAlpha=gl*0.18;
+      c.globalAlpha=gl*0.22;
       c.fillStyle=`rgb(${eR},${eG},${eB})`;
-      c.beginPath();c.arc(px,py,1.2*dpr,0,Math.PI*2);c.fill();
+      c.beginPath();c.arc(px,py,(1.0+gl*0.6)*dpr,0,Math.PI*2);c.fill();
+    }
+    // Slow drifting organism blobs at higher phases
+    for(let i=0;i<nOrg;i++){
+      const ox=W*((Math.sin(t*0.025+i*3.3)+1)/2);
+      const oy=fillY+(H-fillY)*(0.3+0.5*((Math.cos(t*0.02+i*2.1)+1)/2));
+      const osc=(Math.sin(t*0.15+i*1.4)+1)/2;
+      c.globalAlpha=0.08+osc*0.12;
+      const r=(8+osc*5)*dpr;
+      const rg=c.createRadialGradient(ox,oy,0,ox,oy,r);
+      rg.addColorStop(0,`rgb(${eR},${eG},${eB})`);
+      rg.addColorStop(1,`rgba(${eR},${eG},${eB},0)`);
+      c.fillStyle=rg;c.beginPath();c.arc(ox,oy,r,0,Math.PI*2);c.fill();
     }
     c.restore();
+    // Life pulses (phase-transition bursts, return warmth) — shown here too
+    _drawLifePulses(c,W,H,fillY);
   }
   beginWaveRaf=requestAnimationFrame(animateBeginWater);
 }
