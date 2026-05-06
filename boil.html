@@ -46,39 +46,32 @@
     body{background:var(--bg);color:var(--text);font-family:var(--fs);display:flex;flex-direction:column;height:100dvh;overflow:hidden;align-items:center;user-select:none;-webkit-user-select:none}
     .app-wrap{width:100%;max-width:680px;display:flex;flex-direction:column;flex:1;overflow:hidden;position:relative}
 
-    /* ── HEADER ──────────────────────── */
+    /* ── HEADER (logo | daybar | gear) ──────────────────────── */
     .hdr{
-      padding:14px 16px 0;
-      display:flex;align-items:center;justify-content:space-between;
-      flex-shrink:0;gap:8px;
+      width:100%;max-width:680px;
+      padding:10px 12px;
+      display:flex;align-items:center;
+      flex-shrink:0;gap:10px;
       background:var(--glass);
       backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+      border:1.5px solid var(--glass-border);border-top:none;
+      border-radius:0 0 16px 16px;
+      box-shadow:0 4px 16px rgba(0,0,0,.06);
       position:relative;z-index:2;
+      box-sizing:border-box;
     }
-    /* Profile pill — sits between logo and streak */
+    .hdr-row{display:flex;align-items:center;justify-content:center;gap:12px} /* legacy */
+    /* Gear button — circular icon */
     .profile-pill{
-      display:flex;align-items:center;gap:5px;
+      width:34px;height:34px;border-radius:50%;
       background:var(--card);border:1.5px solid var(--brd);
-      padding:4px 10px 4px 6px;border-radius:100px;
-      cursor:pointer;transition:all .14s;flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;
+      font-size:16px;line-height:1;
+      cursor:pointer;transition:all .14s;flex-shrink:0;padding:0;
     }
     .profile-pill:hover{background:var(--brd)}
-    .profile-pill:active{transform:scale(.93)}
-    .profile-avatar{
-      width:22px;height:22px;border-radius:50%;
-      background:var(--tc,#c8841a);
-      display:flex;align-items:center;justify-content:center;
-      font-size:11px;line-height:1;flex-shrink:0;
-      transition:background .5s;
-    }
-    .profile-heat{
-      font-size:11px;font-weight:800;color:var(--ink);
-      font-family:var(--fs);letter-spacing:.01em;
-      white-space:nowrap;
-    }
-
-    /* Left: logo + streak badge */
-    .hdr-left{display:flex;align-items:center;gap:10px;flex-shrink:0}
+    .profile-pill:active{transform:scale(.9)}
+    .hdr-left{display:flex;align-items:center;gap:10px;flex-shrink:0} /* legacy, kept inert */
     .logo{
       font-family:var(--fd);font-size:21px;font-weight:800;
       color:var(--ink);letter-spacing:-.03em;
@@ -90,34 +83,7 @@
     }
     .logo-dot.pulse{animation:dot-pop .4s cubic-bezier(.34,1.56,.64,1)}
     @keyframes dot-pop{0%{transform:scale(1)}50%{transform:scale(1.8)}100%{transform:scale(1)}}
-    /* Streak badge — next to logo, disappears at streak=0 */
-    .streak-badge{
-      display:none;align-items:center;gap:3px;
-      background:rgba(200,132,26,.12);
-      color:#c8841a;
-      font-size:12px;font-weight:800;font-family:var(--fs);
-      padding:4px 9px;border-radius:100px;
-      letter-spacing:.01em;
-      cursor:default;
-      flex-shrink:0;
-    }
-    .streak-badge.visible{display:flex}
-    /* Right: action pills */
     .hdr-acts{display:flex;gap:5px;align-items:center}
-    /* Coin pill — shows total coins, taps to gifts */
-    .coin-pill{
-      display:flex;align-items:center;gap:4px;
-      background:var(--card);border:1.5px solid var(--brd);
-      color:var(--mid);
-      font-size:12px;font-weight:800;font-family:var(--fs);
-      padding:5px 10px 5px 8px;border-radius:100px;
-      cursor:pointer;transition:all .14s;
-      white-space:nowrap;
-    }
-    .coin-pill:hover{background:var(--brd);color:var(--ink)}
-    .coin-pill:active{transform:scale(.94)}
-    .coin-pill-icon{font-size:13px;line-height:1}
-    .coin-pill-val{font-variant-numeric:tabular-nums;letter-spacing:-.01em}
     /* Standard action pills */
     .pill{
       background:var(--card);border:1.5px solid var(--brd);
@@ -128,333 +94,28 @@
     .pill:hover{background:var(--brd);color:var(--ink)}
     .pill:active{background:var(--brd);color:var(--ink);transform:scale(.95)}
 
-    /* ── TIMELINE ─────────────────────── */
-    .daybar{margin:10px 13px 0;background:var(--glass);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1.5px solid var(--glass-border);border-radius:12px;padding:11px 14px 10px;flex-shrink:0}
-    .db-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
-    .db-stat{font-size:11px;font-weight:600;color:var(--dim)}
-    .db-stat b{font-weight:800;font-size:15px;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
-    .db-stat.go b{color:var(--text)}
-    .db-stat.hi b{color:var(--text)}
-    .db-stat.warn b{color:var(--text)}
-    .db-track{height:18px;background:var(--bg);border-radius:7px;position:relative;overflow:hidden;margin-bottom:4px}
+    /* ── TIMELINE (inline track between logo and gear) ─────────────────────── */
+    .daybar{flex:1;min-width:0;height:34px;background:var(--card);border:1.5px solid var(--brd);border-radius:10px;cursor:pointer;transition:background .14s,border-color .14s;display:flex;align-items:center;padding:0 8px;position:relative;overflow:visible}
+    .daybar:hover{background:var(--brd)}
+    .daybar:active{transform:scale(.99)}
+    .daybar:empty{background:color-mix(in srgb,var(--card) 60%,transparent);cursor:default}
+    .db-top,.db-stat,.db-ticks,.db-tick{display:none} /* slim mode: stat/ticks live in the day panel */
+    .db-track{flex:1;height:18px;background:color-mix(in srgb,var(--card) 70%,transparent);border-radius:6px;position:relative;overflow:hidden;border:1px solid color-mix(in srgb,var(--brd) 60%,transparent)}
+    .db-el{position:absolute;left:0;top:0;bottom:0;background:color-mix(in srgb,var(--brd) 55%,transparent);z-index:1;border-radius:5px 0 0 5px;transition:width 1s linear}
+    .db-free{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-weight:800;font-size:10px;letter-spacing:.02em;color:color-mix(in srgb,var(--ink) 70%,transparent);z-index:4;pointer-events:none;white-space:nowrap;overflow:hidden}
+    .db-skull{position:absolute;right:-2px;top:50%;transform:translate(0,-50%);font-size:18px;line-height:1;z-index:6;text-shadow:0 1px 2px rgba(0,0,0,.4);pointer-events:none;animation:skull-tilt 1.6s ease-in-out infinite}
+    @keyframes skull-tilt{0%,100%{transform:translate(0,-50%) rotate(-8deg)}50%{transform:translate(0,-50%) rotate(8deg)}}
+    /* Slack overlay — transparent bold text centered on the track */
+    .db-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-weight:800;font-size:11px;letter-spacing:-.01em;color:rgba(28,25,23,.45);text-shadow:0 1px 0 rgba(255,255,255,.25);pointer-events:none;z-index:7;mix-blend-mode:multiply}
+    .db-overlay.go{color:rgba(46,158,106,.85)}
+    .db-overlay.warn{color:rgba(255,255,255,.85);text-shadow:0 1px 2px rgba(192,69,58,.7);mix-blend-mode:normal}
     .db-el{position:absolute;left:0;top:0;bottom:0;background:var(--dimmer);border-radius:7px 0 0 7px;transition:width 1s linear;z-index:1}
     .db-seg{position:absolute;top:0;bottom:0;transition:all .5s;z-index:3;opacity:.88}
     .db-hatch{position:absolute;right:0;top:0;bottom:0;z-index:4;background:linear-gradient(90deg,rgba(192,69,58,.4),rgba(220,80,40,.85));transition:width .5s;border-radius:0 7px 7px 0;animation:lava-pulse 1.8s ease-in-out infinite}
     @keyframes lava-pulse{0%,100%{opacity:1}50%{opacity:.65}}
-    .db-now{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--ink);border-radius:2px;z-index:5;transform:translateX(-50%);box-shadow:0 0 4px rgba(28,25,23,.3)}
+    .db-now{position:absolute;top:-3px;bottom:-3px;width:2.5px;background:var(--ink);border-radius:2px;z-index:8;transform:translateX(-50%);box-shadow:0 0 4px rgba(28,25,23,.45),0 0 0 1.5px color-mix(in srgb,var(--card) 80%,transparent)}
     .db-ticks{display:flex;justify-content:space-between}
-    .db-tick{font-size:9px;font-weight:700;color:var(--dimmer);letter-spacing:.03em}
-
-    /* ── SCROLL ────────────────────────── */
-    .scroll{flex:1;overflow-y:auto;padding:8px 12px 100px;display:flex;flex-direction:column;gap:8px;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--brd) transparent;-webkit-overflow-scrolling:touch}
-
-    /* ── FLOWING MODE: hide inactive cards, simplify header ── */
-    .scroll.has-running .card:not(.running):not(.resting){
-      opacity:.35;transform:scale(.97);filter:grayscale(25%);
-      transition:opacity .35s,transform .35s,filter .35s;
-    }
-    /* When flowing, hide inactive cards entirely (they become canvas blocks) */
-    .app-wrap.flowing .scroll.has-running .card:not(.running):not(.resting):not(.done-all){
-      display:none!important;
-    }
-    /* Simplify header when flowing */
-    .app-wrap.flowing .profile-pill,
-    .app-wrap.flowing .streak-badge,
-    .app-wrap.flowing .coin-pill,
-    .app-wrap.flowing .pill-finish{display:none!important}
-    /* Hide daybar, continuous row, and unscheduled notice when flowing */
-    .app-wrap.flowing .daybar,
-    .app-wrap.flowing .cont-row,
-    .app-wrap.flowing .hidden-sched{display:none!important}
-    /* Tighten scroll padding so card sits right under header */
-    .app-wrap.flowing .scroll{padding-top:4px}
-    /* Lean running card: smaller timer, reduced stats, translucent glass */
-    .app-wrap.flowing .card.running{background:rgba(250,248,244,0.25);backdrop-filter:blur(16px)}
-    .app-wrap.flowing .card.running .c-sub{font-size:10px;opacity:.5}
-    .app-wrap.flowing .card.running .pip-timer-overlay .pto-cur{font-size:16px}
-    .app-wrap.flowing .card.running .c-desc{display:none}
-
-    /* ── CARD ──────────────────────────── */
-    @keyframes cardIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-    .scroll .card{animation:cardIn .4s var(--spring) backwards}
-    .scroll .card:nth-child(2){animation-delay:.05s}
-    .scroll .card:nth-child(3){animation-delay:.1s}
-    .scroll .card:nth-child(4){animation-delay:.15s}
-    .scroll .card:nth-child(n+5){animation-delay:.2s}
-
-    .card{
-      background:var(--glass);
-      backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-      border:1.5px solid var(--glass-border);border-radius:12px;
-      box-shadow:0 1px 2px rgba(0,0,0,0.04),0 4px 12px rgba(0,0,0,0.03),inset 0 1px 0 rgba(255,255,255,0.5);
-      cursor:pointer;position:relative;
-      transition:transform .18s cubic-bezier(.34,1.2,.64,1),box-shadow .25s,border-color .25s,opacity .35s,filter .35s,background .35s;
-      user-select:none;-webkit-user-select:none;
-    }
-    @media(hover:hover){.card:hover:not(.running):not(.resting){box-shadow:0 4px 16px rgba(0,0,0,.09);transform:translateY(-1px)}}
-    .card:active{transform:scale(.972)!important}
-    .bedtime-active .card{opacity:0.4;transition:opacity 2s ease,transform .18s cubic-bezier(.34,1.2,.64,1),box-shadow .25s,border-color .25s,filter .35s,background .35s}
-    .bedtime-active .card.running{opacity:0.7}
-    .bedtime-active .fab{opacity:0.3}
-    .bedtime-active .daybar{display:none!important}
-    /* Bedtime: collapse incomplete non-running cards immediately (Zeigarnik overload) */
-    .bedtime-active .card:not(.running):not(.done-all):not(.skipped) .c-body>:not(.c-head){display:none!important}
-    .bedtime-active .card:not(.running):not(.done-all):not(.skipped){padding:6px 14px;opacity:0.3}
-    .bedtime-active .card:not(.running):not(.done-all):not(.skipped) .c-head{margin-bottom:0}
-    .bedtime-night .card.running .play-btn{display:inline-flex!important}
-    .bedtime-night .play-btn{display:none!important}
-    .bedtime-night .mercy-btn{display:none!important}
-    .bedtime-night .fab{display:none}
-    .bedtime-rest-msg{display:none;text-align:center;padding:24px 20px 12px;font-family:var(--fs);font-size:14px;font-weight:600;color:var(--dim);letter-spacing:-.01em;opacity:0;transition:opacity 1.5s ease}
-    .bedtime-night .bedtime-rest-msg{display:block;opacity:1}
-    .db-now-marker{position:absolute;top:0;bottom:0;width:2px;background:var(--ink);border-radius:1px;opacity:0.7;z-index:2}
-    .db-elapsed{position:absolute;top:0;bottom:0;left:0;background:var(--dim);opacity:0.15;border-radius:10px 0 0 10px}
-    .card.running{
-      background:var(--glass-hi);
-      backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-      border-color:var(--tc);
-      box-shadow:0 2px 4px rgba(0,0,0,0.06),0 8px 24px rgba(0,0,0,0.10),0 0 0 1px color-mix(in srgb,var(--tc) 25%,transparent),inset 0 1px 0 rgba(255,255,255,0.6);
-      transform:translateY(-3px);
-    }
-    .card.resting{
-      background:color-mix(in srgb,#2e9e6a 10%,var(--glass));
-      backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-      border-color:var(--tc);
-      box-shadow:0 2px 4px rgba(0,0,0,0.06),0 8px 24px rgba(0,0,0,0.10),0 0 0 1px color-mix(in srgb,var(--tc) 25%,transparent),inset 0 1px 0 rgba(255,255,255,0.6);
-      transform:translateY(-3px);
-    }
-    .card.last-active{box-shadow:0 2px 8px rgba(0,0,0,.08),0 0 0 1px color-mix(in srgb,var(--tc) 18%,transparent),inset 0 1px 0 rgba(255,255,255,0.5);transform:translateY(-1px)}
-    .card.suggested{animation:suggest-pulse 1.2s ease-in-out 2}
-    @keyframes suggest-pulse{0%,100%{box-shadow:0 2px 8px rgba(0,0,0,.06),inset 0 1px 0 rgba(255,255,255,0.5)}50%{box-shadow:0 2px 16px color-mix(in srgb,var(--tc) 25%,rgba(0,0,0,.12)),0 0 0 2px color-mix(in srgb,var(--tc) 30%,transparent),inset 0 1px 0 rgba(255,255,255,0.5);transform:translateY(-2px)}}
-    .card.done-all{background:color-mix(in srgb,var(--card) 82%,transparent);border-style:dashed;border-color:var(--dimmer)}
-    .card.skipped{background:color-mix(in srgb,var(--card) 60%,transparent);border-style:dashed;border-color:var(--dimmer);opacity:0.55}
-    .card.swiping{transition:none!important;will-change:transform,opacity;z-index:50}
-    .card.warn{border-color:color-mix(in srgb,#f0c060 70%,var(--brd))}
-    .card.danger{background:color-mix(in srgb,#c0453a 12%,var(--glass));border-color:color-mix(in srgb,#f09090 60%,var(--brd))}
-    .card.critical{background:color-mix(in srgb,#c0453a 18%,var(--glass));border-color:#e05050;box-shadow:0 0 0 3px rgba(224,80,80,.2),inset 0 1px 0 rgba(255,255,255,0.4)!important}
-    .card.critical .c-time-cur{color:#c0453a!important;animation:danger-pulse .45s ease-in-out infinite!important}
-
-    /* top color bar */
-    .c-bar{height:3px;background:var(--tc);width:100%;border-radius:12px 12px 0 0}
-
-    .c-body{padding:10px 13px 12px}
-
-    .c-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
-    .c-desc+.pips-wrap{margin-top:0}
-    .c-name{font-family:var(--fd);font-size:18px;font-weight:800;letter-spacing:-.025em;color:var(--ink);flex:1;margin-right:8px;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-    .c-emoji{margin-right:6px;font-size:16px;vertical-align:middle}
-    .c-edit{background:none;border:none;color:var(--dimmer);font-size:22px;line-height:1;cursor:pointer;padding:0 2px;transition:color .14s;flex-shrink:0}
-    .c-edit:hover{color:var(--dim)}
-    .c-desc{font-size:12px;font-weight:500;color:var(--dim);letter-spacing:.01em;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px}
-
-    /* ── BLOCK SQUARES ────────────────── */
-    /* Inline-styled in JS — these classes are visual-only */
-    .pips{margin-bottom:12px}
-    .pip{position:relative;overflow:hidden;transition:border-color .25s,transform .18s;border-radius:8px}
-    .pip.done{background:var(--tc)}
-    @keyframes pip-pop{
-      0%{transform:scale(1)}
-      45%{transform:scale(1.15)}
-      72%{transform:scale(.95)}
-      100%{transform:scale(1)}
-    }
-    .pip.done.popped{animation:pip-pop .38s cubic-bezier(.34,1.56,.64,1)}
-    .pip.empty{background:transparent;border:2px solid var(--mid)}
-    .pip.active{background:color-mix(in srgb,var(--tc) 5%,transparent);border:2px solid var(--tc)}
-    .pip.rest-active{background:transparent;border:2px solid #2e9e6a}
-    @keyframes active-glow{
-      0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--tc) 30%,transparent)}
-      50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--tc) 12%,transparent)}
-    }
-    .pip.active{animation:active-glow 2.4s ease-in-out infinite}
-    @keyframes rest-glow{
-      0%,100%{box-shadow:0 0 0 0 rgba(46,158,106,.25)}
-      50%{box-shadow:0 0 0 5px rgba(46,158,106,.1)}
-    }
-    .pip.rest-active{animation:rest-glow 2.4s ease-in-out infinite}
-
-    /* .c-bottom/.timer removed — using .c-times now */
-
-    /* play button with spring */
-    .play-btn{
-      width:56px;height:56px;border-radius:50%;border:none;cursor:pointer;
-      display:flex;align-items:center;justify-content:center;flex-shrink:0;
-      background:var(--tc);color:#fff;
-      box-shadow:0 4px 14px rgba(0,0,0,.18);
-      transition:transform .45s cubic-bezier(.34,1.56,.64,1),box-shadow .2s,background .2s;
-    }
-    .play-btn:hover{transform:scale(1.06);box-shadow:0 6px 20px rgba(0,0,0,.24)}
-    .play-btn:active{transform:scale(.82)!important;transition:transform .1s ease!important}
-    .card.resting .play-btn{background:#2e9e6a}
-    .card.done-all .play-btn{background:var(--brd);color:var(--dimmer);box-shadow:none;cursor:default}
-    .mercy-btn{
-      width:40px;height:40px;border-radius:50%;border:2px solid var(--brd);cursor:pointer;
-      display:flex;align-items:center;justify-content:center;flex-shrink:0;
-      background:var(--card);font-size:16px;line-height:1;
-      box-shadow:0 2px 8px rgba(0,0,0,.08);
-      transition:transform .3s cubic-bezier(.34,1.56,.64,1),box-shadow .2s;
-    }
-    .mercy-btn:hover{transform:scale(1.08);box-shadow:0 3px 12px rgba(0,0,0,.14)}
-    .mercy-btn:active{transform:scale(.85)!important}
-    .day-picker{display:flex;gap:5px}
-    .day-pill{
-      width:32px;height:32px;border-radius:50%;border:2px solid var(--brd);
-      background:transparent;color:var(--dim);font-size:11px;font-weight:800;
-      font-family:var(--fs);cursor:pointer;transition:all .14s;
-      display:flex;align-items:center;justify-content:center;
-    }
-    .day-pill.on{background:var(--ink);color:#fff;border-color:var(--ink)}
-
-    /* Progressive disclosure — hide complexity on early days */
-    .app-wrap.day-0 .coin-pill,
-    .app-wrap.day-0 .streak-badge,
-    .app-wrap.day-0 .cont-row,
-    .app-wrap.day-0 .pill-finish{display:none!important}
-    .hdr.day-0 .coin-pill,
-    .hdr.day-0 .streak-badge,
-    .hdr.day-0 .pill-finish{display:none!important}
-    .app-wrap.day-1 .streak-badge{display:none!important}
-    .hdr.day-1 .streak-badge{display:none!important}
-    .app-wrap.day-0 .daybar{display:none!important}
-
-    /* idle invitation breathing */
-    .scroll:not(.has-running) .card:not(.done-all) .play-btn{
-      animation:invite 3.6s ease-in-out infinite;
-    }
-    .scroll:not(.has-running) .card:first-child:not(.done-all) .play-btn{
-      animation:invite-lead 2.8s ease-in-out infinite;
-    }
-    @keyframes invite{
-      0%,100%{box-shadow:0 4px 14px rgba(0,0,0,.18)}
-      50%{box-shadow:0 4px 22px rgba(0,0,0,.28),0 0 0 8px color-mix(in srgb,var(--tc) 14%,transparent)}
-    }
-    @keyframes invite-lead{
-      0%,100%{box-shadow:0 4px 14px rgba(0,0,0,.18);transform:scale(1)}
-      50%{box-shadow:0 4px 24px rgba(0,0,0,.30),0 0 0 10px color-mix(in srgb,var(--tc) 18%,transparent);transform:scale(1.05)}
-    }
-
-    /* progress bar */
-    .prog-wrap{height:6px;background:var(--bg);border-radius:100px;overflow:hidden;margin-bottom:7px}
-    .prog{height:100%;border-radius:100px;background:var(--tc);opacity:.6;transition:width 1s linear}
-    .card.running .prog,.card.resting .prog{opacity:1}
-    .card.resting .prog{background:var(--tc)}
-
-    .c-sub{font-size:10px;font-weight:600;color:var(--dim);letter-spacing:.01em;transition:opacity .3s}
-    .card.running .c-sub,.card.resting .c-sub{opacity:0.35}
-
-    /* ── DONE CARD: collapsed with strikethrough ── */
-    .card.done-all{opacity:1;border-color:var(--brd);border-style:solid}
-    .card.done-all .c-bar{opacity:.25}
-    .card.done-all .c-body{padding:11px 14px}
-    .done-row{display:flex;align-items:center;gap:10px}
-    .done-name{
-      font-family:var(--fd);font-size:17px;font-weight:800;
-      letter-spacing:-.025em;color:var(--dim);
-      text-decoration:line-through;
-      text-decoration-color:var(--tc);
-      text-decoration-thickness:2.5px;
-      flex:1;
-    }
-    .done-count{
-      font-size:11px;font-weight:700;color:var(--dimmer);
-      font-family:var(--fs);letter-spacing:.02em;
-    }
-    .done-trophy{font-size:20px;line-height:1;flex-shrink:0}
-
-    /* ── PIPS + TIMER OVERLAY ── */
-    /* Wrap pips in a relative container so timer can float over */
-    .pips-wrap{position:relative;margin-bottom:0}
-    .pip-timer-overlay{
-      position:absolute;
-      left:0;bottom:0;
-      /* sits on top of pip grid */
-      background:color-mix(in srgb,var(--card) 88%,transparent);
-      backdrop-filter:blur(4px);
-      -webkit-backdrop-filter:blur(4px);
-      border-radius:8px;
-      padding:4px 10px 5px;
-      line-height:1;
-      pointer-events:none;
-    }
-    .pto-cur{
-      font-size:26px;font-weight:800;letter-spacing:-.04em;
-      font-variant-numeric:tabular-nums;
-      color:var(--mid);transition:color .25s;display:block;
-    }
-    .card.running  .pto-cur{color:var(--tc)}
-    .card.resting  .pto-cur{color:var(--tc)}
-    .card.warn     .pto-cur{color:var(--text)!important}
-    .card.danger   .pto-cur{color:var(--text)!important}
-    .card.critical .pto-cur{color:var(--text)!important;animation:danger-pulse .45s ease-in-out infinite}
-    .pto-tot{
-      font-size:11px;font-weight:700;letter-spacing:.01em;
-      font-variant-numeric:tabular-nums;
-      color:var(--dim);display:block;margin-top:1px;
-    }
-
-    /* ── TIMER ROW ─────────────────────── */
-    /* Flat single-row: [BIG TIMER]...[total label / total val][play-btn] */
-    .c-times{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      margin-top:4px;
-      margin-bottom:8px;
-    }
-    .c-time-cur{
-      font-size:38px;font-weight:800;letter-spacing:-.04em;line-height:1;
-      font-variant-numeric:tabular-nums;color:var(--mid);
-      transition:color .25s;flex-shrink:0;
-    }
-    /* shrink timer when showing H:MM:SS (longer string) */
-    .c-time-cur.has-hours{font-size:30px;letter-spacing:-.03em}
-    .card.running  .c-time-cur{color:var(--tc)}
-    .card.resting  .c-time-cur{color:var(--tc)}
-    .card.done-all .c-time-cur{color:var(--dimmer)}
-    .card.warn     .c-time-cur{color:var(--text)!important}
-    .card.danger   .c-time-cur{color:var(--text)!important}
-    /* urgency pulse on danger */
-    @keyframes danger-pulse{0%,100%{opacity:1}50%{opacity:.55}}
-    @keyframes tick-pulse-a{0%{transform:scale(1)}30%{transform:scale(1.04)}100%{transform:scale(1)}}
-    @keyframes tick-pulse-b{0%{transform:scale(1)}30%{transform:scale(1.04)}100%{transform:scale(1)}}
-    .tick-pulse-a{animation:tick-pulse-a .18s ease}
-    .tick-pulse-b{animation:tick-pulse-b .18s ease}
-    .card.danger .c-time-cur{animation:danger-pulse .7s ease-in-out infinite}
-    .c-time-divider{
-      font-size:13px;font-weight:700;color:var(--dimmer);flex-shrink:0;
-    }
-    .c-time-totblock{
-      display:flex;flex-direction:column;gap:1px;flex-shrink:0;
-    }
-    .c-time-tot-label{
-      font-size:8px;font-weight:800;letter-spacing:.1em;
-      text-transform:uppercase;color:var(--dimmer);line-height:1;
-    }
-    .c-time-tot{
-      font-size:15px;font-weight:800;letter-spacing:-.02em;
-      font-variant-numeric:tabular-nums;color:var(--dim);line-height:1;
-    }
-    .c-times-spacer{flex:1}
-
-    /* card flash animations */
-    @keyframes blockPop{
-      0%{transform:translateY(-2px) scale(1)}
-      20%{transform:translateY(-10px) scale(1.04)}
-      50%{transform:translateY(-6px) scale(1.02)}
-      75%{transform:translateY(-8px) scale(1.03)}
-      100%{transform:translateY(-2px) scale(1)}
-    }
-    .card.running.block-flash{animation:blockPop .55s cubic-bezier(.34,1.56,.64,1)}
-
-    /* urgency vignette — red edge glow growing as time runs out */
-    .card.danger::after{
-      content:'';
-      position:absolute;inset:0;pointer-events:none;
-      box-shadow:inset 0 0 24px rgba(192,69,58,.22);
-      border-radius:16px;
-      animation:vignette-pulse .6s ease-in-out infinite;
-    }
-    @keyframes vignette-pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    .db-tick{font-size:8px;font-weight:700;color:var(--dimmer);letter-spacing:.02em}
 
     /* screen flash overlay for sub-block done */
     @keyframes screenFlash{
@@ -465,13 +126,6 @@
       animation:screenFlash .42s ease forwards;
       mix-blend-mode:multiply;
     }
-
-    @keyframes allDoneFlash{
-      0%{transform:translateY(-2px);background:var(--glass)}
-      25%{transform:translateY(-6px) scale(1.02);background:rgba(232,250,242,0.8);border-color:var(--tc)}
-      100%{transform:translateY(0);background:var(--glass)}
-    }
-    .card.all-done-flash{animation:allDoneFlash .7s ease forwards;pointer-events:none}
 
     /* all-done day overlay */
     @keyframes dayDone{
@@ -492,30 +146,6 @@
       animation:dayDone 3.8s ease forwards;
     }
     .day-done-sub{font-size:22px;opacity:.65;font-weight:700;display:block;margin-top:4px}
-
-    /* custom scrollbar — visible but tasteful on desktop */
-    .scroll::-webkit-scrollbar{width:4px}
-    .scroll::-webkit-scrollbar-track{background:transparent}
-    .scroll::-webkit-scrollbar-thumb{background:var(--brd);border-radius:100px}
-    .scroll::-webkit-scrollbar-thumb:hover{background:var(--dimmer)}
-
-    .empty{text-align:center;padding:60px 0;font-size:13px;font-weight:600;color:var(--dim);line-height:2.2;white-space:pre-line}
-
-    /* ── DRAG TO REORDER ───────────────── */
-    .card.dragging{
-      opacity:.5;transform:scale(.97);
-      box-shadow:none!important;
-      border-style:dashed;
-      transition:none;
-      animation:none!important;
-    }
-    .card.drag-over{
-      transform:translateY(-4px);
-      border-color:var(--ink)!important;
-      box-shadow:0 8px 28px rgba(0,0,0,.14)!important;
-    }
-    .scroll.drag-active{cursor:grabbing}
-
     /* ── FAB ───────────────────────────── */
     .fab{
       position:fixed;bottom:20px;right:16px;width:58px;height:58px;
@@ -553,6 +183,10 @@
     .tog.on::after{transform:translateX(20px)}
     .cr{display:flex;gap:8px;flex-wrap:wrap}
     .sw{width:32px;height:32px;border-radius:50%;border:2.5px solid transparent;cursor:pointer;transition:transform .14s,border-color .14s}
+    .day-picker{display:flex;gap:6px;width:100%}
+    .day-pill{flex:1;min-width:0;height:38px;border-radius:10px;border:2px solid var(--brd);background:transparent;color:var(--dim);font-size:11px;font-weight:800;font-family:var(--fs);cursor:pointer;transition:all .14s;display:flex;align-items:center;justify-content:center;padding:0}
+    .day-pill:hover{border-color:var(--mid);color:var(--mid)}
+    .day-pill.on{background:var(--ink);color:#fff;border-color:var(--ink)}
     .sw.on{border-color:var(--ink);transform:scale(1.2)}
     .sh-btns{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap}
     .bp{flex:1;background:var(--ink);color:#fff;border:none;padding:14px;border-radius:12px;font-size:14px;font-family:var(--fs);font-weight:800;cursor:pointer;transition:opacity .12s}
@@ -579,11 +213,6 @@
       animation:cardIn .5s ease both;
     }
 
-    #begin-streak{
-      font-family:var(--fd);font-size:22px;font-weight:800;
-      letter-spacing:-.02em;color:var(--ink);
-      text-align:center;min-height:30px;
-    }
     .begin-sub{
       font-size:15px;font-weight:600;color:var(--dim);
       text-align:center;line-height:1.6;max-width:260px;
@@ -700,64 +329,6 @@
     #bg-canvas.active{opacity:1}
     /* everything else sits above z-index:-1 naturally */
 
-    /* ── AQUARIUM MODE ────────────────────── */
-    .aquarium .scroll,.aquarium .fab,.aquarium .cont-row,.aquarium .daybar{display:none!important}
-    .aquarium .hdr{justify-content:center}
-    .aquarium .hdr-left,.aquarium .hdr-acts{display:none}
-    .aquarium .aq-bar{display:flex!important}
-    .aq-bar{
-      display:none;align-items:center;gap:12px;
-      padding:6px 16px;flex-shrink:0;width:100%;max-width:680px;
-    }
-    .aq-info{
-      flex:1;display:flex;align-items:center;gap:10px;
-    }
-    .aq-name{
-      font-family:var(--fd);font-size:15px;font-weight:800;
-      letter-spacing:-.02em;color:var(--ink);opacity:.7;
-    }
-    .aq-time{
-      font-size:22px;font-weight:800;letter-spacing:-.03em;
-      font-variant-numeric:tabular-nums;color:var(--ink);opacity:.6;
-    }
-    .aq-prog{
-      flex:1;height:4px;background:var(--brd);border-radius:100px;overflow:hidden;
-    }
-    .aq-prog-fill{height:100%;border-radius:100px;transition:width 1s linear}
-    .aq-exit{
-      background:none;border:1.5px solid var(--brd);color:var(--dim);
-      font-size:10px;font-weight:800;font-family:var(--fs);
-      letter-spacing:.06em;text-transform:uppercase;
-      padding:5px 12px;border-radius:100px;cursor:pointer;
-      transition:all .14s;flex-shrink:0;
-    }
-    .aq-exit:hover{background:var(--brd);color:var(--ink)}
-    .aq-exit:active{transform:scale(.93)}
-
-    /* ── CONTINUOUS TOGGLE ─────────────────── */
-    .cont-row{
-      display:flex;align-items:center;justify-content:space-between;
-      padding:8px 14px 0;
-      flex-shrink:0;
-    }
-    .cont-label{
-      font-size:11px;font-weight:700;color:var(--dim);
-      display:flex;align-items:center;gap:6px;letter-spacing:.02em;
-    }
-    .cont-label .cont-icon{font-size:14px}
-    .cont-tog{
-      width:40px;height:22px;border-radius:100px;
-      background:var(--brd);border:none;cursor:pointer;
-      position:relative;transition:background .2s;flex-shrink:0;
-    }
-    .cont-tog.on{background:#2e9e6a}
-    .cont-tog::after{
-      content:'';position:absolute;top:2px;left:2px;
-      width:18px;height:18px;border-radius:50%;background:#fff;
-      transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);
-    }
-    .cont-tog.on::after{transform:translateX(18px)}
-
     /* ── FINISH DAY SHEET ─────────────────── */
     .fin-grid{
       display:grid;
@@ -852,57 +423,26 @@
 <div class="begin-screen" id="begin-screen" style="display:none">
   <canvas id="begin-water" style="position:absolute;bottom:0;left:0;width:100%;height:45%;pointer-events:none;opacity:0.48"></canvas>
   <div class="begin-logo">boil.</div>
-  <div id="begin-streak"></div>
-  <div class="begin-sub" id="begin-sub">Pick a task, set a timer.<br>Water rises while you work. When it boils, rest.</div>
+  <div class="begin-sub" id="begin-sub">Pick a task, set a timer.<br>Water rises while you work.</div>
   <div class="begin-hours" id="begin-bed-row">
     <span class="begin-h-label">bedtime</span>
     <input type="time" class="begin-h-input" id="begin-bed" style="width:160px;font-size:18px">
   </div>
   <div id="sister-begin" style="font-style:italic;font-size:14px;font-weight:600;color:var(--mid);margin-bottom:16px"></div>
   <button class="begin-btn" onclick="beginDay()">begin</button>
-  <button class="quick-boil-btn" onclick="quickBoil()">just one block</button>
-  <button class="skip-tut" onclick="skipTutorial()" id="skip-tut" style="display:none">skip tutorial</button>
 </div>
 
 <div class="hdr">
-  <div class="hdr-left">
-    <div class="logo" id="logo-tap">boil<div class="logo-dot" id="logo-dot"></div></div>
-    <button class="profile-pill" onclick="openProfile()" id="profile-pill" title="View profile">
-      <div class="profile-avatar" id="profile-avatar">🌡️</div>
-      <span class="profile-heat" id="profile-heat">Lv 1</span>
-    </button>
-    <div class="streak-badge" id="hdr-streak"></div>
-    <span id="bs-indicator" style="font-size:12px;color:var(--dim);display:none">⚡</span>
-  </div>
-  <div class="hdr-acts">
-    <button class="coin-pill" onclick="openShop()" title="Gifts" id="hdr-coins">
-      <span class="coin-pill-icon">🪙</span>
-      <span class="coin-pill-val" id="hdr-coins-val">0</span>
-    </button>
-    <button class="pill" id="aq-toggle" style="display:none" onclick="toggleAquarium()" title="Aquarium mode">🐠</button>
-    <button class="pill pill-finish" onclick="openFinishDay()">day</button>
-  </div>
+  <div class="logo" id="logo-tap">boil<div class="logo-dot" id="logo-dot"></div></div>
+  <div class="daybar" id="daybar" onclick="openFinishDay()" title="Today's blocks"></div>
+  <button class="profile-pill" onclick="openProfile()" id="profile-pill" title="Settings">⚙</button>
+  <span id="bs-indicator" style="font-size:12px;color:var(--dim);display:none">⚡</span>
 </div>
 
 <canvas id="bg-canvas"></canvas>
 <div class="app-wrap">
-<div class="aq-bar" id="aq-bar">
-  <div class="aq-info">
-    <span class="aq-name" id="aq-name"></span>
-    <span class="aq-time" id="aq-time"></span>
-  </div>
-  <div class="aq-prog"><div class="aq-prog-fill" id="aq-prog" style="width:0%"></div></div>
-  <button class="aq-exit" onclick="toggleAquarium()">exit</button>
-</div>
-<div class="daybar" id="daybar"></div>
-<div class="cont-row">
-  <span class="cont-label"><span class="cont-icon">♾️</span>Always auto-continue</span>
-  <button class="cont-tog" id="cont-tog" onclick="toggleContinuous()"></button>
-</div>
-<div class="bedtime-rest-msg" id="bedtime-rest-msg">The water rests. Tomorrow is its own day.</div>
-<div class="scroll" id="cards"></div>
+<div id="empty-hint" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;font-family:var(--fs);font-size:14px;font-weight:600;color:var(--dim);max-width:240px;line-height:1.6;display:none;pointer-events:none;z-index:3">nothing to boil yet.<br>tap <b style="font-weight:800;color:var(--ink)">+</b> to add a block</div>
 <button class="fab" onclick="openAdd()" title="Add block">+</button>
-
 <div id="steam-banner" style="display:none"></div>
 </div><!-- /app-wrap -->
 <div class="ov" id="ov" onclick="ovClick(event)">
@@ -964,8 +504,29 @@ function DAY_S(){
   const secsToMid=Math.floor((midnight-start)/1000);
   return Math.min(raw,secsToMid);
 }
-function dayEl(){if(!S?.startTs)return 0;return Math.min(DAY_S(),Math.max(0,Math.floor((Date.now()-S.startTs)/1000)));}
-function dayRem(){return Math.max(0,DAY_S()-dayEl());}
+function dayEl(){if(!S?.startTs)return 0;return Math.max(0,Math.floor((Date.now()-S.startTs)/1000));}
+// Seconds from now to the next bedtime occurrence (always positive while bedtime is set).
+// "Past bedtime" is determined by isPastBedtime(), not by dayRem<=0.
+function dayRem(){
+  const now=new Date();
+  if(S&&S.bedtime!=null){
+    const bed=new Date(now);
+    bed.setHours(Math.floor(S.bedtime),Math.round((S.bedtime%1)*60),0,0);
+    if(bed<=now)bed.setDate(bed.getDate()+1);
+    return Math.floor((bed-now)/1000);
+  }
+  const mid=new Date(now);mid.setHours(24,0,0,0);
+  return Math.floor((mid-now)/1000);
+}
+// True iff current clock falls inside the user's sleep window (bedtime → wake-up, with wrap).
+function isPastBedtime(){
+  if(!S||S.bedtime==null||!S.startTs)return false;
+  const h=new Date().getHours()+new Date().getMinutes()/60;
+  const bed=S.bedtime;
+  const rise=S.wakeUp!=null?S.wakeUp:((S.bedtime+8)%24);
+  // Sleep window: [bed, rise) with wrap if bed > rise
+  return bed<=rise ? (h>=bed&&h<rise) : (h>=bed||h<rise);
+}
 function setPhaseStart(t){
   if(!t.running||t.done)return;
   const pd=t.isRest?t.restDur:t.workDur;
@@ -973,19 +534,24 @@ function setPhaseStart(t){
 }
 // ── NIGHT SKY TRANSITION ──────────────────────────────────────────
 function _wallClockNight(){
-  // Real-world night based on clock + bedtime
+  // All math in "hours since wake-up" so wrap-around schedules
+  // (night-shift: wake=19, bed=11) work the same as conventional ones.
   const h=new Date().getHours()+new Date().getMinutes()/60;
   const bed=S&&S.bedtime!=null?S.bedtime:22;
-  const rise=6,sunsetStart=bed-2;
-  if(h>=bed||h<rise)return 1;
-  if(h>=sunsetStart)return(h-sunsetStart)/(bed-sunsetStart);
-  if(h<rise+1.5)return 1-(h-rise)/1.5;
+  const rise=S&&S.wakeUp!=null?S.wakeUp:(S&&S.bedtime!=null?((S.bedtime+8)%24):6);
+  const dayLen=(((bed-rise)%24)+24)%24||24; // hours of waking day, allowing wrap
+  const sunriseDur=1.5;
+  const sunsetDur=2;
+  const sinceRise=(((h-rise)%24)+24)%24; // hours since wake-up, 0→24
+  if(sinceRise>=dayLen)return 1; // sleep window
+  if(sinceRise<sunriseDur)return Math.max(0,1-sinceRise/sunriseDur);
+  if(sinceRise>=dayLen-sunsetDur)return Math.min(1,(sinceRise-(dayLen-sunsetDur))/sunsetDur);
   return 0;
 }
 function nightT(){
   return _wallClockNight();
 }
-let _lastNightT=-1,_stars=[],_bedtimeNudged=false,_windDownNudged=false,_bedtimeReached=false,_bedtimeReachedAt=0,_pastBedtimeNudged=false,_noStartNudged=false,_graceEnded=false;
+let _lastNightT=-1,_stars=[],_bedtimeReached=false;
 let _togHidden=false;
 function applyNightTheme(){
   const t=nightT();
@@ -997,51 +563,67 @@ function applyNightTheme(){
     const n=[parseInt(night.slice(1,3),16),parseInt(night.slice(3,5),16),parseInt(night.slice(5,7),16)];
     return'#'+[0,1,2].map(i=>lr(d[i],n[i],t).toString(16).padStart(2,'0')).join('');
   };
-  // 3-stop interpolation: day → sunset → night (avoids grey dead zone)
-  const lh3=(day,sun,night,t,p)=>t<=p?lh(day,sun,t/p):lh(sun,night,(t-p)/(1-p));
-  const lr3=(a,m,b,t,p)=>t<=p?lr(a,m,t/p):lr(m,b,(t-p)/(1-p));
-  const bgT=Math.pow(t,1.5),txtT=1/(1+Math.exp(-20*(t-0.5))); // steep sigmoid: text snaps dark→light through the mid-luminance dead zone
-  const P=0.2; // sunset pivot — brief warm flash, then long cooling to night
-  // Morning: skip sunset brown, interpolate night↔day directly (cool dawn)
-  const _h=new Date().getHours()+new Date().getMinutes()/60;
-  const _am=_h>=6&&_h<7.5;
-  const c3=(day,sun,night,t,p)=>_am?lh(day,night,t):lh3(day,sun,night,t,p);
-  const n3=(a,m,b,t,p)=>_am?lr(a,b,t):lr3(a,m,b,t,p);
+  const bgT=Math.pow(t,1.4),txtT=1/(1+Math.exp(-20*(t-0.55)));
   const root=document.documentElement.style;
-  // Background properties: cream → warm dusk → dark blue
-  root.setProperty('--bg',    c3('#f5f0e8','#b89070','#0e1420',bgT,P));
-  root.setProperty('--card',  c3('#faf8f4','#c09575','#161c2c',bgT,P));
-  root.setProperty('--brd',   c3('#e2dbd0','#a07858','#252a38',bgT,P));
-  root.setProperty('--dimmer',c3('#d4cdc4','#8a6848','#2a2e3a',bgT,P));
-  // Text properties: dark brown → warm dark → light cream
-  root.setProperty('--text',c3('#1c1917','#2a1810','#e2ddd4',txtT,P));
-  root.setProperty('--mid', c3('#6b6258','#7a5a40','#a5a0a8',txtT,P));
-  root.setProperty('--dim', c3('#8a8078','#7a6050','#908c94',txtT,P));
-  root.setProperty('--ink', c3('#1c1917','#2a1810','#e2ddd4',txtT,P));
-  // Glass: cream-tinted → dusk-tinted → dark blue-tinted
-  const gr=n3(250,160,18,bgT,P),gg=n3(248,120,22,bgT,P),gb=n3(244,90,34,bgT,P);
+  // Day → night, NO sunset color in the bg itself. The painterly sky gradient overlay
+  // (set on body.backgroundImage below) does the warmth. The bg slides through neutral
+  // mid-grey, which the gradient covers entirely during the warm window.
+  // Warm-tinted day, cool-tinted night — no neutral greys anywhere
+  root.setProperty('--bg',    lh('#f5f0e8','#0e1420',bgT));
+  root.setProperty('--card',  lh('#faf3ea','#1a2238',bgT));
+  root.setProperty('--brd',   lh('#e8d8c4','#2e3450',bgT));
+  root.setProperty('--dimmer',lh('#d8c4b0','#3a3a5a',bgT));
+  root.setProperty('--text',  lh('#1c1612','#e8e0d4',txtT));
+  root.setProperty('--mid',   lh('#7a5a48','#b0a8c0',txtT));
+  root.setProperty('--dim',   lh('#9c7a60','#a09cbc',txtT));
+  root.setProperty('--ink',   lh('#1c1612','#e8e0d4',txtT));
+  const gr=lr(250,18,bgT),gg=lr(248,22,bgT),gb=lr(244,34,bgT);
   root.setProperty('--glass',`rgba(${gr},${gg},${gb},0.45)`);
   root.setProperty('--glass-hi',`rgba(${gr},${gg},${gb},0.32)`);
-  root.setProperty('--glass-border',
-    `rgba(${n3(226,140,37,bgT,P)},${n3(219,100,42,bgT,P)},${n3(208,70,56,bgT,P)},0.6)`);
+  root.setProperty('--glass-border',`rgba(${lr(226,37,bgT)},${lr(219,42,bgT)},${lr(208,56,bgT)},0.6)`);
+
+  // ── Painterly sky: daytime → sunset → night ────────────────────────
+  // 5-stop vertical gradient that tweens across two axes:
+  //   stage      — color path: day (sky blue) → sunset (gold/violet)
+  //   intensity  — opacity: full all day & sunset, drops to 0 at deep night
+  // Past t≈0.96 the gradient is gone; only the dark --bg shows so the
+  // starfield reads against pure navy (the night look you wanted untouched).
+  // stage ramps 0→1 across t ∈ [0.10, 0.50] — clean day until late afternoon,
+  // then evolves through sunset by mid-window. Past 0.5 it stays at sunset
+  // colors while intensity fades to night.
+  const stage=Math.max(0,Math.min(1,(t-0.10)/0.40));
+  // Smooth fade-out near full night
+  const fadeOut=t<0.85?1:Math.max(0,1-(t-0.85)/0.13);
+  const intensity=fadeOut;
+  if(intensity>0.02){
+    // 5 stops, each a [day RGB, sunset RGB] pair, lerped by `stage`
+    const lerp3=(d,n,s)=>[Math.round(d[0]+(n[0]-d[0])*s),Math.round(d[1]+(n[1]-d[1])*s),Math.round(d[2]+(n[2]-d[2])*s)];
+    // Horizon (bottom): warm pale → golden coral
+    const h=lerp3([244,236,210],[255,180,105],stage);
+    // Lower-mid: pale sky → peach
+    const l=lerp3([212,232,242],[240,130,110],stage);
+    // Mid: light sky blue → pink-magenta
+    const m=lerp3([166,210,236],[200, 95,145],stage);
+    // Upper-mid: medium blue → violet
+    const u=lerp3([122,172,210],[105, 65,150],stage);
+    // Zenith (top): deeper blue → indigo
+    const z=lerp3([ 82,135,180],[ 38, 28,100],stage);
+    const a=k=>(intensity*k).toFixed(3);
+    document.body.style.backgroundImage=`linear-gradient(to top,
+      rgba(${h[0]},${h[1]},${h[2]},${a(0.78)}) 0%,
+      rgba(${l[0]},${l[1]},${l[2]},${a(0.78)}) 22%,
+      rgba(${m[0]},${m[1]},${m[2]},${a(0.78)}) 48%,
+      rgba(${u[0]},${u[1]},${u[2]},${a(0.74)}) 75%,
+      rgba(${z[0]},${z[1]},${z[2]},${a(0.72)}) 100%
+    )`;
+  } else {
+    document.body.style.backgroundImage='none';
+  }
+
   const meta=document.querySelector('meta[name="theme-color"]');
-  if(meta)meta.content=c3('#f5f0e8','#b89070','#0e1420',bgT,P);
-  // Bedtime dimming — also checked here so it activates even without ticker
-  if(S&&S.bedtime!=null&&S.startTs&&dayRem()<=0){
-    const aw=document.querySelector('.app-wrap');
-    aw?.classList.add('bedtime-active');
-    if(!_bedtimeReached){
-      _bedtimeReached=true;
-      // Calculate actual bedtime timestamp (not "now") for accurate grace period
-      const _bt=new Date(S.startTs);_bt.setHours(Math.floor(S.bedtime),Math.round((S.bedtime%1)*60),0,0);
-      if(_bt.getTime()<=S.startTs)_bt.setDate(_bt.getDate()+1);
-      _bedtimeReachedAt=_bt.getTime();
-    }
-    // Night rest: 30min+ past bedtime
-    if(_bedtimeReachedAt&&Date.now()-_bedtimeReachedAt>=1800000&&!_graceEnded){
-      _graceEnded=true;aw?.classList.add('bedtime-night');
-    }
-    if(_graceEnded)aw?.classList.add('bedtime-night');
+  if(meta)meta.content=lh('#f5f0e8','#0e1420',bgT);
+  if(S&&isPastBedtime()){
+    document.querySelector('.app-wrap')?.classList.add('bedtime-active');
   }
 }
 function resetNightTheme(){
@@ -1249,9 +831,7 @@ function boot(){
   if(!S.shopItems.disabledFloaters)S.shopItems.disabledFloaters=[];
   if(S.aquariumOn===undefined)S.aquariumOn=false;
   if(S.mercyCoins===undefined)S.mercyCoins=0;
-  if(S.daysCompleted===undefined)S.daysCompleted=99; // existing users skip progressive disclosure
-  // Unstick users who have real usage but got trapped behind progressive disclosure gates
-  if(S.daysCompleted<5&&(S.lifetimeCoins>0||S.fullBoils>0||S.streak>0))S.daysCompleted=99;
+  if(S.daysCompleted===undefined)S.daysCompleted=99; // legacy field, retained for migration
   if(S._lastBeganDate===undefined)S._lastBeganDate=null;
   if(S.seen===undefined)S.seen={};
   if(S.isTrial===undefined)S.isTrial=false;
@@ -1269,10 +849,9 @@ function boot(){
   S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;if(t.desc===undefined)t.desc='';if(t.continuous===undefined)t.continuous=!!S.continuous;if(t.skipped===undefined)t.skipped=false;});
   const now=Date.now();
   if(shouldRollover()){
-    ecoDecayEnergy(); // ecosystem entropy — energy fades without work
     creditPartialAtMidnight();S.tasks.forEach(resetTask);S.lastActiveId=null;
-    S.date=today();S.startTs=null;S.isTrial=false;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;_graceEnded=false;_togHidden=false;
-    document.querySelector('.app-wrap')?.classList.remove('bedtime-active','bedtime-night');
+    S.date=today();S.startTs=null;S.isTrial=false;_bedtimeReached=false;_togHidden=false;
+    document.querySelector('.app-wrap')?.classList.remove('bedtime-active');
     delete S._daySnap; // day ended naturally — rewards earned
     resetNightTheme();bgBubbles.length=0;
   } else {
@@ -1303,8 +882,6 @@ function creditPartialAtMidnight(){
     // Credit work block past halfway (don't silently lose real work)
     if(!t.isRest&&t.rem<t.workDur/2){
       t.completed++;
-      S.lifetimeCoins=(S.lifetimeCoins||0)+1;
-      S.heatCoins=(S.heatCoins||0)+1;
       if(t.completed>=t.total)t.done=true;
     }
     t.running=false;t.savedAt=null;t._phaseStart=null;
@@ -1312,12 +889,11 @@ function creditPartialAtMidnight(){
 }
 
 function resolvePhaseEnd(t,animate){
-  const _pastBed=S.bedtime!=null&&dayRem()<=0;
+  const _pastBed=isPastBedtime();
   const cont=(S.continuous||t.continuous)&&!_pastBed;
   if(t.isRest){
     // Rest finished → next work block
     t.isRest=false;t.completed++;
-    S.lifetimeCoins=(S.lifetimeCoins||0)+1;S.heatCoins=(S.heatCoins||0)+1;
     if(t.completed>=t.total){t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;return true;}
     t.rem=t.workDur;t._halfShown=false;t._almostShown=false;
     if(cont){const _n=animate?Date.now():null;t.savedAt=_n;t._phaseStart=_n;}
@@ -1326,13 +902,10 @@ function resolvePhaseEnd(t,animate){
     if(t.restDur>0){
       // Work finished → rest phase (always auto-continue into rest)
       t.isRest=true;t.rem=t.restDur;
-      ecoAddEnergy(2); // work block feeds the ecosystem
       if(animate){t.savedAt=Date.now();t._phaseStart=Date.now();}
     } else {
       // Work finished, no rest
       t.completed++;
-      S.lifetimeCoins=(S.lifetimeCoins||0)+1;S.heatCoins=(S.heatCoins||0)+1;
-      ecoAddEnergy(2); // work block feeds the ecosystem
       if(t.completed>=t.total){t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;return true;}
       t.rem=t.workDur;t._halfShown=false;t._almostShown=false;
       if(cont){const _n=animate?Date.now():null;t.savedAt=_n;t._phaseStart=_n;}
@@ -1349,21 +922,7 @@ function skipRest(id){
   const allDone=resolvePhaseEnd(t,true);
   save();
   if(allDone){onTaskDone(id);}
-  renderCard(t);updateHeader();
-}
-// Swipe-to-skip: same effect as the edit dialog's "skip today" toggle.
-// Earned coins on completed blocks stay (they were credited at completion).
-// Pause if running so background ticking doesn't keep advancing a hidden task.
-function toggleSkipTask(id){
-  const t=S.tasks.find(x=>x.id===id);
-  if(!t||t.done)return;
-  const wasSkipped=!!t.skipped;
-  t.skipped=!wasSkipped;
-  if(t.skipped&&t.running){t.running=false;t.savedAt=null;t._phaseStart=null;}
-  haptic([20]);
-  save();
-  render();
-  showToast(wasSkipped?`${t.name} — back on today's list`:`${t.name} — skipped today · swipe to undo`);
+  activeTaskBlocks.length=0;updateHeader();
 }
 function reconcileTask(t,now){
   if(!t.running||t.done||!t.savedAt)return;
@@ -1465,15 +1024,8 @@ document.addEventListener('visibilitychange',()=>{
     _detachSensors();
     if(_ambOsc){try{_ambOsc.stop();}catch(e){}_ambOsc=null;_ambGain=null;}
     _stopWaterAudio();
-    // "Haven't started" nudge: 30min after day-start with no blocks started (intention-action gap)
-    if(S.startTs&&!_noStartNudged&&!S.tasks.some(t=>t.completed>0||t.running)){
-      _noStartNudged=true;
-      const _nsBody=sisterSays('noStart');
-      try{if(_swReg&&_swReg.active)_swReg.active.postMessage({type:'schedule',items:[{ms:30*60*1000,title:'Boil',body:_nsBody,tag:'boil-nudge-start'}]});}catch(e){}
-      _pageBgNotif(30*60*1000,'Boil',_nsBody,'boil-nudge-start');
-    }
     // Idle re-engagement: 2hr with incomplete tasks, during day window, not past bedtime
-    if(S.startTs&&S.tasks.some(t=>!t.done)&&!(S.bedtime!=null&&dayRem()<=0)){
+    if(S.startTs&&S.tasks.some(t=>!t.done)&&!(isPastBedtime())){
       const _idBody=sisterSays('idle');
       try{if(_swReg&&_swReg.active)_swReg.active.postMessage({type:'schedule',items:[{ms:2*60*60*1000,title:'Boil',body:_idBody,tag:'boil-nudge-idle'}]});}catch(e){}
       _pageBgNotif(2*60*60*1000,'Boil',_idBody,'boil-nudge-idle');
@@ -1500,8 +1052,8 @@ document.addEventListener('visibilitychange',()=>{
   if(shouldRollover()){
     console.log('[vis] day rollover triggered');
     creditPartialAtMidnight();
-    stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;S.isTrial=false;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;_graceEnded=false;_togHidden=false;
-    document.querySelector('.app-wrap')?.classList.remove('bedtime-active','bedtime-night');
+    stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;S.isTrial=false;_bedtimeReached=false;_togHidden=false;
+    document.querySelector('.app-wrap')?.classList.remove('bedtime-active');
     delete S._daySnap; // day ended naturally — rewards earned
     resetNightTheme();clearInterval(ticker);ticker=null;bgBubbles.length=0;
     save();render();ensureDaybar();
@@ -1582,8 +1134,8 @@ function ensureTicker(){
     // Day rollover guard (wake-up time, or midnight if no bedtime)
     if(shouldRollover()){
       creditPartialAtMidnight();
-      stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;S.isTrial=false;_bedtimeNudged=false;_windDownNudged=false;_bedtimeReached=false;_pastBedtimeNudged=false;_noStartNudged=false;_graceEnded=false;_togHidden=false;
-      document.querySelector('.app-wrap')?.classList.remove('bedtime-active','bedtime-night');
+      stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;S.isTrial=false;_bedtimeReached=false;_togHidden=false;
+      document.querySelector('.app-wrap')?.classList.remove('bedtime-active');
       delete S._daySnap;resetNightTheme(); // day ended naturally — rewards earned
       clearInterval(ticker);ticker=null;bgBubbles.length=0;
       save();render();return;
@@ -1593,17 +1145,18 @@ function ensureTicker(){
       if(!t.running||t.done)return;
       any=true;
       // Wall-clock accurate rem (eliminates setInterval drift)
+      const _prevRem=t.rem;
       if(t._phaseStart){
         const pd=t.isRest?t.restDur:t.workDur;
         const ws=Math.floor((Date.now()-t._phaseStart)/1000);
         t.rem=Math.max(0,pd-ws*godTick());
       }else{t.rem=Math.max(0,t.rem-godTick());}
+      // Stamp the moment of a tick so the bubble can pulse (visible heartbeat)
+      if(t.rem!==_prevRem)t._tickT=performance.now();
       // "Just 5 min" countdown — reveal full timer when elapsed
       if(t._quickStart>0){const pd=t.isRest?t.restDur:t.workDur;const _prev=t._quickStart;t._quickStart=Math.max(0,300-(pd-t.rem));if(_prev>0&&t._quickStart===0){try{tone(_jHz(660),.15,.02);}catch(e){}sisterMsg('Five minutes. The hardest part is done.',2500);}}
       // Sister: sparse mid-block encouragement
       if(!t.isRest&&t.running){
-        if(!t._halfShown&&t.rem<=t.workDur/2){t._halfShown=true;if(Math.random()<0.3)sisterMsg(sisterSays('halfway'),2000);}
-        if(!t._almostShown&&t.rem<=t.workDur*0.2){t._almostShown=true;if(Math.random()<0.3)sisterMsg(sisterSays('almostDone'),2000);}
       }
       if(t.rem<=0){
         const allDone=resolvePhaseEnd(t,true);
@@ -1615,23 +1168,10 @@ function ensureTicker(){
       }
     });
     if(any){save();fastUpdateAll();}
-    // Progressive bedtime wind-down (PRODUCT.md: notifications are the lifeline)
+    // Bedtime reached: dim cards + notification (one shot)
     if(S.bedtime!=null){
       const _dr=dayRem();
-      // -30min: sister in-app wind-down (visible only)
-      if(!_windDownNudged&&_dr<=1800&&_dr>0){_windDownNudged=true;if(!document.hidden)sisterMsg(sisterSays('windDown'),3000);}
-      // -15min: notification (hidden) or sister (visible)
-      if(!_bedtimeNudged&&_dr<=900&&_dr>0){_bedtimeNudged=true;if(document.hidden)notify('15 minutes to bedtime',sisterSays('bedtimeNudge'));else sisterMsg(sisterSays('bedtimeNudge'),3000);}
-      // Bedtime reached: dimming + notification/sister (grace period begins)
-      if(!_bedtimeReached&&_dr<=0){_bedtimeReached=true;_bedtimeReachedAt=Date.now();document.querySelector('.app-wrap')?.classList.add('bedtime-active');if(document.hidden)notify('Bedtime',sisterSays('bedtime'));else sisterMsg(sisterSays('bedtime'),4000);renderDaybar();}
-      // +15min past bedtime: gentle sister (visible only)
-      if(_bedtimeReached&&!_pastBedtimeNudged&&_bedtimeReachedAt&&Date.now()-_bedtimeReachedAt>=900000){_pastBedtimeNudged=true;if(!document.hidden)sisterMsg(sisterSays('pastBedtime'),3500);}
-      // +30min past bedtime: night rest — collapse cards, hide start buttons
-      if(_bedtimeReached&&!_graceEnded&&_bedtimeReachedAt&&Date.now()-_bedtimeReachedAt>=1800000){
-        _graceEnded=true;
-        document.querySelector('.app-wrap')?.classList.add('bedtime-night');
-        if(!document.hidden)sisterMsg('Go gently. The door is open tomorrow.',3500);
-      }
+      if(!_bedtimeReached&&_dr<=0){_bedtimeReached=true;document.querySelector('.app-wrap')?.classList.add('bedtime-active');if(document.hidden)notify('Bedtime',sisterSays('bedtime'));renderDaybar();}
     }
     if(!S.tasks.some(t=>t.running)){
       console.warn('[ticker] self-stopping: no running tasks',S.tasks.map(t=>({n:t.name,run:t.running,done:t.done,isRest:t.isRest,rem:t.rem})));
@@ -1749,14 +1289,6 @@ const BOIL_THEMES={
     floaters:[],noodles:false,
     doneCopy:['Boiled through.'],
     dayCopy:null,
-  },
-  noodles:{
-    name:'Noodles',emoji:'🍜',
-    waterTint:{r:15,g:10,b:-8},opacityMul:1.05,
-    foamColor:'rgba(240,230,200,0.35)',
-    floaters:[],noodles:true,
-    doneCopy:['Al dente.','Done. Strain and serve.'],
-    dayCopy:[['Al dente.','Every strand, perfectly timed.'],['Buon appetito.','The pot is empty.']],
   },
 };
 
@@ -1893,147 +1425,27 @@ function drawNoodles(ctx,W,H,fillY,boil,t){
   });
   ctx.restore();
 }
-function getTheme(){
-  const id=S.shopItems&&S.shopItems.boilTheme?S.shopItems.boilTheme:'default';
-  return BOIL_THEMES[id]||BOIL_THEMES['default'];
-}
+function getTheme(){return BOIL_THEMES['default'];}
 
-const SHOP_ITEMS=[
-  {id:'mercy',       name:'Mercy',         emoji:'🕊️', cost:30,  type:'consumable', desc:'Grace for a difficult moment.'},
-  // Floating objects for the water
-  {id:'float_ducky',  name:'Rubber Ducky',  emoji:'🦆', cost:80,  type:'floater', desc:'Bobs on the water'},
-  {id:'float_boat',   name:'Paper Boat',    emoji:'⛵', cost:60,  type:'floater', desc:'Rocks with the waves'},
-  {id:'float_ice',    name:'Ice Cube',      emoji:'🧊', cost:100, type:'floater', desc:'Chills in the heat'},
-  {id:'float_ball',   name:'Beach Ball',    emoji:'🏐', cost:40,  type:'floater', desc:'Tap to keep it in the air'},
-  {id:'float_fish',   name:'Little Fish',   emoji:'🐟', cost:5,   type:'floater', currency:'stars', desc:'Panics at full boil'},
-  {id:'aquarium',     name:'Aquarium Mode', emoji:'🐠', cost:150, type:'unlock',  desc:'Minimize UI, maximize water'},
-  // Food (bought with full boils ♨️)
-  {id:'theme_noodles',   name:'Noodles',   emoji:'🍜', cost:3, type:'boilTheme', currency:'fullBoils', desc:'Noodles soften as they boil'},
-];
-function shopBuy(id){
-  const item=SHOP_ITEMS.find(i=>i.id===id);
-  if(!item)return;
-  const currency=item.currency||'coins';
-  const bal=currency==='stars'?(S.stars||0):currency==='fullBoils'?(S.fullBoils||0):(S.lifetimeCoins||0);
-  if(!GOD_MODE&&bal<item.cost){showToast('Not yet — keep working.','#6b6258');return;}
-  if(!GOD_MODE){if(currency==='stars')S.stars-=item.cost;else if(currency==='fullBoils')S.fullBoils-=item.cost;else S.lifetimeCoins-=item.cost;}
-  if(item.type==='consumable'||item.type==='star_consumable'){
-    if(id==='mercy')S.mercyCoins=(S.mercyCoins||0)+1;
-  } else if(item.type==='avatar'){
-    S.shopItems.avatar=item.emoji;
-  } else if(item.type==='unlock'){
-    S.shopItems[item.id]=true;
-  } else if(item.type==='floater'){
-    if(!S.shopItems.floaters)S.shopItems.floaters=[];
-    if(!S.shopItems.floaters.includes(item.id))S.shopItems.floaters.push(item.id);
-    activeFloaters.length=0; // force respawn with new toy
-  } else if(item.type==='boilTheme'){
-    if(!S.shopItems.ownedBoilThemes)S.shopItems.ownedBoilThemes=[];
-    const themeKey=item.id.replace('theme_','');
-    if(!S.shopItems.ownedBoilThemes.includes(themeKey))S.shopItems.ownedBoilThemes.push(themeKey);
-    S.shopItems.boilTheme=themeKey;
-    activeFloaters.length=0;_noodles.length=0; // force respawn
-  }
-  save();
-  showToast(`${item.emoji} ${item.name} unlocked!`,'#2e9e6a',2500);
-  haptic([10,40,10]);
-  openShop(); // refresh
-}
-function toggleFloater(id){
-  if(!S.shopItems.disabledFloaters)S.shopItems.disabledFloaters=[];
-  const idx=S.shopItems.disabledFloaters.indexOf(id);
-  if(idx>=0)S.shopItems.disabledFloaters.splice(idx,1);
-  else S.shopItems.disabledFloaters.push(id);
-  activeFloaters.length=0;
-  save();openShop();
-}
-function equipBoilTheme(id){
-  S.shopItems.boilTheme=id;
-  activeFloaters.length=0;_noodles.length=0;
-  save();
-  showToast(`${BOIL_THEMES[id]?BOIL_THEMES[id].emoji:'💧'} ${BOIL_THEMES[id]?BOIL_THEMES[id].name:'Water'} equipped`,'#2e9e6a',1500);
-  openShop();
-}
-function ecoPhaseDesc(){
-  const p=ecoPhase();
-  if(p==='mature')return'your water remembers you';
-  if(p==='bloom')return'stirring with life';
-  if(p==='growing')return'something is growing';
-  if(p==='seed')return'beginning to wake';
-  return'still waters';
-}
 function openProfile(){
-  const lvl=getHeatLevel();
-
-  // Badge rows: earned only
-  const earned=BADGE_DEFS.filter(b=>S.badges.includes(b.id));
-  const badgeRow=(b)=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--brd)">
-      <div style="width:36px;height:36px;border-radius:10px;background:color-mix(in srgb,var(--brd) 60%,transparent);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">${b.emoji}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:800;color:var(--ink)">${b.name}</div>
-        <div style="font-size:11px;color:var(--dim)">${b.desc}</div>
-      </div>
-      <div style="font-size:12px;color:var(--mid);font-weight:800">✓</div>
-    </div>`;
-
   openSheet(`
-    <div class="sh-ttl">profile</div>
+    <div class="sh-ttl">settings</div>
 
-    <!-- Heat level card -->
-    <div style="background:var(--bg);border-radius:14px;padding:14px 16px;margin-bottom:10px">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div style="font-size:36px;line-height:1">${lvl[1]}</div>
-        <div>
-          <div style="font-family:var(--fd);font-size:18px;font-weight:800;letter-spacing:-.03em">${lvl[2]}</div>
-          <div style="font-size:11px;font-weight:700;color:var(--dim)">${ecoPhaseDesc()}</div>
-        </div>
-      </div>
-      <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--brd);font-size:11px;line-height:1.55;color:var(--dim)">Your water holds life. It wakes when you work and fades when you don't. A long absence makes the water quieter, not empty. Return always matters.</div>
-    </div>
-
-    <!-- Stats grid -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
-      <div style="background:var(--bg);border-radius:12px;padding:10px 12px;text-align:center">
-        <div style="font-size:20px;font-weight:800;font-family:var(--fd);color:#c8841a">${S.streak||0}</div>
-        <div style="font-size:9px;font-weight:800;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-top:2px">days</div>
-      </div>
-      <div style="background:var(--bg);border-radius:12px;padding:10px 12px;text-align:center">
-        <div style="font-size:20px;font-weight:800;font-family:var(--fd);color:#c8841a">${GOD_MODE?'∞':(S.stars||0)} ⭐</div>
-        <div style="font-size:9px;font-weight:800;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-top:2px">stars</div>
-      </div>
-      <div style="background:var(--bg);border-radius:12px;padding:10px 12px;text-align:center">
-        <div style="font-size:20px;font-weight:800;font-family:var(--fd);color:#c8841a">${GOD_MODE?'∞':(S.fullBoils||0)} ♨️</div>
-        <div style="font-size:9px;font-weight:800;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;margin-top:2px">full boils</div>
-      </div>
-    </div>
-
-    <!-- Moments -->
-    ${earned.length?`<div style="font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin-bottom:8px">moments</div>
-    <div style="margin-bottom:20px">
-      ${earned.map(b=>badgeRow(b)).join('')}
-    </div>`:''}
-
-
-    <!-- Battery saver -->
     <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:2px solid var(--brd);padding:11px 13px;border-radius:12px;margin-bottom:12px">
       <div><div style="font-size:15px;font-weight:600;color:var(--ink)">⚡ Battery saver</div><div style="font-size:11px;color:var(--dim);margin-top:1px">Disables water, blur, sensors</div></div>
       <button class="tog${S.batterySaver?' on':''}" onclick="toggleBatterySaver();closeSheet()"></button>
     </div>
 
-    <!-- Mute all sound -->
     <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:2px solid var(--brd);padding:11px 13px;border-radius:12px;margin-bottom:12px">
       <div><div style="font-size:15px;font-weight:600;color:var(--ink)">🔇 Mute all sound</div><div style="font-size:11px;color:var(--dim);margin-top:1px">Silences everything</div></div>
       <button class="tog${S.muteAll?' on':''}" onclick="toggleMuteAll();closeSheet()"></button>
     </div>
 
-    <!-- Mute background audio -->
     <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:2px solid var(--brd);padding:11px 13px;border-radius:12px;margin-bottom:12px">
       <div><div style="font-size:15px;font-weight:600;color:var(--ink)">🌊 Mute background</div><div style="font-size:11px;color:var(--dim);margin-top:1px">Water and ambient sounds</div></div>
       <button class="tog${S.muteWater?' on':''}" onclick="toggleMuteWater();closeSheet()"></button>
     </div>
 
-    <!-- Bedtime setting -->
     <div style="margin-bottom:12px">
       <div style="font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin-bottom:8px">bedtime</div>
       <div style="display:flex;align-items:center;gap:10px">
@@ -2043,7 +1455,6 @@ function openProfile(){
       <div style="font-size:10px;color:var(--dim);margin-top:4px">Day ends here. Never sacrificed.</div>
     </div>
 
-    <!-- Wake-up setting -->
     <div style="margin-bottom:20px">
       <div style="font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin-bottom:8px">wake-up</div>
       <div style="display:flex;align-items:center;gap:10px">
@@ -2053,7 +1464,6 @@ function openProfile(){
       <div style="font-size:10px;color:var(--dim);margin-top:4px">Day resets here. Default: bedtime + 8h.</div>
     </div>
 
-    <!-- Data backup -->
     <div style="font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin-bottom:8px">your data</div>
     <div style="display:flex;gap:8px;margin-bottom:20px">
       <button onclick="exportData()" style="flex:1;background:var(--bg);border:2px solid var(--brd);color:var(--ink);font-family:var(--fs);font-size:13px;font-weight:700;padding:10px 0;border-radius:12px;cursor:pointer">↓ export backup</button>
@@ -2062,65 +1472,11 @@ function openProfile(){
     </div>
     <div style="font-size:10px;color:var(--dim);margin-top:-12px;margin-bottom:16px">Your data lives only in this browser. Back it up.</div>
 
-    <!-- Debug -->
     <button onclick="closeSheet();setTimeout(_showDebugPanel,300)" style="display:block;width:100%;background:var(--bg);border:2px solid var(--brd);color:var(--dim);font-family:var(--fs);font-size:13px;font-weight:700;padding:10px 0;border-radius:12px;cursor:pointer;margin-bottom:20px">🔧 debug log</button>
 
-    <div class="sh-btns">
-      <button class="bs" onclick="closeSheet()">close</button>
-      <button class="bp" onclick="closeSheet();openShop()">🪙 gifts</button>
-    </div>
+    <div class="sh-btns"><button class="bs" onclick="closeSheet()">close</button></div>
     <button onclick="event.stopPropagation();askEraseAll()" style="display:block;margin:24px auto 0;background:none;border:none;font-family:var(--fs);font-size:11px;font-weight:700;color:var(--dim);cursor:pointer;padding:8px 0">reset all data</button>
   `);
-}
-function openShop(){
-  seenToast('shop','The water has gifts for you.','#6b6258',200);
-  const coins=GOD_MODE?'∞':(S.lifetimeCoins||0);
-  const stars=GOD_MODE?'∞':(S.stars||0);
-  const fb=GOD_MODE?'∞':(S.fullBoils||0);
-  const ownedThemes=S.shopItems.ownedBoilThemes||[];
-  const equippedTheme=S.shopItems.boilTheme||'default';
-  const rows=SHOP_ITEMS.map(item=>{
-    const currency=item.currency||'coins';
-    const bal=currency==='stars'?stars:currency==='fullBoils'?fb:coins;
-    let owned='';
-    if(item.type==='boilTheme'){
-      const tk=item.id.replace('theme_','');
-      if(ownedThemes.includes(tk)){
-        owned=equippedTheme===tk
-          ?'<span style="font-weight:800;font-size:11px;color:var(--mid)">equipped ✓</span>'
-          :`<button onclick="equipBoilTheme('${tk}')" style="background:var(--bg);color:var(--ink);border:1.5px solid var(--brd);border-radius:100px;padding:5px 12px;font-size:11px;font-weight:800;cursor:pointer;font-family:var(--fs)">equip</button>`;
-      }
-    } else if(item.type==='floater'&&S.shopItems.floaters&&S.shopItems.floaters.includes(item.id)){
-      const isOn=!(S.shopItems.disabledFloaters||[]).includes(item.id);
-      owned=`<button class="tog${isOn?' on':''}" onclick="toggleFloater('${item.id}')"></button>`;
-    } else if(item.type==='unlock'&&S.shopItems[item.id]){
-      owned=item.id==='aquarium'
-        ?`<button class="tog${S.aquariumOn?' on':''}" onclick="toggleAquarium();openShop()"></button>`
-        :'<span style="font-weight:800;font-size:11px;color:var(--mid)">owned ✓</span>';
-    } else if(item.type!=='consumable'&&item.type!=='star_consumable'){
-      owned=S.shopItems.avatar===item.emoji?'<span style="font-weight:800;font-size:11px;color:var(--mid)">owned ✓</span>':'';
-    }
-    const canBuy=(GOD_MODE||bal>=item.cost)&&!owned;
-    const costIcon=currency==='stars'?'⭐':currency==='fullBoils'?'♨️':'🪙';
-    return`<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--brd)">
-      <span style="font-size:22px">${item.emoji}</span>
-      <div style="flex:1">
-        <div style="font-size:14px;font-weight:700;color:var(--ink)">${item.name}</div>
-        <div style="font-size:11px;color:var(--dim)">${item.desc}</div>
-      </div>
-      ${owned||`<button onclick="shopBuy('${item.id}')" style="background:${canBuy?'var(--ink)':'var(--brd)'};color:${canBuy?'#fff':'var(--dim)'};border:none;border-radius:100px;padding:6px 14px;font-size:12px;font-weight:800;cursor:${canBuy?'pointer':'default'};font-family:var(--fs)">${item.cost}${costIcon}</button>`}
-    </div>`;
-  }).join('');
-  openSheet(`<div class="sh-ttl">gifts</div>
-    <div style="display:flex;gap:12px;margin-bottom:16px;background:var(--bg);border-radius:12px;padding:12px 14px;flex-wrap:wrap">
-      <div><div style="font-size:20px;font-weight:800;font-family:var(--fd)">${coins} 🪙</div><div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:.06em;text-transform:uppercase">coins</div></div>
-      <div><div style="font-size:20px;font-weight:800;font-family:var(--fd)">${stars} ⭐</div><div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:.06em;text-transform:uppercase">stars</div></div>
-      <div><div style="font-size:20px;font-weight:800;font-family:var(--fd)">${fb} ♨️</div><div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:.06em;text-transform:uppercase">full boils</div></div>
-      <div><div style="font-size:20px;font-weight:800;font-family:var(--fd)">${S.mercyCoins||0} 🕊️</div><div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:.06em;text-transform:uppercase">mercy</div></div>
-    </div>
-    ${rows}
-    ${ownedThemes.length&&equippedTheme!=='default'?`<div style="text-align:center;margin-top:12px"><button onclick="equipBoilTheme('default')" style="background:none;border:1.5px solid var(--brd);border-radius:100px;padding:6px 16px;font-size:12px;font-weight:700;color:var(--mid);cursor:pointer;font-family:var(--fs)">💧 Reset to Water</button></div>`:''}
-    <div style="margin-top:20px"></div>`);
 }
 
 let _seenThisSession=false;
@@ -2773,88 +2129,22 @@ function tapCard(id){
   });
   t.running=!wasRunning;
   if(t.running){
-    S.lastActiveId=null; // running card has .running emphasis; clear residual glow
-    document.querySelectorAll('.card.suggested').forEach(e=>e.classList.remove('suggested'));
-    t.savedAt=Date.now();setPhaseStart(t);sndTap();startAmbient();ensureTicker();showToast('Heating up. ↑','var(--tc)',1200);if(!_sensorsAttached)requestMotionPermission();
-    // First block of the day: enhanced ceremony (Bandura — self-efficacy seeds the spiral)
+    S.lastActiveId=id;
+    t.savedAt=Date.now();setPhaseStart(t);sndTap();startAmbient();ensureTicker();
+    showToast('Heating up. ↑','var(--tc)',1200);
+    if(!_sensorsAttached)requestMotionPermission();
+    // First block of the day: brief ceremony
     const _isFirst=!S.tasks.some(x=>x.completed>0||x.running&&x.id!==id);
-    // Water kick-start: brief surge for instant feedback (1.5× for first block)
-    // Water color shifts to task color on start — level stays at ambient floor (no kick/drop)
-    // Sister: guaranteed on first block, time-aware greeting
     const _fbPool=(()=>{const h=new Date().getHours();return h<9?'firstBlockDawn':h>=20?'firstBlockEvening':'firstBlock';})();
     if(_isFirst){setTimeout(()=>sisterMsg(sisterSays(_fbPool),2500),1500);haptic([30,40,30,40,80]);}
-    else if(!S.tasks.some(x=>x.completed>0&&x.id!==id))setTimeout(()=>sisterMsg(sisterSays(_fbPool),2500),1500);
-  }
-  else{
-    const _wasQuick=t._quickStart>0;t._quickStart=0;
+  } else {
+    t._quickStart=0;
     t.savedAt=null;t._phaseStart=null;S.lastActiveId=id;sndStop();stopAmbient();
-    if(_wasQuick)sisterMsg('You showed up. That counts.',2500);
-    else showToast('The water cools.','#6b6258',1800);
+    showToast('The water cools.','#6b6258',1800);
   }
-  // Capture old card position for FLIP (visible cards only)
-  const oldEl=t.running?document.getElementById('c-'+id):null;
-  const oldRect=oldEl?oldEl.getBoundingClientRect():null;
-  const wasVisible=oldRect&&oldRect.height>0;
-  const popped=_poppedBlock;_poppedBlock=null;
+  _poppedBlock=null;
   activeTaskBlocks.length=0;
   save();render();updateLogoDot();
-  if(t.running){
-    const sc=document.getElementById('cards');
-    if(sc)sc.scrollTop=0;
-    const newEl=document.getElementById('c-'+id);
-    if(newEl){
-      const newRect=newEl.getBoundingClientRect();
-      if(popped){
-        // Bubble→card morph: circle at bubble position transforms into card
-        newEl.style.opacity='0';
-        const m=document.createElement('div');
-        const sz=popped.size;
-        m.style.cssText=`position:fixed;left:${popped.cx}px;top:${popped.cy}px;width:${sz}px;height:${sz}px;border-radius:50%;background:${popped.color}44;border:2px solid ${popped.color}88;z-index:1000;pointer-events:none;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;font-size:${sz*0.5}px;overflow:hidden;backdrop-filter:blur(8px)`;
-        m.textContent=popped.emoji;
-        document.body.appendChild(m);
-        requestAnimationFrame(()=>requestAnimationFrame(()=>{
-          // Morph circle → card rectangle at card's position
-          m.style.transition='all .65s cubic-bezier(.22,1,.36,1)';
-          m.style.left=`${newRect.left+newRect.width/2}px`;
-          m.style.top=`${newRect.top+newRect.height/2}px`;
-          m.style.width=`${newRect.width}px`;
-          m.style.height=`${newRect.height}px`;
-          m.style.borderRadius='16px';
-          m.style.background='rgba(250,248,244,0.25)';
-          m.style.border='1.5px solid rgba(255,255,255,0.6)';
-          m.style.fontSize=`${sz*1.5}px`;
-          m.style.opacity='0';
-          // Reveal real card as morph fades
-          setTimeout(()=>{newEl.style.transition='opacity .2s';newEl.style.opacity='';},450);
-          m.addEventListener('transitionend',()=>{m.remove();newEl.style.transition='';newEl.style.opacity='';},{once:true});
-          setTimeout(()=>m.remove(),800);
-        }));
-      } else if(wasVisible){
-        // FLIP: card was visible, slide from old position to top
-        const dy=oldRect.top-newRect.top;
-        if(Math.abs(dy)>5){
-          newEl.style.transform=`translateY(${dy}px)`;
-          newEl.style.transition='none';
-          requestAnimationFrame(()=>requestAnimationFrame(()=>{
-            newEl.style.transition='transform .4s cubic-bezier(.34,1.2,.64,1)';
-            newEl.style.transform='';
-            newEl.addEventListener('transitionend',()=>{newEl.style.transition='';newEl.style.transform='';},{once:true});
-          }));
-        }
-      } else {
-        // Fallback: gentle rise
-        newEl.style.transform='translateY(20px)';
-        newEl.style.opacity='0';
-        newEl.style.transition='none';
-        requestAnimationFrame(()=>requestAnimationFrame(()=>{
-          newEl.style.transition='transform .35s cubic-bezier(.34,1.2,.64,1),opacity .2s ease';
-          newEl.style.transform='';
-          newEl.style.opacity='';
-          newEl.addEventListener('transitionend',()=>{newEl.style.transition='';newEl.style.transform='';newEl.style.opacity='';},{once:true});
-        }));
-      }
-    }
-  }
 }
 
 // ── "JUST 5 MINUTES" QUICK START ──────────────────────────────────
@@ -2866,70 +2156,6 @@ function quickStart(id){
 }
 
 // ── RETROACTIVE CREDIT / UNDO ─────────────────────────────────────
-function pipTap(ev,id,mode){
-  ev.stopPropagation();
-  const now=Date.now(),key='_lpt_'+id;
-  if(window[key]&&now-window[key]<350){window[key]=0;(mode==='undo'?uncreditBlock:creditBlock)(id);return;}
-  window[key]=now;
-}
-function creditBlock(id){
-  const t=S.tasks.find(x=>x.id===id);
-  if(!t||t.done||t.completed>=t.total)return;
-  // pause if running
-  if(t.running){t.running=false;t.savedAt=null;t._phaseStart=null;stopAmbient();}
-  // credit the block
-  t.isRest=false;
-  t.completed++;
-  S.lifetimeCoins=(S.lifetimeCoins||0)+1;S.heatCoins=(S.heatCoins||0)+1;
-  if(t.completed>=t.total){
-    t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;
-    save();onTaskDone(id);renderCard(t);renderDaybar();updateLogoDot();return;
-  }
-  t.rem=t.workDur;
-  save();
-  sndCredit();
-  seenToast('credit','Block credited — double-tap a pip to mark work done.','#6b6258',1200);
-  renderCard(t);renderDaybar();updateLogoDot();
-  // pip pop animation on newly-filled pip
-  setTimeout(()=>{
-    const el=document.getElementById('c-'+id);
-    if(!el)return;
-    const pips=el.querySelectorAll('[style*="background:'+t.color+'"]');
-    const last=pips[pips.length-1];
-    if(last){last.style.animation='pip-pop .38s cubic-bezier(.34,1.56,.64,1)';}
-  },30);
-}
-function uncreditBlock(id){
-  const t=S.tasks.find(x=>x.id===id);
-  if(!t||t.completed<=0)return;
-  if(t.running){t.running=false;t.savedAt=null;t._phaseStart=null;stopAmbient();}
-  if(t.done){t.done=false;S.stars=Math.max(0,(S.stars||0)-1);updateHeader();}
-  t.completed--;
-  S.lifetimeCoins=Math.max(0,(S.lifetimeCoins||0)-1);
-  t.isRest=false;
-  t.rem=t.workDur;
-  save();
-  sndUncredit();
-  showToast('Block undone.','#6b6258',1200);
-  renderCard(t);renderDaybar();updateLogoDot();
-}
-
-function useMercy(id){
-  if(!S.mercyCoins||S.mercyCoins<1)return;
-  const t=S.tasks.find(x=>x.id===id);
-  if(!t||!t.running||t.done)return;
-  S.mercyCoins--;
-  t.rem=0;
-  const allDone=resolvePhaseEnd(t,true);
-  save();
-  if(allDone)onTaskDone(t.id);
-  else if(!t.isRest)onSubBlockDone(t.id);
-  else{renderCard(t);renderDaybar();}
-  showToast('🕊️ Mercy granted.','#6b6258',1800);
-  setTimeout(()=>sisterMsg(sisterSays('mercy'),2500),300);
-  haptic([15,30,60]);
-}
-
 function notify(title,body){
   if('Notification' in window&&Notification.permission==='granted'&&document.hidden){
     _swNotify(title,body,'boil-fg');
@@ -2997,12 +2223,18 @@ function schedBgNotifs(){
 }
 // Cross-modal emphasis rotation (sensory-specific satiety prevention — Rolls, HAP model)
 function _completionMode(){const r=Math.random();return r<0.4?'audio':r<0.7?'haptic':'visual';}
+// Find the on-screen position of a task's bubble (CSS px)
+function _bubbleScreenPos(taskId){
+  const b=activeTaskBlocks.find(x=>x.taskId===taskId);
+  if(!b)return null;
+  const dpr=_bgDpr();
+  return {cx:b.x/dpr,cy:b.y/dpr,size:b.size/dpr,color:b.color};
+}
 function onSubBlockDone(id){
   clearBgNotifs();
-  if(S.aquariumOn){S.aquariumOn=false;save();applyAquarium();}
   const _cm=_completionMode();
   sndSub();
-  // Steam burst — the water just boiled (metaphor completion)
+  // Steam burst at the active bubble's position
   if(!isBatterySaver()&&bgWaveState.active){
     const _dpr=_bgDpr(),_W=window.innerWidth*_dpr,_surfY=window.innerHeight*_dpr*(1-bgWaveState.fill/100);
     for(let i=0;i<18;i++){
@@ -3010,237 +2242,84 @@ function onSubBlockDone(id){
       p.decay=0.025+Math.random()*0.015;p.round=true;parts.push(p);
     }
     startFX();
-  } // always plays (with built-in micro-variation), volume adjusted by mode handled in visual/haptic
+  }
   const t=S.tasks.find(x=>x.id===id);
   if(t){
     const blocksLeft2=t.total-t.completed;
     if(blocksLeft2>0)notifyAlways(`${t.name}: ${t.completed}/${t.total} blocks`,`${blocksLeft2} to go.`);
     else notifyAlways(`${t.name}: ${t.total}/${t.total} blocks`,'All done.');
-    // Contextual one-liners
-    seenToast('coin','🪙 You earned a coin. One per block.','#c8841a',1200);
-    if(S.seen.coin&&Math.random()<0.6)setTimeout(()=>sisterMsg(sisterSays('blockDone'),2000),800);
+    if(Math.random()<0.33)setTimeout(()=>sisterMsg(sisterSays('blockDone'),2000),800);
   }
-  const el=document.getElementById('c-'+id);
-  if(!el){renderCards();return;}
-
-  const r=el.getBoundingClientRect();
-  const cx=r.left+r.width/2, cy=r.top+r.height*.4;
-
-  // Cross-modal: visual-heavy mode gets 1.5× particles, others get standard
-  const _vm=_cm==='visual'?1.5:1;
-  // 1. Shatter shards — glass breaking outward
-  shatterAt(cx,cy,t.color,Math.round(32*_vm));
-  // 2. Big radial burst behind shards
-  burstAt(cx,cy,t.color,Math.round(55*_vm));
-  // 3. Shockwave ring
-  shockwave(cx,cy,t.color,40);
-  // 4. Sparks up
-  sparks(cx,cy,t.color,Math.round(28*_vm));
-  // 5. Second delayed burst for linger
-  setTimeout(()=>burstAt(cx,cy+10,t.color,Math.round(30*_vm)),180);
-  // Haptic-heavy mode: enhanced vibration pattern
-  if(_cm==='haptic')haptic([30,20,30,20,60,30,120]);
-
-  // 4. Screen flash — brighter, double pulse
-  [0,220].forEach(delay=>{
-    setTimeout(()=>{
-      const flash=document.createElement('div');
-      flash.className='screen-flash';
-      flash.style.background=t.color;
-      document.body.appendChild(flash);
-      setTimeout(()=>flash.remove(),380);
-    },delay);
-  });
-
-  // 5. Card bounce
-  el.classList.add('block-flash');
-
-  // 6. Find the pip that just completed — coin flip animation
-  // (pip already re-rendered with coin emoji by resolvePhaseEnd → renderCard)
-  const pips=el.querySelectorAll('.pip.done');
-  const lastPip=pips[pips.length-1];
-  if(lastPip){lastPip.classList.add('popped');setTimeout(()=>lastPip.classList.remove('popped'),400);}
-
-  setTimeout(()=>{
-    el.classList.remove('block-flash');
-    renderCard(t);renderDaybar();updateLogoDot();
-  },720);
-  // Sister: between blocks (non-continuous, task paused waiting for user)
+  const pos=_bubbleScreenPos(id);
+  if(pos&&t){
+    const _vm=_cm==='visual'?1.5:1;
+    shatterAt(pos.cx,pos.cy,t.color,Math.round(32*_vm));
+    burstAt(pos.cx,pos.cy,t.color,Math.round(55*_vm));
+    shockwave(pos.cx,pos.cy,t.color,40);
+    sparks(pos.cx,pos.cy,t.color,Math.round(28*_vm));
+    setTimeout(()=>burstAt(pos.cx,pos.cy+10,t.color,Math.round(30*_vm)),180);
+    if(_cm==='haptic')haptic([30,20,30,20,60,30,120]);
+    [0,220].forEach(delay=>{
+      setTimeout(()=>{
+        const flash=document.createElement('div');
+        flash.className='screen-flash';
+        flash.style.background=t.color;
+        document.body.appendChild(flash);
+        setTimeout(()=>flash.remove(),380);
+      },delay);
+    });
+  }
+  // Force respawn so bubble shrinks to reflect new completion count
+  activeTaskBlocks.length=0;
+  renderDaybar();updateLogoDot();
   if(t&&!t.running&&!t.done){
-    const _bed=S.bedtime!=null&&dayRem()<=0;
+    const _bed=isPastBedtime();
     setTimeout(()=>sisterMsg(sisterSays(_bed?'bedtimeBlockEnd':'betweenBlocks'),2500),1200);
   }
 }
 
 function onTaskDone(id){
   clearBgNotifs();
-  if(S.aquariumOn){S.aquariumOn=false;save();applyAquarium();}
   stopAmbient();sndTask();
   const _td=S.tasks.find(x=>x.id===id);
   if(_td){
     notifyAlways(`${_td.name} complete`,`${_td.total}/${_td.total} blocks done.`);
     if(S.tasks.every(x=>x.done))setTimeout(()=>notifyAlways('Fully boiled','Every task done. Go gently.'),2000);
-    S.stars=(S.stars||0)+1;save();updateHeader();
-    const _dc=getTheme().doneCopy;
-    const _dm=_dc?_dc[Math.floor(Math.random()*_dc.length)]:sisterSays('taskDone');
+    save();
+    const _dm=sisterSays('taskDone');
     showToast(`⭐ ${_dm}`,'#c8841a',2200);
-    if(!_dc)setTimeout(()=>sisterMsg(_dm,2800),400);
     haptic([8,30,8,30,60]);
   }
-  // Reset bg wave
   bgWaveState.targetFill=0;bgWaveState.fill=0;bgWaveState.active=false;bgWaveState.ambient=false;activeFloaters.length=0;if(bgHF.h)bgHF.h.fill(0);if(bgHF.v)bgHF.v.fill(0);
   const bgc=document.getElementById('bg-canvas');if(bgc)bgc.classList.remove('active');
   const t=S.tasks.find(x=>x.id===id);
-  // Trial task: delete it and prompt user to add their own
-  if(S.isTrial&&id==='trial'){
-    S.tasks=S.tasks.filter(x=>x.id!=='trial');
-    S.isTrial=false;
-    save();
-    setTimeout(()=>{
-      showToast("That's it. Now add your own.",'#3d3530',3000);
-      setTimeout(()=>openAdd(true),1500);
-    },1200);
-    renderCards();
-    return;
-  }
-  // Quick boil: offer to keep or auto-delete
-  if(t&&t._isQuick){
-    setTimeout(()=>{
-      openSheet(`<div class="sh-ttl">Quick boil done</div>
-        <p style="font-size:14px;color:var(--mid);line-height:1.7;margin-bottom:12px">Want to keep this as a regular task?</p>
-        <div class="sh-btns">
-          <button class="bs" onclick="S.tasks=S.tasks.filter(x=>x.id!=='${id}');save();closeSheet();renderCards()">Delete</button>
-          <button class="bp" onclick="const qt=S.tasks.find(x=>x.id==='${id}');if(qt)delete qt._isQuick;save();closeSheet();renderCards()">Keep</button>
-        </div>`);
-    },1400);
-  }
-  const el=document.getElementById('c-'+id);
-  if(el){
-    const r=el.getBoundingClientRect();
-    const cx=r.left+r.width/2, cy=r.top+r.height/2;
+  // POP: bubble bursts, emoji will then sink to bottom on next spawn
+  const pos=_bubbleScreenPos(id);
+  if(pos&&t){
     rainConfetti(t.color,80);
-    burstAt(cx,cy,t.color,35);
-    el.classList.add('all-done-flash');
-    setTimeout(()=>{
-      el.classList.remove('all-done-flash');
-      renderCard(t);renderDaybar();updateLogoDot();updateScrollState();
-      const vis=S.tasks.filter(t=>taskVisibleToday(t)&&!t.skipped);
-      if(vis.length&&vis.every(x=>x.done)){
-        setTimeout(()=>triggerDayCeremony(),600);
-      }
-    },720);
-  } else {
-    renderCards();
-    const vis=S.tasks.filter(t=>taskVisibleToday(t)&&!t.skipped);
-    if(vis.length&&vis.every(x=>x.done))setTimeout(()=>triggerDayCeremony(),600);
+    burstAt(pos.cx,pos.cy,t.color,35);
+    burstAt(pos.cx,pos.cy,'#fff',12);
+    sparks(pos.cx,pos.cy,t.color,28);
+    shockwave(pos.cx,pos.cy,t.color,50);
   }
+  // Force respawn — done task becomes a sunken emoji
+  activeTaskBlocks.length=0;
+  renderDaybar();updateLogoDot();
+  const vis=S.tasks.filter(taskVisibleToday);
+  if(vis.length&&vis.every(x=>x.done))setTimeout(()=>triggerDayCeremony(),600);
 }
 
-const HEAT_LEVELS=[[0,"🌡️","Cold"],[10,"☁️","Warming"],[30,"🔆","Heating"],[75,"🌶️","Hot"],[150,"🫧","Boiling"],[300,"🔥","Raging"],[600,"🌋","Inferno"],[1000,"⭐","White Hot"],[2000,"⚡","Plasma"],[5000,"💥","Supernova"]];
-function getHeatLevel(){
-  const coins=S.heatCoins||S.lifetimeCoins||0;
-  let lvl=HEAT_LEVELS[0];
-  for(const h of HEAT_LEVELS){if(coins>=h[0])lvl=h;}
-  return lvl;
-}
-function updateStreak(){
-  const td=today();
-  if(S.lastCompletedDate===td){
-    // Already updated today — no change
-  } else {
-    // Every day you show up counts. The door is always open.
-    S.streak=(S.streak||0)+1;
-  }
-  S.lastCompletedDate=td;
-  checkStreakMilestone(S.streak);
-  checkBadges();
-  save();updateHeader();
-}
-
-const STREAK_MILESTONES={
-  3:{msg:"You came back three times. The habit is forming.",emoji:"\u{1F321}\uFE0F"},
-  7:{msg:"Seven days of showing up. Like it was meant to be.",emoji:"\u{1F525}"},
-  14:{msg:"Two weeks faithful. Something beautiful is happening.",emoji:"\u26A1"},
-  30:{msg:"Thirty days of small things with great love.",emoji:"\u{1F3C6}"},
-  100:{msg:"A hundred days. This is devotion.",emoji:"\u2728"},
-};
-function checkStreakMilestone(n){
-  if(!STREAK_MILESTONES[n])return;
-  const m=STREAK_MILESTONES[n];
-  setTimeout(()=>{
-    const d=document.createElement('div');
-    d.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);background:var(--card);border:2px solid var(--brd);border-radius:24px;padding:32px 40px;text-align:center;z-index:1000;box-shadow:0 20px 60px rgba(0,0,0,.2);transition:transform .5s cubic-bezier(.34,1.56,.64,1)';
-    d.innerHTML=`<div style="font-size:48px;margin-bottom:8px">${m.emoji}</div><div style="font-family:var(--fd);font-size:20px;font-weight:800;letter-spacing:-.03em;margin-bottom:6px;max-width:220px">${m.msg}</div><div style="font-size:13px;color:var(--dim);font-weight:700">${n} day${n===1?'':'s'}</div>`;
-    document.body.appendChild(d);
-    requestAnimationFrame(()=>d.style.transform='translate(-50%,-50%) scale(1)');
-    haptic([30,50,30,50,100]);
-    tone(523,.3,.05);tone(659,.3,.045,ac().currentTime+.15);tone(784,.5,.04,ac().currentTime+.3);
-    setTimeout(()=>{d.style.transform='translate(-50%,-50%) scale(0)';setTimeout(()=>d.remove(),500);},3500);
-  },800);
-}
-const BADGE_DEFS=[
-  {id:'first_boil',    emoji:'🫧', name:'Your First Block',  desc:'The first small thing'},
-  {id:'full_boil',     emoji:'♨️', name:'A Whole Day',        desc:'Every task, start to finish'},
-  {id:'faithful',      emoji:'🕊️', name:'Faithful',          desc:'7 days of showing up'},
-  {id:'heat_wave',     emoji:'🌊', name:'Heat Wave',          desc:'14 days of showing up'},
-  {id:'perfect',       emoji:'⭐', name:'Perfectionist',     desc:'5 stars earned'},
-  {id:'pressure',      emoji:'⏱️', name:'Under Pressure',    desc:'A block finished with <60s left'},
-  {id:'early_bird',    emoji:'🌅', name:'Early Morning',      desc:'Started before 8am'},
-  {id:'night_owl',     emoji:'🦉', name:'Late Night',          desc:'Finished a block after 10pm'},
-];
-function checkBadges(){
-  const newBadges=[];
-  const add=(id)=>{if(!S.badges.includes(id)){S.badges.push(id);newBadges.push(id);}};
-  // first_boil
-  if(S.tasks.some(t=>t.completed>0))add('first_boil');
-  // full_boil
-  const vis=S.tasks.filter(t=>taskVisibleToday(t)&&!t.skipped);
-  if(vis.length&&vis.every(t=>t.done))add('full_boil');
-  // streak badges
-  if(S.streak>=7)add('faithful');
-  if(S.streak>=14)add('heat_wave');
-  // perfect blocks
-  if((S.stars||0)>=5)add('perfect');
-  // early bird
-  if(S.startTs){
-    const h=new Date(S.startTs).getHours();
-    if(h<8)add('early_bird');
-  }
-  // Show badge unlock for each new one
-  newBadges.forEach((id,i)=>{
-    const def=BADGE_DEFS.find(b=>b.id===id);
-    if(!def)return;
-    setTimeout(()=>showToast(`${def.emoji} ${def.name}`,'#9b6bb5',3000),i*3500+500);
-  });
-}
-// Called from ticker for pressure cooker + night owl
-function checkRuntimeBadges(t){
-  if(!S.badges.includes('pressure')&&t.rem>0&&t.rem<=60&&t.completed>0){
-    S.badges.push('pressure');showToast('⏱️ Under Pressure','#c0453a',3000);
-  }
-  const h=new Date().getHours();
-  if(h>=22&&t.completed>0&&!S.badges.includes('night_owl')){
-    S.badges.push('night_owl');showToast('🦉 Late Night','#3d3530',3000);
-  }
-}
+function checkRuntimeBadges(t){} // legacy no-op
 function triggerDayCeremony(){
-  const firstComplete=S.lastCompletedDate!==today();
-  if(firstComplete){
-    S.fullBoils=(S.fullBoils||0)+1;
-  }
-  updateStreak();
   sndDay();
   rainConfetti('#c8841a',120);
-  if(firstComplete) showToast('♨️ Full boil! +1','#c8841a',2200);
   setTimeout(()=>launchSolitaire(),400);
   const div=document.createElement('div');
   div.className='day-done-msg';
-  const _th=getTheme();
-  const _dayPool=_th.dayCopy||SISTER.dayDone;
-  const dm=_dayPool[Math.floor(Math.random()*_dayPool.length)];
+  const dm=SISTER.dayDone[Math.floor(Math.random()*SISTER.dayDone.length)];
   div.innerHTML=`<div class="day-done-inner">${dm[0]}<span class="day-done-sub">${dm[1]}</span></div>`;
   document.body.appendChild(div);
-  setTimeout(()=>{div.remove();renderCards();},4200);
+  setTimeout(()=>{div.remove();activeTaskBlocks.length=0;},4200);
 }
 
 // ── FORMAT ─────────────────────────────────────────────────────────
@@ -3262,44 +2341,37 @@ function totalRemSecs(){
 
 // ── DAYBAR ─────────────────────────────────────────────────────────
 function renderDaybar(){
-  if(!S)return; // called before boot() on initial script load
+  if(!S)return;
   const now=new Date();
   const nowH=now.getHours()+now.getMinutes()/60;
   const fmtT=h=>{h=((h%24)+24)%24;const ap=h>=12?'pm':'am';const h12=Math.round(h)%12||12;return`${h12}${ap}`;};
   const totalB=totalRemSecs();
 
-  // Past bedtime: daybar hidden via CSS (.bedtime-active), nothing to render
-  if(S.bedtime!=null&&S.startTs&&dayRem()<=0)return;
+  // Past bedtime: collapse to a quiet blurred bar (let the day end)
+  if(isPastBedtime()){document.getElementById('daybar').innerHTML='';return;}
 
-  // ── Full-day mode: wake → bed with "you are here" ──
-  // Determine wake and bed hours for the bar span
-  const wu=effectiveWakeUp();
-  const wakeH=wu!=null?wu:(S.startTs?new Date(S.startTs).getHours()+new Date(S.startTs).getMinutes()/60:nowH);
-  const bedH=S.bedtime!=null?S.bedtime:24; // midnight if no bedtime
-
-  // Total day span in hours (handle wrap-around for late bedtimes)
-  let spanH=bedH-wakeH;
-  if(spanH<=0)spanH+=24;
-
-  // "Now" position as fraction of span [0,1]
-  let nowOff=nowH-wakeH;
-  if(nowOff<0)nowOff+=24;
+  // Anchor the bar to the user's wake-up hour, not startTs.
+  // startTs can be stale (e.g. set in a previous schedule), so trusting it makes
+  // spanH absurdly small and nowPct pinned to 100% — segments collapse.
+  const wakeH=(S&&S.wakeUp!=null)
+    ?S.wakeUp
+    :(S&&S.bedtime!=null?(((S.bedtime+8)%24)):(S.startTs?(new Date(S.startTs).getHours()+new Date(S.startTs).getMinutes()/60):nowH));
+  const bedH=S.bedtime!=null?S.bedtime:24;
+  let spanH=bedH-wakeH;if(spanH<=0)spanH+=24;
+  let nowOff=nowH-wakeH;if(nowOff<0)nowOff+=24;
   const nowPct=Math.max(0,Math.min(nowOff/spanH*100,100));
 
-  // Wall-clock seconds from now to bedtime/midnight
   let endTime=new Date(now);
   if(S.bedtime!=null){
     endTime.setHours(Math.floor(S.bedtime),Math.round((S.bedtime%1)*60),0,0);
     if(endTime<=now)endTime.setDate(endTime.getDate()+1);
-  } else {
-    endTime.setHours(24,0,0,0);
-  }
+  } else endTime.setHours(24,0,0,0);
   const wr=Math.max(0,Math.floor((endTime-now)/1000));
-  const futureW=100-nowPct; // % of bar for future
+  const futureW=100-nowPct;
   const remS=Math.max(wr,1);
 
-  // Task segments positioned in the future portion
-  const active=S.tasks.filter(t=>!t.done&&!t.skipped&&taskVisibleToday(t));
+  // Task segments in the future portion of the bar
+  const active=S.tasks.filter(t=>!t.done&&taskVisibleToday(t));
   let cursor=0;
   const segs=[];
   active.forEach(t=>{
@@ -3320,69 +2392,34 @@ function renderDaybar(){
   const slack=Math.round(wr-totalB);
   const isOver=slack<0;
 
-  // Left stat
-  const leftText=totalB<=0
-    ?`<div class="db-stat go"><b>done</b> ✓</div>`
-    :`<div class="db-stat"><b>${fmtHM(totalB)}</b> of work</div>`;
-
-  // Right stat
+  // Zones (left → right):
+  //   [ELAPSED]  [NOW]  [TASK SEGMENTS]  [FREE]   [end of bar = bedtime]
+  //   tan tint   line   vivid colors    open      skull on overflow
+  // The slack label sits in the FREE zone (right of segments) so the segments
+  // stay clean. No overlay over the colored bars.
   const free=Math.max(0,Math.round(wr-totalB));
-  const rightText=isOver
-    ?`<div class="db-stat warn"><span style="font-size:14px">💀</span> <b>${fmtHM(Math.abs(slack))}</b> over</div>`
-    :`<div class="db-stat${totalB<=0?' go':''}"><b>${fmtHM(free)}</b> free</div>`;
-
-  // Tick labels spanning wake → bed
-  const dbTicks=(()=>{
-    if(!S.startTs)return['','','',''];
-    return [0,1,2,3].map(i=>{
-      const h=(wakeH+i*(spanH/3))%24;
-      if(i===3&&S.bedtime!=null)return fmtT(S.bedtime);
-      if(i===3&&Math.round(h)%24===0)return'midnight';
-      return fmtT(h);
-    });
-  })();
-
+  const segEnd=Math.min(100,nowPct+(isOver?futureW:Math.min(cursor,futureW)));
+  const freeStart=segEnd;
+  const freeWidth=Math.max(0,100-freeStart);
+  const slackLabel=totalB<=0
+    ?'done ✓'
+    :isOver?`${fmtHM(Math.abs(slack))} over`:`${fmtHM(free)} free`;
+  const showSlack=freeWidth>14&&!isOver; // only show "free" text when there's room
   document.getElementById('daybar').innerHTML=`
-    <div class="db-top">
-      ${leftText}
-      ${rightText}
-    </div>
     <div class="db-track">
-      <div class="db-elapsed" style="width:${nowPct.toFixed(2)}%"></div>
-      ${segs.map((s,i)=>`<div class="db-seg" style="left:${s.left.toFixed(2)}%;width:${s.width.toFixed(2)}%;background:${s.color};${i===segs.length-1?'border-radius:0 7px 7px 0':''}"></div>`).join('')}
+      <div class="db-el" style="width:${nowPct.toFixed(2)}%"></div>
+      ${segs.map((s,i)=>`<div class="db-seg" style="left:${s.left.toFixed(2)}%;width:${Math.max(s.width,0.8).toFixed(2)}%;background:${s.color};${i===segs.length-1?'border-radius:0 7px 7px 0':''}"></div>`).join('')}
       ${hatchW>0?`<div class="db-hatch" style="width:${Math.min(hatchW,100).toFixed(2)}%;right:0"></div>`:''}
-      <div class="db-now-marker" style="left:${nowPct.toFixed(2)}%"></div>
+      ${showSlack?`<div class="db-free" style="left:${freeStart.toFixed(2)}%;width:${freeWidth.toFixed(2)}%">${slackLabel}</div>`:''}
+      <div class="db-now" style="left:${nowPct.toFixed(2)}%"></div>
     </div>
-    <div class="db-ticks">
-      ${dbTicks.map(l=>`<span class="db-tick">${l}</span>`).join('')}
-    </div>`;
+    ${isOver?'<div class="db-skull">💀</div>':''}`;
 }
 
 // ── CARDS ───────────────────────────────────────────────────────────
 function updateHeader(){
-  // Battery saver indicator
   const bsi=document.getElementById('bs-indicator');
   if(bsi)bsi.style.display=S.batterySaver?'':'none';
-  // Streak badge — hidden from header, shown on finish screen
-  const sb=document.getElementById('hdr-streak');
-  if(sb){sb.classList.remove('visible');}
-  // Coin count — lifetimeCoins is now real-time (incremented per block)
-  const cv=document.getElementById('hdr-coins-val');
-  if(cv){
-    if(GOD_MODE){cv.textContent='∞';}
-    else{const total=S.lifetimeCoins||0;cv.textContent=total>=1000?`${(total/1000).toFixed(1)}k`:total;}
-  }
-  // Profile pill: heat level emoji + level number
-  const lvl=getHeatLevel();
-  const pa=document.getElementById('profile-avatar');
-  const ph=document.getElementById('profile-heat');
-  if(pa)pa.textContent=S.shopItems&&S.shopItems.avatar?S.shopItems.avatar:lvl[1];
-  if(ph){
-    const idx=HEAT_LEVELS.findIndex(h=>h===lvl);
-    ph.textContent=lvl[2];
-  }
-  const aqt=document.getElementById('aq-toggle');
-  if(aqt)aqt.style.display=(S.shopItems&&S.shopItems.aquarium)||GOD_MODE?'inline-block':'none';
 }
 function updateLogoDot(){
   const r=S.tasks.find(t=>t.running);
@@ -3392,287 +2429,20 @@ function updateLogoDot(){
   if(dot.style.background!==newCol){dot.style.background=newCol;dot.classList.remove('pulse');void dot.offsetWidth;dot.classList.add('pulse');}
 }
 
-function updateScrollState(){
-  const sc=document.getElementById('cards');
-  const rt=S.tasks.find(t=>t.running);
-  sc.classList.toggle('has-running',!!rt);
-  const aw=document.querySelector('.app-wrap');
-  if(aw)aw.classList.toggle('flowing',!!rt);
-  const bgc=document.getElementById('bg-canvas');
-  if(!rt){
-    // Ambient water: gentle sway when day is active but no task running
-    if(isDayActive()){
-      bgWaveState.ambient=true;
-      bgWaveState.active=true;
-      bgWaveState.targetFill=10;
-      bgWaveState.targetColor='#a89e92';
-      if(bgc)bgc.classList.add('active');
-      startWaveLoop();
-      // Keep floaters alive in ambient — they respawn from waveLoop if needed
-    } else {
-      bgWaveState.active=false;
-      bgWaveState.ambient=false;
-      if(bgc)bgc.classList.remove('active');
-      activeFloaters.length=0; // only clear when water is actually off
-    }
-    activeTaskBlocks.length=0;
+function updateSteamBanner(){const sb=document.getElementById('steam-banner');if(sb)sb.style.display='none';}
+function fastUpdateAll(){
+  const rt=S.tasks.find(t=>t.running&&!t.done);
+  if(rt){
+    const pd=rt.isRest?rt.restDur:rt.workDur;
+    const pct=14+(pd>0?((pd-rt.rem)/pd*86):0);
+    updateSiteWave(rt,pct);
   } else {
-    bgWaveState.ambient=false;
-    // Immediately activate bg wave — don't wait for ticker
-    if(!bgWaveState.active){
-      const pd=rt.isRest?rt.restDur:rt.workDur;
-      const pct=pd>0?((pd-rt.rem)/pd*100):0;
-      bgWaveState.targetFill=14+pct*0.86;
-      bgWaveState.fill=Math.max(bgWaveState.fill,2);
-      bgWaveState.targetColor=rt.color;
-      if(!bgWaveState.color)bgWaveState.color=bgWaveState.targetColor;
-      bgWaveState.active=true;
-      if(bgc)bgc.classList.add('active');
-    }
-    startWaveLoop();
+    updateSiteWave(null,0);
   }
+  updateLogoDot();updateHeader();updateWaterAudio(bgWaveState?bgWaveState.fill:0);
+  // DOM countdown overlay drives off the active bubble in canvas; here update on tick too
+  _updateBubbleTimeOverlay&&_updateBubbleTimeOverlay();
 }
-
-function cardState(t){
-  if(t.done||t.isRest)return'';
-  if(t.rem<=10)return'critical'; // last 10s
-  if(t.rem<60)return'danger';
-  if(t.rem<300)return'warn';
-  return'';
-}
-
-function fmtDays(days){
-  if(!days||days.length===7||days.length===0)return days&&days.length===7?'daily':'';
-  const names=['Su','M','Tu','W','Th','F','Sa'];
-  const sorted=[...days].sort((a,b)=>a-b);
-  let consecutive=true;
-  for(let i=1;i<sorted.length;i++){if(sorted[i]-sorted[i-1]!==1){consecutive=false;break;}}
-  if(consecutive&&sorted.length>=3)return names[sorted[0]]+'\u2013'+names[sorted[sorted.length-1]];
-  return sorted.map(d=>names[d]).join(' ');
-}
-
-function taskTotalRem(t){
-  if(t.done)return 0;
-  const fullBlock=t.workDur+t.restDur;
-  const afterCurrent=t.total-t.completed-1;
-  // current phase rem + rest of current block (if in work phase with pomo) + all remaining full blocks
-  const curBlockRem=t.rem+(!t.isRest&&t.restDur>0?t.restDur:0);
-  return curBlockRem+afterCurrent*fullBlock;
-}
-
-function cardHTML(t){
-  const cs=cardState(t);
-  const stCls=t.done?'done-all':t.running&&t.isRest?'resting':t.running?'running':(!t.done&&!t.running&&t.id===S.lastActiveId?'last-active':'');
-
-  // ── DONE: collapsed strikethrough card ──────────────────────────────
-  if(t.done){
-    return`<div class="card done-all" id="c-${t.id}" style="--tc:${t.color}" onclick="event.stopPropagation();uncreditBlock('${t.id}')">
-      <div class="c-bar"></div>
-      <div class="c-body">
-        <div class="done-row">
-          <div class="done-trophy">${getTheme().emoji}</div>
-          <div class="done-name">${esc(t.name)}</div>
-          <div class="done-count" style="display:flex;align-items:center;gap:5px">${t.total}×${fmtHM(t.workDur)}<span style="color:var(--mid);font-size:12px">✓</span></div>
-          <button class="c-edit" onclick="event.stopPropagation();openEdit('${t.id}')">⋯</button>
-        </div>
-      </div>
-    </div>`;
-  }
-
-  // ── SKIPPED: compact dimmed card ─────────────────────────────────────
-  if(t.skipped){
-    return`<div class="card skipped" id="c-${t.id}" style="--tc:${t.color}" onclick="event.stopPropagation();openEdit('${t.id}')">
-      <div class="c-bar"></div>
-      <div class="c-body">
-        <div class="done-row">
-          <div class="done-trophy">${t.emoji||'⏭'}</div>
-          <div class="done-name">${esc(t.name)}</div>
-          <div class="done-count" style="display:flex;align-items:center;gap:5px"><span style="color:var(--dim);font-size:11px;font-weight:600">skipped</span></div>
-          <button class="c-edit" onclick="event.stopPropagation();openEdit('${t.id}')">⋯</button>
-        </div>
-      </div>
-    </div>`;
-  }
-
-  // ── ACTIVE card ──────────────────────────────────────────────────────
-  const phaseDur=t.isRest?t.restDur:t.workDur;
-  const rawFill=phaseDur>0?((phaseDur-t.rem)/phaseDur*100):0;
-  const fillPct=(t.isRest?rawFill:endowedFill(rawFill)).toFixed(1);
-  const PS=36, GAP=4;
-  const baseStyle=`width:${PS}px;height:${PS}px;display:inline-block;vertical-align:top;position:relative;overflow:hidden;margin-right:${GAP}px;margin-bottom:${GAP}px;border-radius:8px;box-sizing:border-box;`;
-  const fp=parseFloat(fillPct);
-  const bc=t.running&&t.isRest?"#2e9e6a":t.color;
-  const liqH=Math.min(fp,100);
-  // bubbles handled by canvas engine, not CSS divs
-  const pips=Array.from({length:t.total},(_,i)=>{
-    if(i<t.completed){
-      const undo=i===t.completed-1?` onclick="pipTap(event,'${t.id}','undo')"`:'';
-      return`<div style="${baseStyle}background:${t.color}"${undo}><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1"><span style="filter:drop-shadow(0 1px 2px rgba(0,0,0,.18))">🪙</span></div></div>`;
-    }
-    if(i===t.completed){
-      return`<div class="pip active" id="pip-${t.id}" style="${baseStyle}border:2px solid ${bc};overflow:hidden;" onclick="pipTap(event,'${t.id}')">
-        <canvas class="pip-canvas" id="pf-${t.id}" data-fill="${liqH}" data-color="${bc}" data-running="${t.running}"></canvas>
-      </div>`;
-    }
-    return`<div style="${baseStyle}border:2px solid var(--mid);overflow:hidden;"></div>`;
-  }).join("");
-
-  const blocksLeft=t.total-t.completed;
-  const totalRem=taskTotalRem(t);
-  const dayLabel=t.days?` · ${fmtDays(t.days)}`:'';
-  const sub=`${fmtHM(t.workDur)} each${t.restDur>0?` · ${fmtHM(t.restDur)} rest`:''}${dayLabel}`;
-
-  return`<div class="card${stCls?' '+stCls:''}${cs?' '+cs:''}" id="c-${t.id}" style="--tc:${t.color}" onclick="tapCard('${t.id}')">
-    <div class="c-bar"></div>
-    <div class="c-body">
-      <div class="c-head">
-        <div class="c-name"><span class="c-emoji">${autoEmoji(t)}</span>${esc(t.name)}</div>
-        <button class="c-edit" onclick="event.stopPropagation();openEdit('${t.id}')">⋯</button>
-      </div>
-      ${t.desc?`<div class="c-desc">${esc(t.desc)}</div>`:''}
-      <div style="display:block;line-height:0;font-size:0">${pips}</div>
-      ${t.isRest?`
-      <div class="pips-wrap" style="position:relative;margin-top:4px">
-        <div class="rest-overlay" id="ro-${t.id}" style="position:relative">
-          <div class="rest-emoji">${S.shopItems&&S.shopItems.restEmoji?S.shopItems.restEmoji:"☕"}</div>
-          <div class="rest-label" id="rest-label-${t.id}">${(()=>{const bl=t.total-t.completed;if(bl<=1)return'last bit of steam';if(bl===2)return'almost cooked';if((S.streak||0)>=7)return'well earned';return['let some steam out','cooling off','rest is sacred','letting it settle','grace between blocks'][t.completed%5];})()}</div>
-          <div class="rest-timer-big" id="ptc-${t.id}">${fmtTime(t.rem)}</div>
-          <div class="rest-bar-wrap"><div class="rest-bar" id="rb-${t.id}" style="width:${((t.restDur-t.rem)/t.restDur*100).toFixed(1)}%"></div></div>
-          <button onclick="event.stopPropagation();skipRest('${t.id}')" style="margin-top:6px;background:none;border:1.5px solid var(--brd);border-radius:100px;font-family:var(--fs);font-size:10px;font-weight:700;color:var(--mid);padding:4px 14px;cursor:pointer">skip rest →</button>
-        </div>
-      </div>
-      `:`
-      <div style="display:flex;align-items:center;gap:12px;margin-top:6px">
-        <div style="flex:1;min-width:0">
-          ${(t.running||t.rem<phaseDur)?`<div style="font-size:22px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:${t.running?'var(--tc)':'var(--mid)'};line-height:1.1" id="ptc-${t.id}">${fmtTime(t.rem)}</div>`:`<div style="font-size:16px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums;color:var(--mid);line-height:1.1" id="ctt-${t.id}">${fmtTime(totalRem)}</div>`}
-          <div class="c-sub" style="margin-top:2px">${(t.running||t.rem<phaseDur)?`<span id="ctt-${t.id}" style="font-variant-numeric:tabular-nums">${fmtTime(totalRem)} left</span> · `:''}${sub}</div>
-        </div>
-        ${S.mercyCoins>0&&t.running&&!t.done?`<button class="mercy-btn" onclick="event.stopPropagation();useMercy('${t.id}')" title="Use mercy — skip this block">🕊️</button>`:''}
-        <button class="play-btn" id="pb-${t.id}" aria-label="${t.running?'pause':'start'} ${esc(t.name)}" onclick="event.stopPropagation();tapCard('${t.id}')">
-          ${t.running?svgPause():svgPlay()}
-        </button>
-      </div>`}
-    </div>
-  </div>`;
-}
-
-function taskVisibleToday(t){return !t.days||t.days.includes(new Date().getDay());}
-function cardHTMLHidden(t){
-  const dayLabel=t.days?fmtDays(t.days):'daily';
-  return`<div class="card" style="--tc:${t.color};opacity:.45" onclick="openEdit('${t.id}')">
-    <div class="c-bar"></div>
-    <div class="c-body">
-      <div class="c-head">
-        <div class="c-name"><span class="c-emoji">${autoEmoji(t)}</span>${esc(t.name)}</div>
-        <button class="c-edit" onclick="event.stopPropagation();openEdit('${t.id}')">⋯</button>
-      </div>
-      <div class="c-sub">${dayLabel}</div>
-    </div>
-  </div>`;
-}
-// Endowed progress: water starts at 2% so pressing start is visible (Nunes & Dreze 2006)
-function endowedFill(raw){return 2+raw*0.98;}
-function renderCards(){
-  const el=document.getElementById('cards');
-  const visible=S.tasks.filter(taskVisibleToday);
-  if(!visible.length){el.innerHTML=`<div class="empty">nothing to boil yet.\ntap <b style="font-weight:800">+</b> to add a block</div>`;return;}
-  const unskipped=visible.filter(t=>!t.skipped);
-  if(unskipped.length&&unskipped.every(t=>t.done)){
-    const taskCount=unskipped.length;
-    const blockCount=unskipped.reduce((a,t)=>a+t.total,0);
-    el.innerHTML=`<div style="text-align:center;padding:48px 20px 32px">
-      <div style="font-size:48px;margin-bottom:16px">♨️</div>
-      <div style="font-family:var(--fd);font-size:22px;font-weight:800;letter-spacing:-.03em;color:var(--ink);margin-bottom:6px">Everything boiled.</div>
-      <div style="font-size:13px;color:var(--mid);font-weight:600;margin-bottom:24px">${taskCount} task${taskCount!==1?'s':''}, ${blockCount} block${blockCount!==1?'s':''}. All done.</div>
-      <div style="display:inline-flex;align-items:center;gap:8px;background:var(--bg);border-radius:12px;padding:10px 18px;margin-bottom:24px">
-        <span style="font-size:20px">♨️</span>
-        <span style="font-size:13px;font-weight:700;color:var(--ink)">+1 full boil</span>
-      </div>
-      <div style="font-size:12px;color:var(--dim);font-weight:600">Spend in the shop on food.</div>
-    </div>`;
-    return;
-  }
-  const hidden=S.tasks.filter(t=>!taskVisibleToday(t));
-  // Flowing mode: running task floats to top, hide completed tasks
-  const rt=visible.find(t=>t.running);
-  // Keep skipped tasks visible (as compact dimmed rows) so swipe-to-undo stays reachable
-  const sorted=rt?visible.filter(t=>!t.done||t.running):visible.slice();
-  const ri=sorted.findIndex(t=>t.running);
-  if(ri>0){const[r]=sorted.splice(ri,1);sorted.unshift(r);}
-  el.innerHTML=sorted.map(cardHTML).join('')+(hidden.length?`<div class="hidden-sched" onclick="_togHidden=!_togHidden;renderCards()" style="text-align:center;padding:12px 0 4px;font-size:11px;font-weight:700;color:var(--dim);cursor:pointer">${hidden.length} task${hidden.length!==1?'s':''} not scheduled today ${_togHidden?'▾':'▸'}</div>`+(_togHidden?hidden.map(cardHTMLHidden).join(''):''):'');
-  updateScrollState();
-  setTimeout(attachDrag,0);
-}
-
-function renderCard(t){
-  const el=document.getElementById('c-'+t.id);
-  if(!el){renderCards();return;}
-  const tmp=document.createElement('div');
-  tmp.innerHTML=cardHTML(t);
-  el.parentNode.replaceChild(tmp.firstChild,el);
-  updateScrollState();
-}
-
-function fastUpdateCard(id){
-  const t=S.tasks.find(x=>x.id===id);
-  const el=document.getElementById('c-'+id);if(!el||!t)return;
-  // overlay timer (new IDs)
-  const ptc=document.getElementById('ptc-'+t.id);
-  const pb=document.getElementById('pb-'+t.id);
-  if(ptc){const _qr=t._quickStart>0?Math.min(t.rem,t._quickStart):t.rem;ptc.textContent=fmtTime(_qr);ptc.classList.toggle('has-hours',_qr>=3600);if(t.running&&!t.isRest){const hasA=ptc.classList.contains('tick-pulse-a');ptc.classList.remove('tick-pulse-a','tick-pulse-b');ptc.classList.add(hasA?'tick-pulse-b':'tick-pulse-a');if(pb){pb.classList.remove('tick-pulse-a','tick-pulse-b');pb.classList.add(hasA?'tick-pulse-b':'tick-pulse-a');}}}
-  // total time remaining (ticks down every second)
-  const ctt=document.getElementById('ctt-'+t.id);if(ctt)ctt.textContent=fmtTime(taskTotalRem(t));
-  // rest progress bar
-  if(t.isRest){
-    const rb=document.getElementById('rb-'+t.id);
-    if(rb&&t.restDur>0)rb.style.width=((t.restDur-t.rem)/t.restDur*100)+'%';
-  }
-  // pip fill + tick
-  const pd=t.isRest?t.restDur:t.workDur;
-  const _rawPct=pd>0?((pd-t.rem)/pd*100):0;
-  const pct=t.isRest?_rawPct:endowedFill(_rawPct);
-  // Update pip canvas data attrs — the rAF loop reads these each frame
-  const pf=document.getElementById('pf-'+t.id);
-  if(pf){
-    pf.dataset.fill=Math.max(0,Math.min(pct,100)).toFixed(1);
-    pf.dataset.color=t.color;
-    pf.dataset.running=t.running;
-  }
-  // Update bg canvas wave — mirrors current sub-block fill percentage (uses raw pct, bg has its own floor)
-  const bgPct=14+_rawPct*0.86;
-  updateSiteWave(t,bgPct);
-  // Trial milestone toasts — the water teaches the metaphor
-  if(S.isTrial&&id==='trial'&&t.running&&!t.isRest){
-    if(pct>=12&&pct<18)seenToast('trial_rise','Water rises as you work.','#4a9eba',2500);
-    if(pct>=45&&pct<52)seenToast('trial_warm','Getting warmer.','#d4782a',2000);
-    if(pct>=78&&pct<85)seenToast('trial_boil','Almost boiling...','#c0453a',2000);
-  }
-  // Gentle haptic at 50% fill milestone (fires once per block)
-  const halfKey='_half_'+t.id+'_'+t.completed;
-  if(!window[halfKey]&&pct>=50&&pct<52){window[halfKey]=1;haptic([30]);}
-  if(pct<5)delete window[halfKey];
-  const cs=cardState(t);
-  el.classList.toggle('warn',cs==='warn');
-  el.classList.toggle('danger',cs==='danger'||cs==='critical');
-  el.classList.toggle('critical',cs==='critical');
-  // tick sounds for last 10s + 5-min warning
-  checkRuntimeBadges(t);
-  if(t.running&&!t.isRest){
-    if(t.rem===300){haptic([200]);}  // 5-min warning: long rumble
-    if(t.rem===60){haptic([8,8,8]);}
-    // Rising pitch: 900hz at 10s → 1400hz at 1s
-    if(t.rem>0&&t.rem<=10){
-      const pitch=900+((10-t.rem)/9)*500; // 900→1400hz
-      tone(Math.round(pitch),.04,.025);haptic([4]);
-    }
-  }
-}
-function updateSteamBanner(){
-  const sb=document.getElementById('steam-banner');if(!sb)return;
-  // Rest indicator handled by card overlay (normal) or canvas text (aquarium)
-  sb.style.display='none';
-}
-function fastUpdateAll(){S.tasks.filter(t=>t.running&&!t.done).forEach(t=>fastUpdateCard(t.id));updateSteamBanner();updateLogoDot();updateHeader();updateAquariumBar();updateWaterAudio(bgWaveState?bgWaveState.fill:0);}
 
 // ── WATER ENGINE ─────────────────────────────────────────────────────
 
@@ -3869,86 +2639,319 @@ const FLOATER_DEFS={
   'float_ball': {emoji:'🏐',size:22,buoyancy:0.10,drag:0.88,bouncy:true},
   'float_fish': {emoji:'🐟',size:22,buoyancy:0.06,drag:0.98,underwater:true},
 };
-// ── TASK BLOCKS: floating emoji representations of inactive tasks ──
+function taskVisibleToday(t){return !t.days||t.days.includes(new Date().getDay());}
+function fmtDays(days){if(!days||!days.length)return'daily';const d=['S','M','T','W','T','F','S'];return days.map(i=>d[i]).join('');}
+// ── TASK BLOCKS: floating emoji representations of all tasks ──
 let activeTaskBlocks=[];
+// Persisted across respawns so bubbles don't teleport when state changes
+const _bubblePos={}; // {taskId: {x, y}}
+// The task whose bubble should be visually "active" (centered + ring).
+// Running task wins; otherwise S.lastActiveId (if it's a real, undone task); otherwise null.
+function _activeTaskForBubble(){
+  if(!S||!S.tasks)return null;
+  const r=S.tasks.find(t=>t.running);
+  if(r)return r;
+  if(S.lastActiveId){const t=S.tasks.find(x=>x.id===S.lastActiveId);if(t&&!t.done)return t;}
+  return null;
+}
 function spawnTaskBlocks(W,fillY){
   activeTaskBlocks.length=0;
-  const rt=S.tasks.find(t=>t.running);
-  if(!rt)return;
+  if(!S||!S.tasks||!S.tasks.length)return;
   const dpr=_bgDpr();
-  const inactive=S.tasks.filter(t=>t.id!==rt.id&&!t.done&&!t.skipped&&taskVisibleToday(t));
-  const count=inactive.length;
-  if(!count)return;
-  // Spread across water surface, evenly spaced
-  inactive.forEach((t,i)=>{
-    const emoji=autoEmoji(t);
-    // Size proportional to ABSOLUTE remaining time (sqrt scale for readability)
-    // sqrt so a 4hr task is visibly bigger than 1hr, but not 4x the area
-    const totalRem=(t.total-t.completed)*t.workDur; // seconds remaining
-    const minSz=40*dpr, maxSz=84*dpr;
-    // Scale: 0s → minSz, ~2hr (7200s) → maxSz. sqrt compresses the range.
-    const frac=Math.min(Math.sqrt(totalRem/7200),1);
-    const sz=minSz+frac*(maxSz-minSz);
-    const spacing=W/(count+1);
+  const visible=S.tasks.filter(taskVisibleToday);
+  if(!visible.length)return;
+  const activeT=_activeTaskForBubble();
+  const activeId=activeT?activeT.id:null;
+  const inactives=visible.filter(t=>t.id!==activeId&&!t.done);
+  const dones=visible.filter(t=>t.done);
+  const minSz=44*dpr,maxSz=92*dpr;
+  // Bubble size: shrinks linearly with completion (1.0 → 0.4 of full size).
+  // A task with all-but-one block done is visibly smaller than a fresh task.
+  const sizeFor=(t)=>{
+    const N=Math.max(1,t.total||1);
+    const rem=Math.max(0,N-Math.max(0,t.completed));
+    const completionFrac=rem/N; // 1.0 untouched → 0 just completed
+    const base=minSz+0.65*(maxSz-minSz); // mid-base
+    return base*(0.4+0.6*completionFrac);
+  };
+  // Inactive (live, undone) bubbles spread across surface
+  const others=inactives.length;
+  inactives.forEach((t,i)=>{
+    const sz=sizeFor(t);
+    const spacing=W/(others+1);
+    const sp=_bubblePos[t.id];
     activeTaskBlocks.push({
-      taskId:t.id, emoji, color:t.color, name:t.name,
-      size:sz, baseSize:sz,
-      x:spacing*(i+1), y:fillY-sz*0.3,
-      vy:0, rot:0, bobPhase:Math.random()*Math.PI*2
+      taskId:t.id,emoji:autoEmoji(t),color:t.color,name:t.name,
+      size:sz,baseSize:sz,
+      x:sp?.x ?? spacing*(i+1),
+      y:sp?.y ?? fillY-sz*0.3,
+      vy:0,rot:0,bobPhase:Math.random()*Math.PI*2,
+      isActive:false,isSunken:false,
+      userPlaced:!!sp?.userPlaced,
+    });
+  });
+  // Active bubble: bigger, centered (or wherever user put it)
+  if(activeT){
+    const baseSz=sizeFor(activeT);
+    const sz=baseSz*1.6;
+    const sp=_bubblePos[activeT.id];
+    activeTaskBlocks.push({
+      taskId:activeT.id,emoji:autoEmoji(activeT),color:activeT.color,name:activeT.name,
+      size:sz,baseSize:sz,
+      x:sp?.x ?? W/2,
+      y:sp?.y ?? fillY-sz*0.3,
+      vy:0,rot:0,bobPhase:Math.random()*Math.PI*2,
+      isActive:true,isSunken:false,
+      userPlaced:!!sp?.userPlaced,
+    });
+  }
+  // Done tasks: emoji sinks to the bottom of the water
+  dones.forEach((t,i)=>{
+    const sz=44*dpr;
+    const fallbackX=(W*(0.15+0.7*((i+0.5)/Math.max(1,dones.length))));
+    const sp=_bubblePos[t.id];
+    activeTaskBlocks.push({
+      taskId:t.id,emoji:autoEmoji(t),color:t.color,name:t.name,
+      size:sz,baseSize:sz,
+      x:sp?.x ?? fallbackX,
+      y:sp?.y ?? fillY-sz*0.3,
+      vy:0,rot:0,bobPhase:Math.random()*Math.PI*2,
+      isActive:false,isSunken:true,
+      userPlaced:!!sp?.userPlaced,
     });
   });
 }
 function stepTaskBlocks(W,H,fillY,hf,step,dt){
+  const dpr=_bgDpr();
+  // Per-bubble buoyancy + bobbing
   activeTaskBlocks.forEach(f=>{
-    const col=Math.round(f.x/step);
-    const tOff=(tiltH&&col>=0&&col<tiltH.length)?tiltH[col]:0;
-    const surfY=(hf&&col>=0&&col<hf.cols)?fillY+hf.h[col]+tOff:fillY+tOff;
-    const submerge=f.size*0.35;
-    const targetY=surfY-submerge;
-    // Gentle buoyancy toward surface — high drag for stability
-    f.vy+=(targetY-f.y)*0.04;
-    f.vy*=0.88;
-    f.y+=f.vy;
-    // Very gentle bob for life
-    f.bobPhase+=dt*1.2;
-    f.y+=Math.sin(f.bobPhase)*0.3;
-    // Subtle rotation from wave
-    f.rot=Math.sin(f.bobPhase*0.7)*0.05;
-    // Keep on screen
-    if(f.x<f.size)f.x=f.size;
-    if(f.x>W-f.size)f.x=W-f.size;
+    if(f.vx===undefined)f.vx=0;
+    if(f.beingDragged){_bubblePos[f.taskId]={x:f.x,y:f.y,userPlaced:true};return;}
+    if(f.isSunken){
+      // Sink to bottom — gentle gravity, lots of drag once near floor
+      const targetY=H-f.size*0.5-8*dpr;
+      f.vy+=(targetY-f.y)*0.012;
+      f.vy*=0.93;
+      f.y+=f.vy;
+      f.bobPhase+=dt*0.6;
+      // Tiny horizontal drift along the seafloor
+      f.x+=Math.sin(f.bobPhase*0.4)*0.08;
+      f.rot=Math.sin(f.bobPhase*0.5)*0.04;
+    } else {
+      // Float on the water — strong damping so a dropped bubble settles fast.
+      // No continuous force on the heightfield (waves come from explicit user touches only).
+      const col=Math.round(f.x/step);
+      const tOff=(tiltH&&col>=0&&col<tiltH.length)?tiltH[col]:0;
+      const surfY=(hf&&col>=0&&col<hf.cols)?fillY+hf.h[col]+tOff:fillY+tOff;
+      const submerge=f.size*0.35;
+      const targetY=surfY-submerge;
+      // Spring + heavy damping. A bubble's job is to be ON the surface, not to swing.
+      f.vy+=(targetY-f.y)*0.18;
+      f.vy*=0.72;
+      f.y+=f.vy;
+      // Settle clamp: once the oscillation gets small, snap to target. Kills the
+      // forever-bob that comes from chasing tiny residual surface ripples.
+      if(Math.abs(f.vy)<0.4&&Math.abs(targetY-f.y)<1.2){
+        f.y=targetY;f.vy=0;
+      }
+      // Rotation from local wave slope (gentle — bigger bubbles tilt less)
+      if(hf&&col>0&&col<hf.cols-1){
+        const tRot=Math.atan2(hf.h[col+1]-hf.h[col-1],step*2)*(f.isActive?0.3:0.6);
+        f.rot+=(tRot-f.rot)*0.10;
+      }
+      // Horizontal drift / center attractor
+      if(!f.isActive&&!f.userPlaced&&hf&&col>0&&col<hf.cols-1){
+        f.vx+=(hf.h[col+1]-hf.h[col-1])*0.04;
+      }
+      if(f.isActive&&!f.userPlaced){
+        f.vx+=(W/2-f.x)*0.0035;
+      }
+      // One-shot splash exactly when drag releases with throw velocity (set by _finishBubbleHoldAsTap)
+      if(f._splashOnce&&hf&&col>=0&&col<hf.cols){
+        applyForce(hf,col,Math.max(2,Math.min(8,Math.abs(f.vy)*0.3+Math.abs(f.vx)*0.2)),6);
+        f._splashOnce=false;
+      }
+    }
   });
+  // Pairwise circle-collision: push overlapping bubbles apart.
+  // Surface bubbles all share a Y target (the water surface), so vertical pushes
+  // get undone by buoyancy. Bias the contact normal toward horizontal so they
+  // resolve along the axis that actually has slack.
+  const N=activeTaskBlocks.length;
+  for(let i=0;i<N;i++){
+    const a=activeTaskBlocks[i];
+    for(let j=i+1;j<N;j++){
+      const b=activeTaskBlocks[j];
+      if(a.isSunken!==b.isSunken)continue;
+      let dx=b.x-a.x, dy=b.y-a.y;
+      const minSep=(a.size+b.size)*0.5+4*dpr;
+      let d2=dx*dx+dy*dy;
+      if(d2>=minSep*minSep)continue;
+      // If perfectly stacked or collinear vertically, kick horizontally with a tiny random offset.
+      if(d2<1){dx=(Math.random()-0.5)*0.6+(i<j?1:-1);dy=0;d2=dx*dx;}
+      // For surface bubbles (or similarly-aligned pairs), force the resolution
+      // onto the X axis — vertical pushes are useless when they all float to the surface.
+      if(!a.isSunken&&!b.isSunken&&Math.abs(dx)<minSep*0.95){
+        dx=dx||(i<j?1:-1)*0.5;
+        dy=0;
+        d2=dx*dx;
+      }
+      const d=Math.sqrt(d2);
+      const overlap=minSep-d;
+      const nx=dx/d, ny=dy/d;
+      // If one is being dragged, the other yields entirely (so the user's bubble stays under their finger)
+      const aDr=!!a.beingDragged, bDr=!!b.beingDragged;
+      const aShare=aDr?0:(bDr?1.0:0.7);
+      const bShare=bDr?0:(aDr?1.0:0.7);
+      const push=overlap*0.5;
+      a.x-=nx*push*aShare;a.y-=ny*push*aShare;
+      b.x+=nx*push*bShare;b.y+=ny*push*bShare;
+      const kick=Math.min(overlap*0.22,3);
+      if(!aDr){a.vx-=nx*kick;a.vy-=ny*kick;}
+      if(!bDr){b.vx+=nx*kick;b.vy+=ny*kick;}
+    }
+  }
+  // Apply vx with drag, clamp screen, persist position
+  activeTaskBlocks.forEach(f=>{
+    f.vx*=0.86;
+    f.x+=f.vx;
+    const margin=f.size*0.55+(f.isActive?12*dpr:0);
+    if(f.x<margin){f.x=margin;f.vx=Math.max(0,f.vx);}
+    if(f.x>W-margin){f.x=W-margin;f.vx=Math.min(0,f.vx);}
+    _bubblePos[f.taskId]={x:f.x,y:f.y,userPlaced:!!f.userPlaced};
+  });
+  // Beach ball ↔ bubble collision (skip sunken bubbles).
+  // Both want the surface, so bias the contact normal horizontal when they're stacked.
+  if(typeof activeFloaters!=='undefined'&&activeFloaters.length){
+    for(const fl of activeFloaters){
+      if(fl.underwater)continue;
+      for(const b of activeTaskBlocks){
+        if(b.isSunken)continue;
+        let dx=fl.x-b.x, dy=fl.y-b.y;
+        const minSep=(fl.size+b.size)*0.5+2*dpr;
+        let d2=dx*dx+dy*dy;
+        if(d2>=minSep*minSep)continue;
+        if(d2<1){dx=(Math.random()-0.5)*0.6+(fl.x>=b.x?1:-1);dy=0;d2=dx*dx;}
+        if(Math.abs(dx)<minSep*0.95){dx=dx||(fl.x>=b.x?1:-1)*0.5;dy=0;d2=dx*dx;}
+        const d=Math.sqrt(d2);
+        const overlap=minSep-d;
+        const nx=dx/d, ny=dy/d;
+        // Ball is lighter → takes more of the push; bubble takes a smaller share
+        fl.x+=nx*overlap*0.75; fl.y+=ny*overlap*0.4;
+        b.x-=nx*overlap*0.35; b.y-=ny*overlap*0.15;
+        const kick=Math.min(overlap*0.6,8);
+        fl.vx+=nx*kick; fl.vy+=ny*kick*0.4;
+        b.vx-=nx*kick*0.4; b.vy-=ny*kick*0.15;
+      }
+    }
+  }
+  // GC stale entries (deleted tasks)
+  for(const k in _bubblePos){if(!S.tasks.find(t=>t.id===k))delete _bubblePos[k];}
 }
 function drawTaskBlocks(ctx){
   const dpr=_bgDpr();
+  const _now=performance.now();
   activeTaskBlocks.forEach(f=>{
+    const t=S.tasks.find(x=>x.id===f.taskId);
+    if(!t)return;
     ctx.save();
     ctx.translate(f.x,f.y);
-    ctx.rotate(f.rot);
-    // Colored circle background
+    if(!f.isActive)ctx.rotate(f.rot);
     const r=f.size*0.5;
-    ctx.beginPath();
-    ctx.arc(0,0,r,0,Math.PI*2);
-    ctx.fillStyle=f.color+'44'; // translucent task color
-    ctx.fill();
-    ctx.strokeStyle=f.color+'88';
-    ctx.lineWidth=2*dpr;
+
+    if(f.isSunken){
+      // Sunken: emoji only, no body, no ring, no markers, slight transparency
+      ctx.globalAlpha=0.55;
+      const emojiImg=getEmojiImg(f.emoji,Math.round(f.size*0.7));
+      if(emojiImg)ctx.drawImage(emojiImg,-f.size*0.35,-f.size*0.35,f.size*0.7,f.size*0.7);
+      ctx.restore();
+      return;
+    }
+
+    const alpha=1.0;
+    ctx.globalAlpha=alpha;
+    // Bubble body
+    ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);
+    ctx.fillStyle=f.color+'44';ctx.fill();
+    ctx.strokeStyle=f.color+'aa';
+    ctx.lineWidth=(f.isActive?3:2)*dpr;
     ctx.stroke();
-    // Emoji centered
+    // Emoji
     const emojiImg=getEmojiImg(f.emoji,Math.round(f.size*0.45));
     if(emojiImg)ctx.drawImage(emojiImg,-f.size*0.22,-f.size*0.22,f.size*0.45,f.size*0.45);
-    // Task name label below
-    ctx.textAlign='center';
-    ctx.textBaseline='top';
-    const fontSize=Math.round(10*dpr);
+    // Name label
+    ctx.textAlign='center';ctx.textBaseline='top';
+    const fontSize=Math.round((f.isActive?12:10)*dpr);
     ctx.font=`700 ${fontSize}px "Plus Jakarta Sans",sans-serif`;
-    // White shadow for readability
+    const labelOff=r+(f.isActive?14:4)*dpr;
     ctx.fillStyle='rgba(255,255,255,0.8)';
-    ctx.fillText(f.name,1*dpr,r+4*dpr+1);
+    ctx.fillText(f.name,1*dpr,labelOff+1);
     ctx.fillStyle=f.color;
-    ctx.fillText(f.name,0,r+4*dpr);
+    ctx.fillText(f.name,0,labelOff);
+    // Ring (active bubble only, while it has work left)
+    const ringR=r+(f.isActive?12*dpr:0);
+    if(f.isActive&&!t.done){
+      ctx.beginPath();ctx.arc(0,0,ringR,0,Math.PI*2);
+      ctx.strokeStyle=f.color+'33';
+      ctx.lineWidth=4*dpr;ctx.stroke();
+      const phaseDur=t.isRest?Math.max(1,t.restDur):Math.max(1,t.workDur);
+      const elapsed=phaseDur-Math.max(0,t.rem);
+      const progress=Math.max(0,Math.min(1,elapsed/phaseDur));
+      if(progress>0.001){
+        const startA=-Math.PI/2;
+        const endA=startA+progress*Math.PI*2;
+        ctx.beginPath();ctx.arc(0,0,ringR,startA,endA);
+        ctx.strokeStyle=t.isRest?'#2e9e6a':f.color;
+        ctx.lineWidth=4*dpr;ctx.lineCap='round';ctx.stroke();
+        ctx.lineCap='butt';
+      }
+    }
+    // Markers — one dot per work block, around the perimeter
+    const markerR=f.isActive?ringR:r+5*dpr;
+    const markerSize=(f.isActive?4.5:3)*dpr;
+    const N=Math.max(1,t.total||1);
+    for(let i=0;i<N;i++){
+      const ang=-Math.PI/2+(i/N)*Math.PI*2+(N>1?Math.PI/N:0);
+      const mx=Math.cos(ang)*markerR;
+      const my=Math.sin(ang)*markerR;
+      const mc=i<t.completed?'#2e9e6a':'#c0453a';
+      // Pulse the current block's marker on the active running bubble
+      if(f.isActive&&t.running&&!t.done&&i===t.completed){
+        const pulse=0.55+0.45*Math.sin(_now*0.005);
+        ctx.globalAlpha=alpha*pulse;
+      } else {
+        ctx.globalAlpha=alpha;
+      }
+      ctx.beginPath();ctx.arc(mx,my,markerSize,0,Math.PI*2);
+      ctx.fillStyle=mc;ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,0.7)';
+      ctx.lineWidth=1*dpr;
+      ctx.stroke();
+    }
     ctx.restore();
   });
+  ctx.globalAlpha=1;
+  _updateBubbleTimeOverlay();
+}
+function _updateBubbleTimeOverlay(){
+  let el=document.getElementById('bubble-time');
+  if(!el){
+    el=document.createElement('div');
+    el.id='bubble-time';
+    el.style.cssText='position:fixed;pointer-events:none;font-family:var(--fd);font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;text-shadow:0 1px 4px rgba(255,255,255,0.6),0 1px 4px rgba(0,0,0,0.18);z-index:5;display:none;transform:translate(-50%,-50%);transition:color .25s';
+    document.body.appendChild(el);
+  }
+  const active=activeTaskBlocks.find(b=>b.isActive);
+  const t=active?S.tasks.find(x=>x.id===active.taskId):null;
+  if(!active||!t||t.done){el.style.display='none';return;}
+  const dpr=_bgDpr();
+  el.style.display='block';
+  el.style.left=(active.x/dpr)+'px';
+  el.style.top=(active.y/dpr)+'px';
+  el.style.color=t.isRest?'#2e9e6a':t.color;
+  const fs=Math.max(20,Math.round(active.size/dpr*0.30));
+  el.style.fontSize=fs+'px';
+  el.textContent=fmtTime(Math.max(0,t.rem));
 }
 let _poppedBlock=null; // stash for morph animation in tapCard
 function popTaskBlock(block){
@@ -3983,25 +2986,17 @@ function hitTestTaskBlock(tx,ty){
 
 function spawnFloaters(W,fillY){
   activeFloaters.length=0;
-  const owned=S.shopItems&&S.shopItems.floaters?S.shopItems.floaters:[];
-  const disabled=S.shopItems.disabledFloaters||[];
   const dpr=_bgDpr();
-  let idx=0;
-  owned.filter(id=>!disabled.includes(id)).forEach((id)=>{
-    const def=FLOATER_DEFS[id];
-    if(!def)return;
-    const spawnY=def.underwater?fillY+40:fillY-def.size*dpr*0.3;
-    activeFloaters.push({
-      type:id,emoji:def.emoji,
-      size:def.size*dpr,baseSize:def.size*dpr,
-      buoyancy:def.buoyancy,drag:def.drag,
-      bouncy:!!def.bouncy,underwater:!!def.underwater,
-      x:W*(0.2+idx*0.15+Math.random()*0.1),
-      y:spawnY,vx:0,vy:0,rot:0,
-      fishDir:1,fishTimer:2+Math.random()*3,
-      melt:0,juggleCount:0
-    });
-    idx++;
+  // Beach ball: default-enabled, no purchase required
+  const def=FLOATER_DEFS['float_ball'];
+  activeFloaters.push({
+    type:'float_ball',emoji:def.emoji,
+    size:def.size*dpr,baseSize:def.size*dpr,
+    buoyancy:def.buoyancy,drag:def.drag,
+    bouncy:true,underwater:false,
+    x:W*0.5,y:fillY-def.size*dpr*0.3,vx:0,vy:0,rot:0,
+    fishDir:1,fishTimer:0,
+    melt:0,juggleCount:0
   });
   // Theme floaters
   const th=getTheme();
@@ -4340,18 +3335,94 @@ function popBubbleAt(tx,ty){
   }
 }
 let _lastBlockTapT=0; // guard against synthetic mousedown after touchstart
+// Bubble gesture state machine — single tap activates, long-press edits, drag relocates.
+let _bubbleHold=null;
+const _BUBBLE_LONG_MS=500, _BUBBLE_MOVE_TOL=10;
+function _cancelBubbleHold(){
+  if(_bubbleHold){
+    clearTimeout(_bubbleHold.timer);
+    if(_bubbleHold.dragging){
+      const b=activeTaskBlocks.find(x=>x.taskId===_bubbleHold.taskId);
+      if(b)b.beingDragged=false;
+    }
+    _bubbleHold=null;
+  }
+}
+function _startBubbleHold(block,clientX,clientY){
+  _cancelBubbleHold();
+  const id=block.taskId;
+  _bubbleHold={taskId:id,startX:clientX,startY:clientY,fired:false,dragging:false,
+    lastX:clientX,lastY:clientY,lastT:performance.now(),
+    velX:0,velY:0,
+    timer:setTimeout(()=>{
+      if(_bubbleHold&&_bubbleHold.taskId===id&&!_bubbleHold.dragging){
+        _bubbleHold.fired=true;
+        haptic([30,15,30]);
+        openEdit(id);
+      }
+    },_BUBBLE_LONG_MS)};
+}
+function _maybeCancelBubbleHoldByMove(clientX,clientY){
+  if(!_bubbleHold||_bubbleHold.fired)return;
+  const dx=clientX-_bubbleHold.startX,dy=clientY-_bubbleHold.startY;
+  const movedFar=dx*dx+dy*dy>_BUBBLE_MOVE_TOL*_BUBBLE_MOVE_TOL;
+  if(!_bubbleHold.dragging&&movedFar){
+    // Switch from long-press-pending to drag mode
+    clearTimeout(_bubbleHold.timer);
+    const b=activeTaskBlocks.find(x=>x.taskId===_bubbleHold.taskId);
+    if(!b){_cancelBubbleHold();return;}
+    _bubbleHold.dragging=true;
+    b.beingDragged=true;
+    haptic([12]);
+  }
+  if(_bubbleHold.dragging){
+    const b=activeTaskBlocks.find(x=>x.taskId===_bubbleHold.taskId);
+    if(!b)return;
+    const dpr=_bgDpr();
+    // Track velocity for throw-on-release
+    const now=performance.now();
+    const dt=Math.max(1,now-_bubbleHold.lastT);
+    _bubbleHold.velX=(clientX-_bubbleHold.lastX)/dt*16; // per ~16ms frame
+    _bubbleHold.velY=(clientY-_bubbleHold.lastY)/dt*16;
+    _bubbleHold.lastX=clientX;_bubbleHold.lastY=clientY;_bubbleHold.lastT=now;
+    b.x=clientX*dpr;
+    b.y=clientY*dpr;
+    b.vx=0;b.vy=0;
+  }
+}
+function _finishBubbleHoldAsTap(block){
+  if(_bubbleHold&&_bubbleHold.dragging){
+    const b=activeTaskBlocks.find(x=>x.taskId===_bubbleHold.taskId);
+    if(b){
+      b.beingDragged=false;
+      b.userPlaced=true;
+      const dpr=_bgDpr();
+      // Clamp throw velocity well below the spring period to prevent wild overshoot
+      b.vx=Math.max(-12,Math.min(12,_bubbleHold.velX*dpr));
+      b.vy=Math.max(-12,Math.min(12,_bubbleHold.velY*dpr));
+      b._splashOnce=true; // one wave on landing, then quiet
+    }
+    _cancelBubbleHold();
+    return;
+  }
+  const fired=_bubbleHold&&_bubbleHold.fired;
+  _cancelBubbleHold();
+  if(fired)return;
+  const t=S.tasks.find(x=>x.id===block.taskId);
+  if(t&&t.done)return; // done bubbles: tap is a no-op (long-press still edits)
+  popTaskBlock(block);
+  tapCard(block.taskId);
+}
 document.addEventListener('touchstart',(e)=>{
-  // Task block taps bypass the e.target filter — mobile browsers adjust touch targets
-  // to the nearest interactive element (the running card), swallowing taps in the water area
-  if(bgWaveState.active&&activeTaskBlocks.length>0){
+  if(activeTaskBlocks.length>0){
     const dpr0=_bgDpr();
     for(let i=0;i<e.changedTouches.length;i++){
       const t0=e.changedTouches[i];
       const hitBlock=hitTestTaskBlock(t0.clientX*dpr0,t0.clientY*dpr0);
-      if(hitBlock){_lastBlockTapT=Date.now();popTaskBlock(hitBlock);tapCard(hitBlock.taskId);return;}
+      if(hitBlock){_lastBlockTapT=Date.now();_startBubbleHold(hitBlock,t0.clientX,t0.clientY);return;}
     }
   }
-  if(!bgWaveState.active||e.target.closest('.card,.sheet,.fab,.hdr,.pill,.coin-pill'))return;
+  if(!bgWaveState.active||e.target.closest('.sheet,.fab,.hdr,.pill'))return;
   const dpr=_bgDpr();
   const H=window.innerHeight*dpr;
   const waterY=H*(1-bgWaveState.fill/100);
@@ -4365,8 +3436,6 @@ document.addEventListener('touchstart',(e)=>{
     // Always allow floater interaction (ball juggling needs taps above water)
     pushFloatersAt(tx,ty,0,-5);
     popBubbleAt(tx,ty);
-    // Ecosystem interaction (scatter plankton, bioluminescent trail)
-    if(ty>waterY){scatterPlankton(tx,ty,80*dpr);addBioTrail(tx,ty);}
     // Water surface effects only near the water
     if(ty<waterY-aboveZone)continue;
     waterTouches[t.identifier]={x:tx,y:ty};
@@ -4377,6 +3446,11 @@ document.addEventListener('touchstart',(e)=>{
   }
 },{passive:true});
 document.addEventListener('touchmove',(e)=>{
+  // Cancel long-press if finger drifts too far
+  if(_bubbleHold){
+    const t0=e.changedTouches[0];
+    if(t0)_maybeCancelBubbleHoldByMove(t0.clientX,t0.clientY);
+  }
   if(!bgWaveState.active)return;
   const dpr=_bgDpr();
   const H=window.innerHeight*dpr;
@@ -4393,34 +3467,43 @@ document.addEventListener('touchmove',(e)=>{
         if(col>=0)applyForce(bgHF,col,vy*0.8,6);
       }
       pushFloatersAt(tx,ty,vx*0.5,vy*0.5);
-      if(ty>waterY)addBioTrail(tx,ty);
       prev.x=tx;prev.y=ty;
     }
   }
 },{passive:true});
 document.addEventListener('touchend',(e)=>{
+  // Resolve bubble hold as tap (or no-op if long-press already fired)
+  if(_bubbleHold){
+    const t0=e.changedTouches[0];
+    if(t0){
+      const dpr0=_bgDpr();
+      const block=hitTestTaskBlock(t0.clientX*dpr0,t0.clientY*dpr0);
+      if(block&&block.taskId===_bubbleHold.taskId)_finishBubbleHoldAsTap(block);
+      else _cancelBubbleHold();
+    } else _cancelBubbleHold();
+  }
   for(let i=0;i<e.changedTouches.length;i++)delete waterTouches[e.changedTouches[i].identifier];
 },{passive:true});
+document.addEventListener('touchcancel',()=>{_cancelBubbleHold();},{passive:true});
 document.addEventListener('mousedown',(e)=>{
-  if(!bgWaveState.active||e.target.closest('.card,.sheet,.fab,.hdr,.pill,.coin-pill'))return;
+  if(e.target.closest('.sheet,.fab,.hdr,.pill'))return;
   // Skip synthetic mousedown fired by mobile browsers after touchstart
   if(Date.now()-_lastBlockTapT<800)return;
   const dpr=_bgDpr();
   const tx=e.clientX*dpr,ty=e.clientY*dpr;
+  // Bubble hit: start long-press tracker
+  const hitBlock=hitTestTaskBlock(tx,ty);
+  if(hitBlock){_startBubbleHold(hitBlock,e.clientX,e.clientY);return;}
+  if(!bgWaveState.active)return;
   const H=window.innerHeight*dpr;
   const waterY=H*(1-bgWaveState.fill/100);
   const surfZone=80*dpr;
   const aboveZone=20*dpr;
-  // Task block click: switch to that task
-  const hitBlock=hitTestTaskBlock(tx,ty);
-  if(hitBlock){popTaskBlock(hitBlock);tapCard(hitBlock.taskId);return;}
   // Star twinkle (sky zone)
   if(ty<waterY)tapStar(tx,ty);
   // Always allow floater interaction (ball juggling needs taps above water)
   pushFloatersAt(tx,ty,0,-5);
   popBubbleAt(tx,ty);
-  // Ecosystem interaction
-  if(ty>waterY){scatterPlankton(tx,ty,80*dpr);addBioTrail(tx,ty);}
   // Water surface effects only near the water
   if(ty<waterY-aboveZone)return;
   waterTouches['mouse']={x:tx,y:ty};
@@ -4430,6 +3513,7 @@ document.addEventListener('mousedown',(e)=>{
   }
 });
 document.addEventListener('mousemove',(e)=>{
+  if(_bubbleHold)_maybeCancelBubbleHoldByMove(e.clientX,e.clientY);
   const prev=waterTouches['mouse'];
   if(!prev)return;
   const dpr=_bgDpr();
@@ -4443,10 +3527,17 @@ document.addEventListener('mousemove',(e)=>{
     if(col>=0)applyForce(bgHF,col,vy*0.8,6);
   }
   pushFloatersAt(tx,ty,vx*0.5,vy*0.5);
-  if(ty>waterY)addBioTrail(tx,ty);
   prev.x=tx;prev.y=ty;
 });
-document.addEventListener('mouseup',()=>{delete waterTouches['mouse'];});
+document.addEventListener('mouseup',(e)=>{
+  if(_bubbleHold){
+    const dpr=_bgDpr();
+    const block=hitTestTaskBlock(e.clientX*dpr,e.clientY*dpr);
+    if(block&&block.taskId===_bubbleHold.taskId)_finishBubbleHoldAsTap(block);
+    else _cancelBubbleHold();
+  }
+  delete waterTouches['mouse'];
+});
 
 // ── TAP RIPPLE ──────────────────────────────────────────────────────
 function spawnRipple(x,y){
@@ -4625,28 +3716,8 @@ function waveLoop(now){
         ctx.fillStyle=wg;
         ctx.fillRect(wx-wr,wy-wr,wr*2,wr*2);
       }
-      // ── Centered rest text (aquarium mode only — cards hidden) ──
-      if(document.querySelector('.app-wrap.aquarium')){
-        const textA=Math.min(1,restPct*1.5)*0.55;
-        const dprBgT=_bgDpr();
-        ctx.save();
-        ctx.textAlign='center';
-        ctx.textBaseline='middle';
-        ctx.font=`800 ${Math.round(22*dprBgT)}px Syne,sans-serif`;
-        ctx.fillStyle=`rgba(28,25,23,${textA.toFixed(2)})`;
-        ctx.fillText('steam clearing.',W/2,H*0.44);
-        ctx.font=`800 ${Math.round(48*dprBgT)}px Syne,sans-serif`;
-        ctx.fillStyle=`rgba(28,25,23,${(textA*0.9).toFixed(2)})`;
-        ctx.fillText(fmtTime(rt.rem),W/2,H*0.44+Math.round(52*dprBgT));
-        ctx.font=`600 ${Math.round(12*dprBgT)}px "Plus Jakarta Sans",sans-serif`;
-        ctx.fillStyle=`rgba(28,25,23,${(textA*0.5).toFixed(2)})`;
-        const bl=rt.total-rt.completed;
-        const sub=bl<=1?'final block next':'block '+(rt.completed+1)+' of '+rt.total+' next';
-        ctx.fillText(sub,W/2,H*0.44+Math.round(90*dprBgT));
-        ctx.restore();
-      }
     } else if(bgWaveState.ambient&&bgWaveState.fill>0.3){
-      // ── AMBIENT: calm pool with floaters ───────────────────────
+      // ── AMBIENT: calm pool with floaters + bubbles ────────────────
       const bgStep=Math.max(3,Math.ceil(W/1023));
       const bgN=Math.min(Math.ceil(W/bgStep)+1,1024);
       ensureBgHF(bgN);
@@ -4656,11 +3727,14 @@ function waveLoop(now){
       if(shakeF>0.1)injectBoilEnergy(bgHF,shakeF*0.1,dt);
       drawWater(ctx,W,H,bgWaveState.fill,bgWaveState.color,waveT*0.2,[],true,bgHF);
       const ambFillY=H*(1-bgWaveState.fill/100);
-      drawEcosystem(ctx,W,H,ambFillY,bgHF,bgStep,bgN,dt);
-      // Floaters — your toys stay in the water
-      if(activeFloaters.length===0&&((S.shopItems&&S.shopItems.floaters&&S.shopItems.floaters.length)||getTheme().floaters.length))spawnFloaters(W,ambFillY);
+      // Floaters
+      if(activeFloaters.length===0)spawnFloaters(W,ambFillY);
       stepFloaters(W,H,ambFillY,bgHF,bgStep,dt,0);
       drawFloaters(ctx);
+      // Task bubbles (every task is a bubble, always visible)
+      if(activeTaskBlocks.length===0&&S.tasks&&S.tasks.length)spawnTaskBlocks(W,ambFillY);
+      stepTaskBlocks(W,H,ambFillY,bgHF,bgStep,dt);
+      drawTaskBlocks(ctx);
     } else if(bgWaveState.fill>0.3){
       // ── WORK: water + floaters + noodles ─────────────────────────
       // Step heightfield physics
@@ -4681,14 +3755,12 @@ function waveLoop(now){
         if(!_noodles.length)initNoodles(W,H,bgFillY);
         drawNoodles(ctx,W,H,bgFillY,boil2,waveT);
       }
-      // Ecosystem (bioluminescent life, between noodles and floaters)
-      drawEcosystem(ctx,W,H,bgFillY,bgHF,bgStep,bgN,dt);
       // Floaters
-      if(activeFloaters.length===0&&((S.shopItems&&S.shopItems.floaters&&S.shopItems.floaters.length)||getTheme().floaters.length))spawnFloaters(W,bgFillY);
+      if(activeFloaters.length===0)spawnFloaters(W,bgFillY);
       stepFloaters(W,H,bgFillY,bgHF,bgStep,dt,boil2);
       drawFloaters(ctx);
-      // Task blocks (inactive tasks as floating emoji blocks)
-      if(activeTaskBlocks.length===0&&S.tasks.some(t=>t.running))spawnTaskBlocks(W,bgFillY);
+      // Task bubbles (always visible while there are tasks)
+      if(activeTaskBlocks.length===0&&S.tasks&&S.tasks.length)spawnTaskBlocks(W,bgFillY);
       stepTaskBlocks(W,H,bgFillY,bgHF,bgStep,dt);
       drawTaskBlocks(ctx);
       // Glass fogging at high boil
@@ -4751,349 +3823,11 @@ function waveLoop(now){
 }
 
 
-// ── ECOSYSTEM: BIOLUMINESCENT TIDE POOL ────────────────────────────
-// Living water — procedural organisms that grow with work
-// Always vivid — the life IS the water. Interactive elements (trails, juggling) gated to idle/rest.
-// Research: Blue Mind (Nichols), biophilia (Gaekwad), prediction error (Schultz/Bunzeck)
-
-const _ecoSeed={
-  driftAngle:Math.random()*Math.PI*2,
-  driftSpeed:0.3+Math.random()*0.4,
-  glowHue:Math.random()*30-15,
-  pulseBase:0.6+Math.random()*0.5,
-};
-let _plankton=[];
-let _organisms=[];
-let _bioTrails=[];
-
-function ecoPhase(){
-  const e=(S&&S.eco&&S.eco.energy)||0;
-  if(e<5)return 'dormant';if(e<20)return 'seed';if(e<50)return 'growing';if(e<80)return 'bloom';return 'mature';
-}
-function ecoRegister(){return 'vivid';}
 function _workRunning(){return S&&S.tasks&&S.tasks.find(t=>t.running&&!t.done&&!t.isRest);}
-function ecoPopTarget(){
-  const p=ecoPhase();
-  return p==='dormant'?4:p==='seed'?12:p==='growing'?25:p==='bloom'?40:50;
-}
-function ecoAddEnergy(n){
-  if(!S||!S.eco)return;
-  const oldPhase=ecoPhase();
-  // "Glad to see you" — boost on return after absence
-  const last=S.eco.lastWorkDate;
-  const td=today();
-  let returning=false;
-  if(last&&last!==td){
-    const gap=Math.floor((new Date(td)-new Date(last))/(86400000));
-    if(gap>=2){n=n+1;returning=true;} // small warmth bonus on return
-  }
-  S.eco.lastWorkDate=td;
-  S.eco.energy=Math.min(100,(S.eco.energy||0)+n);
-  if(S.eco.energy>S.eco.peak)S.eco.peak=S.eco.energy;
-  const newPhase=ecoPhase();
-  _onEcoBlockPulse();
-  if(newPhase!==oldPhase)_onEcoPhaseTransition(oldPhase,newPhase);
-  if(returning)_onEcoReturn();
-}
-function ecoDecayEnergy(){
-  if(!S||!S.eco||!S.eco.energy)return;
-  // Gentler decay for consistent users, steeper for longer gaps
-  const last=S.eco.lastWorkDate;
-  const td=today();
-  let rate=0.12; // default 12%
-  if(last){
-    const gap=Math.floor((new Date(td)-new Date(last))/(86400000));
-    if(gap<=1)rate=0.06; // worked yesterday — gentle fade
-    else if(gap<=3)rate=0.12; // couple days — normal
-    else rate=0.18; // longer gap — noticeable but recoverable
-  }
-  S.eco.energy=Math.max(0,S.eco.energy-Math.max(1,Math.floor(S.eco.energy*rate)));
-}
-
-// ── Ecosystem legibility moments ────────────────────────────────────
-// Couple invisible state changes (phase up, return after absence, block feed)
-// to perceptible events so the ecosystem is legible, not mysterious.
-const _ECO_PHASE_ORDER=['dormant','seed','growing','bloom','mature'];
-const _ECO_PHASE_LINES={
-  seed:'Something is stirring.',
-  growing:'The water is waking up.',
-  bloom:'It feels alive today.',
-  mature:'Your water remembers you.',
-};
-const _ECO_RETURN_LINES=['Glad you came back.','The water remembers.','Welcome back to your water.'];
-function _onEcoPhaseTransition(oldP,newP){
-  // Only celebrate upward transitions — downward fades are silent (no shame)
-  if(_ECO_PHASE_ORDER.indexOf(newP)<=_ECO_PHASE_ORDER.indexOf(oldP))return;
-  const line=_ECO_PHASE_LINES[newP];
-  if(line&&!document.hidden)sisterMsg(line,2800);
-  _spawnLifePulse(2.6,0.95);
-}
-function _onEcoReturn(){
-  if(document.hidden)return;
-  sisterMsg(_ECO_RETURN_LINES[Math.floor(Math.random()*_ECO_RETURN_LINES.length)],2600);
-}
-function _onEcoBlockPulse(){_spawnLifePulse(1.6,0.55);}
-
-// Life pulses — expanding glows that fade. Rendered in waveLoop + begin-screen.
-const _lifePulses=[];
-function _spawnLifePulse(life,intensity){
-  _lifePulses.push({
-    xFrac:0.15+Math.random()*0.7, yFrac:0.2+Math.random()*0.7,
-    age:0,life:life,intensity:intensity||0.6,
-  });
-  if(_lifePulses.length>8)_lifePulses.shift();
-}
-function _stepLifePulses(dt){
-  for(let i=_lifePulses.length-1;i>=0;i--){
-    _lifePulses[i].age+=dt;
-    if(_lifePulses[i].age>=_lifePulses[i].life)_lifePulses.splice(i,1);
-  }
-}
-function _drawLifePulses(ctx,W,H,fillY){
-  if(!_lifePulses.length)return;
-  const nA=(typeof nightT==='function')?nightT():0;
-  const bR=Math.round(Math.max(0,110-nA*60));
-  const bG=Math.round(Math.max(0,Math.min(255,235-nA*40)));
-  const bB=Math.round(Math.min(255,210+nA*45));
-  ctx.save();
-  ctx.beginPath();ctx.moveTo(0,fillY);ctx.lineTo(W,fillY);ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.clip();
-  ctx.globalCompositeOperation='lighter';
-  for(const p of _lifePulses){
-    const t=p.age/p.life;
-    const x=p.xFrac*W, y=fillY+(H-fillY)*p.yFrac;
-    const r=20+t*70;
-    const alpha=p.intensity*(1-t)*0.4;
-    const rg=ctx.createRadialGradient(x,y,0,x,y,r);
-    rg.addColorStop(0,`rgba(${bR},${bG},${bB},${alpha})`);
-    rg.addColorStop(1,`rgba(${bR},${bG},${bB},0)`);
-    ctx.fillStyle=rg;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
-  }
-  ctx.restore();
-}
-
-// ── Plankton (luminous dots) ────────────────────────────────────────
-function mkPlankton(W,H,fillY){
-  const dpr=_bgDpr();
-  const depth=0.15+Math.random()*0.8;
-  return{
-    x:Math.random()*W, y:fillY+(H-fillY)*(0.05+depth*0.9),
-    vx:(Math.random()-0.5)*0.3, vy:(Math.random()-0.5)*0.15,
-    r:(0.6+Math.random()*1.8)*dpr,
-    glow:0.3+Math.random()*0.7,
-    glowPhase:Math.random()*Math.PI*2,
-    glowSpeed:_ecoSeed.pulseBase*(0.5+Math.random()),
-    depth,
-  };
-}
-function ensurePlankton(W,H,fillY){
-  const target=ecoPopTarget();
-  while(_plankton.length<target)_plankton.push(mkPlankton(W,H,fillY));
-  if(_plankton.length>target)_plankton.length=target;
-}
-function stepPlankton(dt,W,H,fillY,hf,step){
-  const angle=_ecoSeed.driftAngle+Math.sin(waveT*0.03)*0.3;
-  const driftX=Math.cos(angle)*_ecoSeed.driftSpeed;
-  const driftY=Math.sin(angle)*_ecoSeed.driftSpeed*0.3;
-  for(const p of _plankton){
-    p.x+=(p.vx+driftX*(1-p.depth*0.5))*dt*25;
-    p.y+=(p.vy+driftY)*dt*25;
-    p.x+=Math.sin(waveT*p.glowSpeed*0.7+p.glowPhase)*dt*6;
-    p.y+=Math.cos(waveT*p.glowSpeed*0.5+p.glowPhase*1.3)*dt*3;
-    // Near-surface plankton ride the waves
-    if(hf&&p.depth<0.4){
-      const col=Math.min(hf.cols-1,Math.max(0,Math.round(p.x/(step||3))));
-      if(col>=0&&col<hf.cols){p.y+=(fillY+(hf.h[col]||0)-p.y)*dt*0.5*(0.4-p.depth);}
-    }
-    p.vx*=0.98;p.vy*=0.98;
-    if(p.x<-10)p.x=W+10;if(p.x>W+10)p.x=-10;
-    if(p.y<fillY+5)p.y=fillY+5+Math.random()*15;
-    if(p.y>H-5)p.y=H-5-Math.random()*15;
-    p.glow=0.3+0.7*((Math.sin(waveT*p.glowSpeed+p.glowPhase)+1)/2);
-  }
-}
-function scatterPlankton(tx,ty,radius){
-  for(const p of _plankton){
-    const dx=p.x-tx,dy=p.y-ty,d2=dx*dx+dy*dy;
-    if(d2<radius*radius&&d2>0){
-      const dist=Math.sqrt(d2),f=(1-dist/radius)*2.5;
-      p.vx+=dx/dist*f;p.vy+=dy/dist*f;
-      p.glow=Math.min(1,p.glow+0.4);
-    }
-  }
-}
-function drawPlankton(ctx,W,H,fillY,N,step,register){
-  if(!_plankton.length)return;
-  const regMul=register==='subtle'?0.2:1.0;
-  const phase=ecoPhase();
-  const pMul=phase==='dormant'?0.35:phase==='seed'?0.6:1.0;
-  const nA=nightT();
-  ctx.save();
-  // Clip to water body
-  ctx.beginPath();
-  ctx.moveTo(0,_surf[0]||fillY);
-  for(let i=1;i<N;i++)ctx.lineTo(Math.min(i*step,W),_surf[i]||fillY);
-  ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.clip();
-  ctx.globalCompositeOperation='lighter';
-  const bR=Math.round(Math.max(0,80-nA*40+_ecoSeed.glowHue));
-  const bG=Math.round(Math.max(0,Math.min(255,220-nA*60)));
-  const bB=Math.round(Math.min(255,200+nA*40));
-  for(const p of _plankton){
-    const a=p.glow*regMul*pMul*(0.4+p.depth*0.4);
-    if(a<0.015)continue;
-    ctx.globalAlpha=Math.min(1,a*0.9);
-    ctx.fillStyle=`rgb(${bR},${bG},${bB})`;
-    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();
-    // Soft glow halo — vivid register, bright plankton only
-    if(register==='vivid'&&a>0.35){
-      const gr=p.r*(3+p.glow*3);
-      ctx.globalAlpha=a*0.12;
-      const rg=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,gr);
-      rg.addColorStop(0,`rgb(${bR},${bG},${bB})`);
-      rg.addColorStop(1,`rgba(${bR},${bG},${bB},0)`);
-      ctx.fillStyle=rg;ctx.beginPath();ctx.arc(p.x,p.y,gr,0,Math.PI*2);ctx.fill();
-    }
-  }
-  ctx.restore();
-}
-
-// ── Organisms (rare procedural soft shapes) ─────────────────────────
-function mkOrganism(W,H,fillY){
-  const dpr=_bgDpr();
-  const r=dpr*(6+Math.random()*10);
-  const fromLeft=Math.random()<0.5;
-  return{
-    x:fromLeft?-r*3:W+r*3, y:fillY+(H-fillY)*(0.15+Math.random()*0.6),
-    vx:(fromLeft?1:-1)*(0.15+Math.random()*0.25), vy:(Math.random()-0.5)*0.08,
-    r, phase:Math.random()*Math.PI*2, phaseSpeed:0.3+Math.random()*0.4,
-    glow:0, maxGlow:0.4+Math.random()*0.35,
-    life:0, maxLife:18+Math.random()*22,
-    tendrils:2+Math.floor(Math.random()*3),
-  };
-}
-function stepOrganisms(dt,W,H,fillY){
-  const reg=ecoRegister(),phase=ecoPhase();
-  // Spawn: vivid register, bloom+ phase, max 2, ~once per 5 min
-  if(reg==='vivid'&&(phase==='bloom'||phase==='mature')&&_organisms.length<2){
-    if(Math.random()<0.003*dt*60)_organisms.push(mkOrganism(W,H,fillY));
-  }
-  for(let i=_organisms.length-1;i>=0;i--){
-    const o=_organisms[i];
-    o.life+=dt;
-    if(o.life<2)o.glow=o.maxGlow*(o.life/2);
-    else if(o.life>o.maxLife-3)o.glow=o.maxGlow*Math.max(0,(o.maxLife-o.life)/3);
-    else o.glow=o.maxGlow;
-    o.x+=o.vx*dt*15;
-    o.y+=o.vy*dt*15+Math.sin(waveT*0.3+o.phase)*dt*3;
-    o.phase+=o.phaseSpeed*dt;
-    if(o.y<fillY+o.r)o.vy+=dt*0.5;
-    if(o.y>H-o.r)o.vy-=dt*0.5;
-    o.vy*=0.99;
-    if(o.life>o.maxLife||o.x<-o.r*5||o.x>W+o.r*5)_organisms.splice(i,1);
-  }
-}
-function drawOrganisms(ctx,W,H,fillY,N,step){
-  if(!_organisms.length)return;
-  const nA=nightT();
-  const bR=Math.round(Math.max(0,60-nA*30+_ecoSeed.glowHue));
-  const bG=Math.round(Math.max(0,Math.min(255,200-nA*50)));
-  const bB=Math.round(Math.min(255,220+nA*30));
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(0,_surf[0]||fillY);
-  for(let i=1;i<N;i++)ctx.lineTo(Math.min(i*step,W),_surf[i]||fillY);
-  ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.clip();
-  ctx.globalCompositeOperation='lighter';
-  for(const o of _organisms){
-    if(o.glow<0.01)continue;
-    const pulse=Math.sin(o.phase)*0.15;
-    const bodyR=o.r*(0.85+pulse);
-    // Outer glow
-    ctx.globalAlpha=o.glow*0.4;
-    const rg=ctx.createRadialGradient(o.x,o.y-bodyR*0.2,bodyR*0.1,o.x,o.y,bodyR*2.5);
-    rg.addColorStop(0,`rgba(${bR},${bG},${bB},0.7)`);
-    rg.addColorStop(0.3,`rgba(${bR},${bG},${bB},0.2)`);
-    rg.addColorStop(1,`rgba(${bR},${bG},${bB},0)`);
-    ctx.fillStyle=rg;ctx.beginPath();ctx.arc(o.x,o.y,bodyR*2.5,0,Math.PI*2);ctx.fill();
-    // Body dome
-    ctx.globalAlpha=o.glow*0.6;
-    ctx.fillStyle=`rgba(${bR},${bG},${bB},0.35)`;
-    ctx.beginPath();
-    ctx.ellipse(o.x,o.y,bodyR*(0.9+pulse*0.5),bodyR*(0.6+pulse*0.3),0,Math.PI,0);
-    ctx.fill();
-    // Tendrils
-    ctx.globalAlpha=o.glow*0.25;
-    ctx.strokeStyle=`rgb(${bR},${bG},${bB})`;
-    ctx.lineWidth=Math.max(0.5,o.r*0.07);
-    for(let ti=0;ti<o.tendrils;ti++){
-      const tx=o.x+(ti-(o.tendrils-1)/2)*bodyR*0.35;
-      const tLen=bodyR*(1.2+Math.sin(o.phase+ti*0.8)*0.3);
-      ctx.beginPath();ctx.moveTo(tx,o.y+bodyR*0.1);
-      ctx.quadraticCurveTo(
-        tx+Math.sin(o.phase*1.3+ti*0.9)*bodyR*0.3, o.y+tLen*0.6,
-        tx+Math.sin(o.phase*0.7+ti*1.2)*bodyR*0.4, o.y+tLen);
-      ctx.stroke();
-    }
-  }
-  ctx.restore();
-}
-
-// ── Bioluminescent touch trails ─────────────────────────────────────
-function addBioTrail(tx,ty){
-  if(_workRunning())return;
-  if(!S||!S.eco||S.eco.energy<3)return;
-  _bioTrails.push({x:tx,y:ty,age:0,glow:1});
-  if(_bioTrails.length>50)_bioTrails.shift();
-}
-function stepBioTrails(dt){
-  for(let i=_bioTrails.length-1;i>=0;i--){
-    const t=_bioTrails[i];
-    t.age+=dt;t.glow=Math.max(0,1-t.age*0.6);
-    if(t.glow<=0)_bioTrails.splice(i,1);
-  }
-}
-function drawBioTrails(ctx,W,H,fillY,N,step){
-  if(!_bioTrails.length)return;
-  const nA=nightT();
-  const bR=Math.round(Math.max(0,100-nA*50+_ecoSeed.glowHue));
-  const bG=Math.round(Math.max(0,Math.min(255,235-nA*55)));
-  const bB=Math.round(Math.min(255,215+nA*35));
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(0,_surf[0]||fillY);
-  for(let i=1;i<N;i++)ctx.lineTo(Math.min(i*step,W),_surf[i]||fillY);
-  ctx.lineTo(W,H);ctx.lineTo(0,H);ctx.closePath();ctx.clip();
-  ctx.globalCompositeOperation='lighter';
-  for(const t of _bioTrails){
-    const r=12+t.glow*18;
-    ctx.globalAlpha=t.glow*0.35;
-    const rg=ctx.createRadialGradient(t.x,t.y,0,t.x,t.y,r);
-    rg.addColorStop(0,`rgb(${bR},${bG},${bB})`);
-    rg.addColorStop(1,`rgba(${bR},${bG},${bB},0)`);
-    ctx.fillStyle=rg;ctx.beginPath();ctx.arc(t.x,t.y,r,0,Math.PI*2);ctx.fill();
-  }
-  ctx.restore();
-}
-
-// ── Main ecosystem render ───────────────────────────────────────────
-function drawEcosystem(ctx,W,H,fillY,hf,step,N,dt){
-  if(isBatterySaver())return;
-  if(!S||!S.eco)return;
-  const reg=ecoRegister();
-  if(reg==='none')return;
-  ensurePlankton(W,H,fillY);
-  stepPlankton(dt,W,H,fillY,hf,step);
-  stepOrganisms(dt,W,H,fillY);
-  stepBioTrails(dt);
-  _stepLifePulses(dt);
-  drawPlankton(ctx,W,H,fillY,N,step,reg);
-  drawOrganisms(ctx,W,H,fillY,N,step);
-  drawBioTrails(ctx,W,H,fillY,N,step);
-  _drawLifePulses(ctx,W,H,fillY);
-}
 
 
 // ── BUBBLE SYSTEM ─────────────────────────────────────────────────────
-function heatMultiplier(){const idx=HEAT_LEVELS.findIndex(h=>h===getHeatLevel());return 1+idx*0.12;}
+function heatMultiplier(){return 1;}
 // Session water personality — subliminal variation prevents hedonic adaptation (Schultz RPE, Bunzeck novelty)
 const _waterSeed={
   nucleateWall:0.20+Math.random()*0.15,   // 20-35% wall nucleation (default was fixed 25%)
@@ -5440,27 +4174,19 @@ function onRestStart(id){
     src.start(now+.1);src.stop(now+.5);
   }catch(e){}
   haptic([0,30,60]);
-  // Re-render card to show rest overlay, then flash green
-  renderCard(t);
-  updateAquariumBar();
-  const el=document.getElementById('c-'+id);
-  if(el){el.classList.add('rest-flash');setTimeout(()=>el.classList.remove('rest-flash'),850);}
+  activeTaskBlocks.length=0;
 }
 
 function beginDay(){
   if(!_sensorsAttached)requestMotionPermission();
-  // Progressive disclosure: count days of engagement (not perfection)
-  const td=today();if(S._lastBeganDate!==td){S.daysCompleted=(S.daysCompleted||0)+1;S._lastBeganDate=td;}
   S.startTs=Date.now();S.dayHours=24;
   S.bedtime=timeToDecimal(document.getElementById('begin-bed').value);
   _snapshotDay();
   save();
   document.getElementById('begin-screen').style.display='none';
   if(beginWaveRaf){cancelAnimationFrame(beginWaveRaf);beginWaveRaf=null;}
-  renderDaybar();renderCards();updateLogoDot();updateScrollState();
-  // "Start here" emphasis on first undone task (implementation intentions, d=0.99)
-  const _firstUndone=S.tasks.filter(taskVisibleToday).find(t=>!t.done&&!t.skipped);
-  if(_firstUndone){const _fe=document.getElementById('c-'+_firstUndone.id);if(_fe){_fe.scrollIntoView({behavior:'smooth',block:'nearest'});setTimeout(()=>_fe.classList.add('suggested'),150);}}
+  renderDaybar();updateLogoDot();
+  activeTaskBlocks.length=0;
   if('Notification' in window && Notification.permission==='default'){
     Notification.requestPermission();
   }
@@ -5484,114 +4210,16 @@ function beginDay(){
   haptic([30,40,80]);
 }
 
-function quickBoil(){
-  // Create a temporary 5-min single-block task and immediately start it
-  const qid='quick-'+Date.now();
-  const qt=mkTask(qid,'Quick boil','#c8841a',1,5*60,0);
-  qt._isQuick=true;
-  S.tasks.push(qt);
-  // Progressive disclosure: count days of engagement
-  const td=today();if(S._lastBeganDate!==td){S.daysCompleted=(S.daysCompleted||0)+1;S._lastBeganDate=td;}
-  // Start the day
-  S.startTs=Date.now();S.dayHours=14;
-  _snapshotDay();
-  document.getElementById('begin-screen').style.display='none';
-  if(beginWaveRaf){cancelAnimationFrame(beginWaveRaf);beginWaveRaf=null;}
-  save();render();
-  // Auto-start the quick task
-  setTimeout(()=>tapCard(qid),300);
-}
 
-function skipTutorial(){
-  S.isTrial=false;
-  S.tasks=[];
-  // Progressive disclosure: count days of engagement
-  const td=today();if(S._lastBeganDate!==td){S.daysCompleted=(S.daysCompleted||0)+1;S._lastBeganDate=td;}
-  S.startTs=Date.now();S.dayHours=24;
-  S.bedtime=S.bedtime||22;
-  _snapshotDay();save();
-  document.getElementById('begin-screen').style.display='none';
-  if(beginWaveRaf){cancelAnimationFrame(beginWaveRaf);beginWaveRaf=null;}
-  render();
-}
-
-function toggleContinuous(){
-  S.continuous=!S.continuous;
-  save();
-  const tog=document.getElementById('cont-tog');
-  if(tog)tog.classList.toggle('on',S.continuous);
-}
-
-function updateContToggle(){
-  const tog=document.getElementById('cont-tog');
-  if(tog)tog.classList.toggle('on',!!S.continuous);
-}
-
-// ── AQUARIUM MODE ──────────────────────────────────────────────────
-function toggleAquarium(){
-  S.aquariumOn=!S.aquariumOn;
-  save();applyAquarium();
-}
-function applyAquarium(){
-  const on=!!S.aquariumOn&&(!!S.shopItems.aquarium||GOD_MODE);
-  document.querySelector('.app-wrap').classList.toggle('aquarium',on);
-  document.querySelector('.hdr').classList.toggle('aquarium',on);
-}
-function updateAquariumBar(){
-  if(!S.aquariumOn)return;
-  const t=S.tasks.find(x=>x.running&&!x.done);
-  const an=document.getElementById('aq-name');
-  const at=document.getElementById('aq-time');
-  const ap=document.getElementById('aq-prog');
-  if(!t){if(an)an.textContent='';if(at)at.textContent='';if(ap)ap.style.width='0%';return;}
-  if(an)an.textContent=t.name;
-  if(at)at.textContent=t.isRest?'':fmtTime(t.rem);
-  const pd=t.isRest?t.restDur:t.workDur;
-  const pct=pd>0?((pd-t.rem)/pd*100):0;
-  if(ap){ap.style.width=pct+'%';ap.style.background=t.isRest?'#2e9e6a':t.color;}
-}
-
-function renderBeginStreak(){
-  const el=document.getElementById('begin-streak');
-  if(!el)return;
-  // Hide streak/level info on first run
-  if(S.daysCompleted===0&&!GOD_MODE){el.innerHTML='';} else {
-    const lvl=getHeatLevel();
-    const avatar=S.shopItems&&S.shopItems.avatar?S.shopItems.avatar:lvl[1];
-    if(S.streak>0){
-      el.innerHTML=`<div style="font-size:15px;font-weight:700;color:var(--dim);margin-bottom:2px">${avatar} ${S.streak} day${S.streak!==1?'s':''}</div>`;
-    } else {
-      el.innerHTML=`<div style="font-size:13px;font-weight:700;color:var(--dim)">${avatar} ${lvl[2]}</div>`;
-    }
-  }
-  // Sister's greeting
-  const sEl=document.getElementById('sister-begin');
-  if(sEl)sEl.textContent=sisterSays('begin');
-}
 function checkBeginScreen(){
   const bs=document.getElementById('begin-screen');
   if(!bs)return;
   const needsBegin=!S.startTs||shouldRollover();
   bs.style.display=needsBegin?'flex':'none';
-  // First-run: simplified begin screen
-  const sub=document.getElementById('begin-sub');
-  const bedRow=document.getElementById('begin-bed-row');
-  const skipBtn=document.getElementById('skip-tut');
-  const quickBtn=document.querySelector('.quick-boil-btn');
-  if(S.isTrial){
-    if(sub)sub.innerHTML='Pick a task, set a timer.<br>Water rises while you work. When it boils, rest.';
-    if(bedRow)bedRow.style.display='none';
-    if(skipBtn)skipBtn.style.display='';
-    if(quickBtn)quickBtn.style.display='none';
-  } else {
-    // Hide bedtime on early days to reduce pre-action decisions
-    if(bedRow)bedRow.style.display=(S.daysCompleted||0)<=1?'none':'';
-    if(skipBtn)skipBtn.style.display='none';
-    if(quickBtn)quickBtn.style.display='';
-  }
-  // Restore saved values
   const bedInput=document.getElementById('begin-bed');
   if(bedInput)bedInput.value=decimalToTime(S.bedtime);
+  const sEl=document.getElementById('sister-begin');
+  if(sEl)sEl.textContent=sisterSays('begin');
   setTimeout(checkBeginWater,50);
 }
 
@@ -5625,20 +4253,17 @@ function updateGodBadge(){
   }
 }
 function render(){
-  // Progressive disclosure classes
-  const dc=GOD_MODE?99:(S.daysCompleted||0);
-  const dayClass=dc===0?'day-0':dc<=2?'day-1':'';
-  const aw=document.querySelector('.app-wrap');
-  const hdr=document.querySelector('.hdr');
-  if(aw){aw.classList.remove('day-0','day-1');if(dayClass)aw.classList.add(dayClass);}
-  if(hdr){hdr.classList.remove('day-0','day-1');if(dayClass)hdr.classList.add(dayClass);}
-  // Progressive disclosure transition toasts
-  if(dc>=1&&dc<3)seenToast('daybar_intro','Your day at a glance ↑','#6b6258',2500);
-  if(dc>=2)seenToast('streak_intro','Streaks track consistency 🔥','#c8841a',2500);
-  // PWA install nudge: show on day 2-3 if not already installed as standalone
-  if(dc>=2&&dc<=4&&!window.matchMedia('(display-mode: standalone)').matches&&!navigator.standalone)seenToast('pwa_install','Tip: install boil on your home screen — browser menu → Add to Home Screen','#6b6258',3500);
   document.documentElement.classList.toggle('battery-saver',!!S.batterySaver);
-  checkBeginScreen();renderBeginStreak();updateContToggle();renderDaybar();renderCards();updateSteamBanner();updateLogoDot();updateHeader();updateScrollState();applyAquarium();updateAquariumBar();setTimeout(startWaveLoop,50);updateGodBadge();applyNightTheme();
+  checkBeginScreen();renderDaybar();updateSteamBanner();updateLogoDot();updateHeader();applyNightTheme();updateGodBadge();
+  // Activate water (ambient or task-tinted) + force respawn of bubble field
+  const _rt=S.tasks.find(t=>t.running&&!t.done);
+  if(_rt){const _pd=_rt.isRest?_rt.restDur:_rt.workDur;updateSiteWave(_rt,14+(_pd>0?((_pd-_rt.rem)/_pd*86):0));}
+  else updateSiteWave(null,0);
+  activeTaskBlocks.length=0;
+  setTimeout(startWaveLoop,50);
+  // Empty hint visibility
+  const eh=document.getElementById('empty-hint');
+  if(eh)eh.style.display=(S&&S.tasks&&S.tasks.length===0&&S.startTs)?'block':'none';
 }
 
 function svgPlay(){return`<svg width="15" height="15" viewBox="0 0 12 12" fill="currentColor"><polygon points="2,1 11,6 2,11"/></svg>`;}
@@ -5707,36 +4332,8 @@ function askReset(){
     <p style="font-size:14px;color:var(--mid);line-height:1.7;margin-bottom:4px">All tasks reset. Coins, stars, and purchases from today are undone.</p>
     <div class="sh-btns"><button class="bs" onclick="closeSheet()">Cancel</button><button class="bp" onclick="doReset()">Reset day</button></div>`);
 }
-// Snapshot economic state at day start so reset can undo rewards
-function _snapshotDay(){
-  S._daySnap={
-    lifetimeCoins:S.lifetimeCoins||0,
-    heatCoins:S.heatCoins||0,
-    stars:S.stars||0,
-    streak:S.streak||0,
-    lastCompletedDate:S.lastCompletedDate||null,
-    fullBoils:S.fullBoils||0,
-    streakFreezes:S.streakFreezes||0,
-    mercyCoins:S.mercyCoins||0,
-    shopItems:JSON.parse(JSON.stringify(S.shopItems||{})),
-    badges:S.badges?S.badges.slice():[],
-  };
-}
-function _restoreSnap(){
-  const sn=S._daySnap;if(!sn)return;
-  S.lifetimeCoins=sn.lifetimeCoins;
-  S.stars=sn.stars;
-  S.streak=sn.streak;
-  S.lastCompletedDate=sn.lastCompletedDate;
-  S.fullBoils=sn.fullBoils;
-  S.streakFreezes=sn.streakFreezes;
-  S.mercyCoins=sn.mercyCoins;
-  S.shopItems=sn.shopItems;
-  S.badges=sn.badges;
-  delete S._daySnap;
-}
+function _snapshotDay(){} // legacy no-op
 function doReset(){bgBubbles.length=0;activeFloaters.length=0;if(bgHF.h)bgHF.h.fill(0);if(bgHF.v)bgHF.v.fill(0);
-  _restoreSnap(); // undo coins, stars, purchases, streak changes
   S.tasks.forEach(resetTask);S.date=today();
   S.startTs=null; // force begin screen
   clearInterval(ticker);ticker=null;
@@ -5744,7 +4341,7 @@ function doReset(){bgBubbles.length=0;activeFloaters.length=0;if(bgHF.h)bgHF.h.f
 }
 
 // ── FORMS ───────────────────────────────────────────────────────────
-let pomoOn=false,pickedCol=null,pickedEmoji=null,contOn=true,skipOn=false;
+let pomoOn=false,pickedCol=null,pickedEmoji=null,contOn=true;
 
 function taskForm(t,simple){
   const pomo=t?t.restDur>0:false;
@@ -5756,9 +4353,9 @@ function taskForm(t,simple){
   const hideSimple=simple?'display:none':'';
   return`
     <div class="field"><label>Name</label><input id="fn" type="text" value="${esc(t?.name??'')}" placeholder="e.g. Work, Chinese, Exercise" autocomplete="off"></div>
-    <div class="field" style="${hideSimple}"><label>Description <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--dimmer)">optional</span></label><input id="fdesc" type="text" value="${esc(t?.desc??'')}" placeholder="what specifically? where you left off?" autocomplete="off"></div>
+    <div class="field" style="${hideSimple}"><label>Description <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--dimmer)">optional</span></label><input id="fdesc" type="text" value="${esc(t?.desc??'')}" placeholder="optional notes — chapter 3, drafting intro, etc." autocomplete="off"></div>
     <div class="field"><label>Color</label><div class="cr">${sw}</div></div>
-    <div class="field" style="${hideSimple}"><label>Emoji</label><div class="cr" id="emoji-row">${TASK_EMOJIS.slice(0,10).map(e=>`<div class="sw ew${e===(t?.emoji||pickedEmoji)?' on':''}" onclick="pickEmoji('${e}')" style="background:var(--brd);font-size:18px;display:flex;align-items:center;justify-content:center">${e}</div>`).join('')}</div></div>
+    <div class="field" style="${hideSimple}"><label>Emoji</label><div class="cr" id="emoji-row">${TASK_EMOJIS.map(e=>`<div class="sw ew${e===(t?.emoji||pickedEmoji)?' on':''}" onclick="pickEmoji('${e}')" style="background:var(--brd);font-size:18px;display:flex;align-items:center;justify-content:center">${e}</div>`).join('')}</div></div>
     <div class="field"><label>Number of blocks</label><input id="ftot" type="number" value="${t?.total??4}" min="1" max="20" inputmode="numeric"></div>
     <div class="field"><label>Block duration (minutes)</label><input id="fwork" type="number" value="${t?Math.round(t.workDur/60):60}" min="1" max="480" inputmode="numeric"></div>
     <div class="field"><label>Pomodoro rest?</label>
@@ -5777,23 +4374,16 @@ function taskForm(t,simple){
       </div>
     </div>
     <div class="field" id="days-field" style="${hideSimple}"><label>Days</label>
-      <div class="day-picker" id="day-picker">${['S','M','T','W','T','F','S'].map((d,i)=>{
+      <div class="day-picker" id="day-picker">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d,i)=>{
         const on=t&&t.days?t.days.includes(i):false;
         return`<button class="day-pill${on?' on':''}" data-day="${i}" onclick="toggleDayPill(this)">${d}</button>`;
       }).join('')}</div>
       <div style="font-size:10px;color:var(--dim);margin-top:4px">Leave all off = every day</div>
     </div>
-    ${t&&!simple?`<div class="field"><label>Skip</label>
-      <div class="tog-row">
-        <div><div class="tog-lbl">Skip today</div><div class="tog-sub">Hide from today, comes back tomorrow</div></div>
-        <button class="tog${skipOn?' on':''}" id="stog" onclick="toggleSkip()"></button>
-      </div>
-    </div>`:''}
     ${simple?'<div style="text-align:center;margin-top:4px"><button onclick="showAllFormFields(this)" style="background:none;border:none;color:var(--dim);font-size:11px;font-family:var(--fs);text-decoration:underline;cursor:pointer">more options</button></div>':''}`;
 }
 function togglePomo(){pomoOn=!pomoOn;document.getElementById('ptog').classList.toggle('on',pomoOn);document.getElementById('rfield').style.display=pomoOn?'block':'none';}
 function toggleCont(){contOn=!contOn;document.getElementById('ctog').classList.toggle('on',contOn);}
-function toggleSkip(){skipOn=!skipOn;document.getElementById('stog').classList.toggle('on',skipOn);}
 function pickCol(p){pickedCol=p;document.querySelectorAll('.sw:not(.ew)').forEach(s=>s.classList.toggle('on',s.dataset.p===p));}
 function pickEmoji(e){pickedEmoji=e;document.querySelectorAll('.ew').forEach(s=>s.classList.toggle('on',s.textContent===e));}
 function showAllFormFields(btn){
@@ -5834,7 +4424,7 @@ function openAdd(simple){
   if(simple)setTimeout(()=>applyPreset('focus',1,25,5),50);
   setTimeout(()=>document.getElementById('fn')?.focus(),80);
 }
-function openEdit(id){const t=S.tasks.find(x=>x.id===id);pickedCol=t.color;pickedEmoji=t.emoji;skipOn=t.skipped||false;const undoBtn=t.done?`<button class="bs" onclick="uncreditBlock('${id}');closeSheet()">Undo last block</button>`:'';openSheet(`<div class="sh-ttl">Edit block</div>${taskForm(t)}<div class="sh-btns"><button class="bd" onclick="confirmDel('${id}')">Delete</button>${undoBtn}<button class="bs" onclick="closeSheet()">Cancel</button><button class="bp" onclick="saveTask('${id}')">Save</button></div>`);if(t.done)seenToast('undoDone','You can undo the last block from here.','#6b6258',1800);}
+function openEdit(id){const t=S.tasks.find(x=>x.id===id);if(!t)return;pickedCol=t.color;pickedEmoji=t.emoji;openSheet(`<div class="sh-ttl">Edit block</div>${taskForm(t)}<div class="sh-btns"><button class="bd" onclick="confirmDel('${id}')">Delete</button><button class="bs" onclick="closeSheet()">Cancel</button><button class="bp" onclick="saveTask('${id}')">Save</button></div>`);}
 
 function confirmDel(id){
   const conf=document.createElement('div');conf.className='conf-ask';
@@ -5852,7 +4442,7 @@ function saveTask(id){
   if(!name)return;
   if(id){
     const t=S.tasks.find(x=>x.id===id);
-    if(t){t.name=name;t.desc=desc;t.color=color;t.emoji=pickedEmoji||t.emoji;t.days=days;t.total=total;t.continuous=contOn;t.skipped=skipOn;if(t.workDur!==workDur||t.restDur!==restDur){t.workDur=workDur;t.restDur=restDur;resetTask(t);}if(t.completed>=t.total){t.completed=t.total;t.done=true;t.running=false;t.isRest=false;t.rem=0;t.savedAt=null;t._phaseStart=null;}else if(t.done){t.done=false;t.isRest=false;t.rem=t.workDur;}}
+    if(t){t.name=name;t.desc=desc;t.color=color;t.emoji=pickedEmoji||t.emoji;t.days=days;t.total=total;t.continuous=contOn;if(t.workDur!==workDur||t.restDur!==restDur){t.workDur=workDur;t.restDur=restDur;resetTask(t);}if(t.completed>=t.total){t.completed=t.total;t.done=true;t.running=false;t.isRest=false;t.rem=0;t.savedAt=null;t._phaseStart=null;}else if(t.done){t.done=false;t.isRest=false;t.rem=t.workDur;}}
   } else {
     const nt=mkTask('t-'+Date.now(),name,color,total,workDur,restDur,days,desc,pickedEmoji);nt.continuous=contOn;S.tasks.push(nt);
   }
@@ -5871,17 +4461,20 @@ function openFinishDay(){
   const elapsed = dayEl();
   const fmtElapsed = fmtHM(elapsed);
 
-  // Per-task breakdown
+  // Per-task breakdown — each task as a row of N pip dots, red=pending green=done.
+  // All done → row goes solid green with a ✓.
   const taskRows = S.tasks.map(t=>{
-    const coins = t.completed;
-    const bag = t.done ? '⭐' : '';
-    const pips = `${t.completed}/${t.total}`;
-    return `<div class="fin-task-row">
-      <div class="fin-task-dot" style="background:${t.color}"></div>
-      <div class="fin-task-name">${t.done?`<s style="text-decoration-color:${t.color}">${esc(t.name)}</s>`:esc(t.name)}</div>
-      <div class="fin-task-detail">${pips}</div>
-      <div class="fin-task-coins">${'🪙'.repeat(Math.min(coins,8))}${coins>8?` ×${coins}`:''}</div>
-      <div style="font-size:16px;margin-left:2px">${bag}</div>
+    const tot=t.total||1;
+    const comp=Math.min(t.completed||0,tot);
+    const allDone=!!t.done||comp>=tot;
+    const dots=allDone
+      ?`<div style="flex:1;display:flex;align-items:center;justify-content:center;background:#2e9e6a;border-radius:6px;color:#fff;font-weight:800;font-size:13px;padding:4px 0">✓</div>`
+      :`<div style="flex:1;display:flex;gap:3px">${Array.from({length:tot},(_,k)=>`<div style="flex:1;height:10px;border-radius:3px;background:${k<comp?'#2e9e6a':'#c0453a'};box-shadow:0 1px 2px rgba(0,0,0,.15)"></div>`).join('')}</div>`;
+    return `<div class="fin-task-row" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--brd)">
+      <div class="fin-task-dot" style="width:8px;height:8px;border-radius:50%;background:${t.color};flex-shrink:0"></div>
+      <div class="fin-task-name" style="flex:0 0 90px;font-size:13px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${allDone?`<s style="text-decoration-color:${t.color}">${esc(t.name)}</s>`:esc(t.name)}</div>
+      ${dots}
+      <div style="font-size:11px;font-weight:700;color:var(--dim);font-variant-numeric:tabular-nums;min-width:30px;text-align:right">${comp}/${tot}</div>
     </div>`;
   }).join('');
 
@@ -5910,187 +4503,14 @@ function ovClick(e){if(e.target.classList.contains('ov')&&Date.now()-_sheetOpenT
 
 
 // ── DRAG TO REORDER ────────────────────────────────────────────────
-// Long-press (500ms) activates drag. Touch-based reorder for mobile.
-let dragState=null; // {id, el, startY, cloneEl, origIdx}
-const LONG_MS=480;
-
-function attachDrag(){
-  document.querySelectorAll('.card').forEach(card=>{
-    card.addEventListener('touchstart',onDragTouchStart,{passive:true});
-  });
-}
-
-function onDragTouchStart(e){
-  const card=e.currentTarget;
-  const id=card.id.replace('c-','');
-  const task=S.tasks.find(x=>x.id===id);
-  const touch=e.touches[0];
-  const startX=touch.clientX, startY=touch.clientY;
-  const COMMIT_PX=100;
-  let swiping=false, swipeDx=0, hapticCommit=false;
-
-  const longTimer=setTimeout(()=>{
-    cleanup();
-    startDrag(id,card,{clientX:startX,clientY:startY});
-  },LONG_MS);
-
-  function onMove(ev){
-    const t=ev.touches[0];
-    const dx=t.clientX-startX, dy=t.clientY-startY;
-    const adx=Math.abs(dx), ady=Math.abs(dy);
-    if(!swiping){
-      // Horizontal swipe → toggle skip-today. Disabled on already-done tasks.
-      if(adx>10 && adx>ady*1.3 && task && !task.done){
-        clearTimeout(longTimer);
-        swiping=true;
-        card.classList.add('swiping');
-      } else if(adx>8 || ady>8){
-        // Vertical/diagonal motion outside the long-press dead zone — cancel both
-        clearTimeout(longTimer);
-        cleanup();
-        return;
-      }
-    }
-    if(swiping){
-      swipeDx=dx;
-      const limited=Math.sign(dx)*Math.min(adx,220);
-      card.style.transform=`translateX(${limited}px)`;
-      card.style.opacity=String(Math.max(0.25, 1-adx/320));
-      const past=adx>=COMMIT_PX;
-      if(past&&!hapticCommit){haptic([14]);hapticCommit=true;}
-      else if(!past&&hapticCommit){hapticCommit=false;}
-    }
-  }
-  function onEnd(){
-    clearTimeout(longTimer);
-    if(swiping){
-      const commit=Math.abs(swipeDx)>=COMMIT_PX;
-      if(commit){
-        const dir=Math.sign(swipeDx)||1;
-        card.style.transition='transform .22s ease-out, opacity .22s ease-out';
-        card.style.transform=`translateX(${dir*window.innerWidth}px)`;
-        card.style.opacity='0';
-        setTimeout(()=>{
-          card.style.transition='';
-          card.style.transform='';
-          card.style.opacity='';
-          card.classList.remove('swiping');
-          toggleSkipTask(id);
-        },220);
-      } else {
-        card.style.transition='transform .24s cubic-bezier(.34,1.4,.64,1), opacity .24s';
-        card.style.transform='';
-        card.style.opacity='';
-        setTimeout(()=>{
-          card.style.transition='';
-          card.classList.remove('swiping');
-        },260);
-      }
-    }
-    cleanup();
-  }
-  function cleanup(){
-    card.removeEventListener('touchmove',onMove);
-    card.removeEventListener('touchend',onEnd);
-    card.removeEventListener('touchcancel',onEnd);
-  }
-  card.addEventListener('touchmove',onMove,{passive:true});
-  card.addEventListener('touchend',onEnd,{passive:true});
-  card.addEventListener('touchcancel',onEnd,{passive:true});
-}
-
-function startDrag(id,card,touch){
-  haptic([30]);
-  const scroll=document.getElementById('cards');
-  scroll.classList.add('drag-active');
-  const rect=card.getBoundingClientRect();
-
-  // ghost clone
-  const clone=card.cloneNode(true);
-  clone.style.cssText=`
-    position:fixed;left:${rect.left}px;top:${rect.top}px;
-    width:${rect.width}px;height:${rect.height}px;
-    z-index:500;pointer-events:none;opacity:.92;
-    transform:scale(1.03) rotate(1.2deg);
-    box-shadow:0 16px 48px rgba(0,0,0,.22);
-    transition:none;border-radius:18px;
-  `;
-  document.body.appendChild(clone);
-  card.classList.add('dragging');
-
-  dragState={id,el:card,clone,startY:touch.clientY,offsetY:touch.clientY-rect.top,origIdx:taskIndex(id)};
-
-  document.addEventListener('touchmove',onDragMove,{passive:false});
-  document.addEventListener('touchend',onDragEnd,{passive:true});
-}
-
-function taskIndex(id){return S.tasks.findIndex(t=>t.id===id);}
-
-function cardAtY(y){
-  const cards=[...document.querySelectorAll('.card:not(.dragging)')];
-  for(const c of cards){
-    const r=c.getBoundingClientRect();
-    if(y>=r.top&&y<=r.bottom)return c.id.replace('c-','');
-  }
-  return null;
-}
-
-function onDragMove(e){
-  if(!dragState)return;
-  e.preventDefault();
-  const touch=e.touches[0];
-  const{clone,offsetY}=dragState;
-  clone.style.top=(touch.clientY-offsetY)+'px';
-
-  // highlight drop target
-  document.querySelectorAll('.card').forEach(c=>c.classList.remove('drag-over'));
-  const overId=cardAtY(touch.clientY);
-  if(overId&&overId!==dragState.id){
-    document.getElementById('c-'+overId)?.classList.add('drag-over');
-  }
-}
-
-function onDragEnd(e){
-  if(!dragState)return;
-  const touch=e.changedTouches[0];
-  const overId=cardAtY(touch.clientY);
-
-  // reorder in state
-  if(overId&&overId!==dragState.id){
-    const fromIdx=S.tasks.findIndex(t=>t.id===dragState.id);
-    const toIdx=S.tasks.findIndex(t=>t.id===overId);
-    if(fromIdx>-1&&toIdx>-1){
-      const [moved]=S.tasks.splice(fromIdx,1);
-      S.tasks.splice(toIdx,0,moved);
-      save();
-    }
-  }
-
-  // cleanup
-  dragState.clone.remove();
-  dragState.el.classList.remove('dragging');
-  document.querySelectorAll('.card').forEach(c=>c.classList.remove('drag-over'));
-  document.getElementById('cards').classList.remove('drag-active');
-  document.removeEventListener('touchmove',onDragMove);
-  document.removeEventListener('touchend',onDragEnd);
-  dragState=null;
-
-  // re-render order without full re-render (just reorder DOM)
-  renderCards();
-}
 
 // ── BEGIN SCREEN WATER ──────────────────────────────────────────────
-let beginWaveRaf=null, _beginLastT=0;
+let beginWaveRaf=null;
 function animateBeginWater(){
   const cv=document.getElementById('begin-water');
-  if(!cv||cv.offsetParent===null){beginWaveRaf=null;_beginLastT=0;return;}
+  if(!cv||cv.offsetParent===null){beginWaveRaf=null;return;}
   applyNightTheme(); // keep night colors current on begin screen
   const nA=nightT();
-  // Advance life-pulse timers here too — begin screen has its own RAF loop
-  const _nowT=performance.now()/1000;
-  const _dt=_beginLastT?Math.min(0.1,_nowT-_beginLastT):0;
-  _beginLastT=_nowT;
-  if(_dt>0)_stepLifePulses(_dt);
   const dpr=Math.min(window.devicePixelRatio||1,2);
   const W=Math.round(cv.clientWidth*dpr);
   const H=Math.round(cv.clientHeight*dpr);
@@ -6124,43 +4544,6 @@ function animateBeginWater(){
     c.lineTo(x,y);
   }
   c.lineWidth=1.5;c.strokeStyle=`rgba(255,255,255,${0.45-nA*0.25})`;c.stroke();
-  // Ecosystem on begin screen — phase-scaled life
-  // Reflection surface: user sees their water's state before the day begins.
-  // Plankton density + drifting organism blobs scale with ecoPhase.
-  if(S&&S.eco&&!isBatterySaver()){
-    const phase=ecoPhase();
-    const nDots=phase==='dormant'?3:phase==='seed'?10:phase==='growing'?20:phase==='bloom'?30:42;
-    const nOrg=phase==='dormant'?0:phase==='seed'?0:phase==='growing'?1:phase==='bloom'?2:3;
-    c.save();
-    // Clip to water body
-    c.beginPath();c.moveTo(0,fillY);c.lineTo(W,fillY);c.lineTo(W,H);c.lineTo(0,H);c.closePath();c.clip();
-    c.globalCompositeOperation='lighter';
-    const eR=Math.round(Math.max(0,80-nA*40)),eG=Math.round(Math.max(0,Math.min(255,220-nA*60))),eB=Math.round(Math.min(255,200+nA*40));
-    // Plankton layer
-    for(let i=0;i<nDots;i++){
-      const px=W*((Math.sin(t*0.08+i*2.39)+1)/2);
-      const py=fillY+(H-fillY)*(0.08+0.84*((Math.cos(t*0.06+i*1.73)+1)/2));
-      const gl=(Math.sin(t*(0.25+i*0.07)+i*1.1)+1)/2;
-      c.globalAlpha=gl*0.22;
-      c.fillStyle=`rgb(${eR},${eG},${eB})`;
-      c.beginPath();c.arc(px,py,(1.0+gl*0.6)*dpr,0,Math.PI*2);c.fill();
-    }
-    // Slow drifting organism blobs at higher phases
-    for(let i=0;i<nOrg;i++){
-      const ox=W*((Math.sin(t*0.025+i*3.3)+1)/2);
-      const oy=fillY+(H-fillY)*(0.3+0.5*((Math.cos(t*0.02+i*2.1)+1)/2));
-      const osc=(Math.sin(t*0.15+i*1.4)+1)/2;
-      c.globalAlpha=0.08+osc*0.12;
-      const r=(8+osc*5)*dpr;
-      const rg=c.createRadialGradient(ox,oy,0,ox,oy,r);
-      rg.addColorStop(0,`rgb(${eR},${eG},${eB})`);
-      rg.addColorStop(1,`rgba(${eR},${eG},${eB},0)`);
-      c.fillStyle=rg;c.beginPath();c.arc(ox,oy,r,0,Math.PI*2);c.fill();
-    }
-    c.restore();
-    // Life pulses (phase-transition bursts, return warmth) — shown here too
-    _drawLifePulses(c,W,H,fillY);
-  }
   beginWaveRaf=requestAnimationFrame(animateBeginWater);
 }
 function checkBeginWater(){
