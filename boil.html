@@ -2535,9 +2535,12 @@ function toggleBatterySaver(){
   S.batterySaver=!S.batterySaver;
   document.documentElement.classList.toggle('battery-saver',S.batterySaver);
   if(S.batterySaver){
-    _detachSensors();releaseWakeLock();stopWaveLoop();
+    // Drop sensor + audio costs but keep the wave loop alive (it self-throttles to ~12fps).
+    // Bubbles are the UI — they need to stay rendered.
+    _detachSensors();releaseWakeLock();
     if(_ambOsc){try{_ambOsc.stop();}catch(e){}_ambOsc=null;_ambGain=null;}
     _stopWaterAudio();
+    startWaveLoop();
   } else {
     _attachSensors();startWaveLoop();
     if(S.tasks.some(t=>t.running))startAmbient();
@@ -2740,9 +2743,30 @@ function _bubbleSizeFor(t){
 }
 function stepTaskBlocks(W,H,fillY,hf,step,dt){
   const dpr=_bgDpr();
+  // If the active task is resting, pin its bubble just above the rest-overlay's timer.
+  // Computed once per frame from the timer's bounding rect — robust against viewport changes.
+  let restPin=null;
+  const _rt=S&&S.tasks&&S.tasks.find(x=>x.running&&x.isRest&&!x.done);
+  if(_rt){
+    const tEl=document.getElementById('rest-time');
+    if(tEl){
+      const r=tEl.getBoundingClientRect();
+      restPin={taskId:_rt.id,topY:r.top}; // css px
+    }
+  }
   // Per-bubble buoyancy + bobbing
   activeTaskBlocks.forEach(f=>{
     if(f.vx===undefined)f.vx=0;
+    // Active resting bubble: snap to a fixed spot above the timer
+    if(restPin&&f.taskId===restPin.taskId){
+      const sizeCss=f.size/dpr;
+      const yCss=restPin.topY-sizeCss/2-18; // 18px gap above the timer
+      f.x+=((window.innerWidth*dpr/2)-f.x)*0.25;
+      f.y+=((yCss*dpr)-f.y)*0.25;
+      f.vx*=0.5;f.vy*=0.5;
+      _bubblePos[f.taskId]={x:f.x,y:f.y,userPlaced:false};
+      return; // skip normal physics for the resting active bubble
+    }
     // Ease size toward live time-left target (so a running task shrinks visibly each second)
     if(!f.isSunken){
       const t=S.tasks.find(x=>x.id===f.taskId);
@@ -2977,6 +3001,33 @@ function drawTaskBlocks(ctx){
   });
   ctx.globalAlpha=1;
   _updateBubbleTimeOverlay();
+  _updateRestSkipButton();
+}
+function _updateRestSkipButton(){
+  let ov=document.getElementById('rest-overlay');
+  if(!ov){
+    ov=document.createElement('div');
+    ov.id='rest-overlay';
+    ov.style.cssText='position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;z-index:6;pointer-events:none;text-align:center';
+    ov.innerHTML=
+      '<div id="rest-time" style="font-family:var(--fd);font-size:88px;font-weight:800;letter-spacing:-.05em;font-variant-numeric:tabular-nums;color:#2e9e6a;line-height:1;text-shadow:0 2px 12px rgba(255,255,255,0.5),0 2px 16px rgba(46,158,106,0.25)">00:00</div>'+
+      '<button id="rest-skip" style="pointer-events:auto;font-family:var(--fs);font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:rgba(46,158,106,0.18);color:#2e9e6a;border:2px solid #2e9e6a;border-radius:100px;padding:10px 22px;cursor:pointer;box-shadow:0 4px 14px rgba(46,158,106,.22);transition:transform .14s,background .14s,box-shadow .14s">skip rest →</button>';
+    document.body.appendChild(ov);
+    const btn=ov.querySelector('#rest-skip');
+    btn.onmouseenter=()=>{btn.style.background='rgba(46,158,106,0.28)';btn.style.transform='translateY(-1px)';};
+    btn.onmouseleave=()=>{btn.style.background='rgba(46,158,106,0.18)';btn.style.transform='';};
+    btn.onclick=(ev)=>{
+      ev.stopPropagation();
+      const a=activeTaskBlocks.find(b=>b.isActive);
+      if(a)skipRest(a.taskId);
+    };
+  }
+  const active=activeTaskBlocks.find(b=>b.isActive);
+  const t=active?S.tasks.find(x=>x.id===active.taskId):null;
+  if(!active||!t||!t.isRest||!t.running){ov.style.display='none';return;}
+  ov.style.display='flex';
+  const tv=document.getElementById('rest-time');
+  if(tv)tv.textContent=fmtTime(Math.max(0,t.rem));
 }
 function _updateBubbleTimeOverlay(){
   let el=document.getElementById('bubble-time');
@@ -2988,7 +3039,8 @@ function _updateBubbleTimeOverlay(){
   }
   const active=activeTaskBlocks.find(b=>b.isActive);
   const t=active?S.tasks.find(x=>x.id===active.taskId):null;
-  if(!active||!t||t.done){el.style.display='none';return;}
+  // Hide during rest — the big rest overlay shows the timer instead
+  if(!active||!t||t.done||t.isRest){el.style.display='none';return;}
   const dpr=_bgDpr();
   const sizeCss=active.size/dpr;
   // Float the timer above the small bubble (centered horizontally, just above its top)
@@ -3616,8 +3668,8 @@ let _waveAlive=0,_waveErrors=0;
 const _isMobile='ontouchstart' in window||navigator.maxTouchPoints>0;
 const _reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
 function startWaveLoop(){
-  if(isBatterySaver()||_reducedMotion.matches)return;
-  // Detect dead loop: waveRaf is set but loop hasn't run in 500ms
+  // Keep the loop alive even in battery saver / reduced-motion — bubbles ARE the UI.
+  // Heavy effects are throttled inside waveLoop instead.
   if(waveRaf&&performance.now()-_waveAlive<500)return;
   if(waveRaf){cancelAnimationFrame(waveRaf);waveRaf=null;}
   lastFrame=performance.now();
@@ -3627,9 +3679,17 @@ function stopWaveLoop(){
   if(waveRaf){cancelAnimationFrame(waveRaf);waveRaf=null;}
 }
 
-let _frameTimeLog=[],_frameLogTimer=0;
+let _frameTimeLog=[],_frameLogTimer=0,_bsLastDraw=0;
 function waveLoop(now){
   _waveAlive=now;
+  // Battery saver: throttle to ~12fps so the bubble field stays rendered without
+  // burning CPU. Reduced-motion is NOT throttled (would break normal usage on
+  // laptops with prefs that report reduced-motion=reduce).
+  if(isBatterySaver()&&now-_bsLastDraw<80){
+    waveRaf=requestAnimationFrame(waveLoop);
+    return;
+  }
+  if(isBatterySaver())_bsLastDraw=now;
   let _anyContinue=false;
   try{
   const dt=Math.min((now-lastFrame)/1000,0.05);
@@ -3769,6 +3829,14 @@ function waveLoop(now){
         ctx.fillStyle=wg;
         ctx.fillRect(wx-wr,wy-wr,wr*2,wr*2);
       }
+      // Keep the bubble field visible during rest (the big rest overlay sits on top of it).
+      const bgStep=Math.max(3,Math.ceil(W/1023));
+      const bgN=Math.min(Math.ceil(W/bgStep)+1,1024);
+      ensureBgHF(bgN);
+      const restFillY=H*(1-bgWaveState.fill/100);
+      if(activeTaskBlocks.length===0&&S.tasks&&S.tasks.length)spawnTaskBlocks(W,restFillY);
+      stepTaskBlocks(W,H,restFillY,bgHF,bgStep,dt);
+      drawTaskBlocks(ctx);
     } else if(bgWaveState.ambient&&bgWaveState.fill>0.3){
       // ── AMBIENT: calm pool with floaters + bubbles ────────────────
       const bgStep=Math.max(3,Math.ceil(W/1023));
