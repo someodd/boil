@@ -2645,14 +2645,11 @@ function fmtDays(days){if(!days||!days.length)return'daily';const d=['S','M','T'
 let activeTaskBlocks=[];
 // Persisted across respawns so bubbles don't teleport when state changes
 const _bubblePos={}; // {taskId: {x, y}}
-// The task whose bubble should be visually "active" (centered + ring).
-// Running task wins; otherwise S.lastActiveId (if it's a real, undone task); otherwise null.
+// Only a RUNNING task gets the active-bubble treatment (timer overlay, ring, pulse).
+// Pause demotes the bubble straight back to the inactive look.
 function _activeTaskForBubble(){
   if(!S||!S.tasks)return null;
-  const r=S.tasks.find(t=>t.running);
-  if(r)return r;
-  if(S.lastActiveId){const t=S.tasks.find(x=>x.id===S.lastActiveId);if(t&&!t.done)return t;}
-  return null;
+  return S.tasks.find(t=>t.running)||null;
 }
 function spawnTaskBlocks(W,fillY){
   activeTaskBlocks.length=0;
@@ -2664,14 +2661,18 @@ function spawnTaskBlocks(W,fillY){
   const activeId=activeT?activeT.id:null;
   const inactives=visible.filter(t=>t.id!==activeId&&!t.done);
   const dones=visible.filter(t=>t.done);
-  const minSz=44*dpr,maxSz=92*dpr;
-  // Bubble size: shrinks linearly with completion (1.0 → 0.4 of full size).
-  // A task with all-but-one block done is visibly smaller than a fresh task.
+  // Bubble sizing: scale with viewport so phones get small bubbles and bigger
+  // screens get proportionally larger ones (capped so they don't dominate).
+  // Within that range, each bubble shrinks linearly with completion (size = time-left).
+  const Wcss=window.innerWidth;
+  const minCss=Math.max(20,Math.min(Wcss*0.06,36));
+  const maxCss=Math.max(40,Math.min(Wcss*0.13,80));
+  const minSz=minCss*dpr,maxSz=maxCss*dpr;
   const sizeFor=(t)=>{
     const N=Math.max(1,t.total||1);
     const rem=Math.max(0,N-Math.max(0,t.completed));
-    const completionFrac=rem/N; // 1.0 untouched → 0 just completed
-    const base=minSz+0.65*(maxSz-minSz); // mid-base
+    const completionFrac=rem/N;
+    const base=minSz+0.6*(maxSz-minSz);
     return base*(0.4+0.6*completionFrac);
   };
   // Inactive (live, undone) bubbles spread across surface
@@ -2690,10 +2691,9 @@ function spawnTaskBlocks(W,fillY){
       userPlaced:!!sp?.userPlaced,
     });
   });
-  // Active bubble: bigger, centered (or wherever user put it)
+  // Active bubble: same size as inactive — distinguished by ring + pulse + timer overlay only
   if(activeT){
-    const baseSz=sizeFor(activeT);
-    const sz=baseSz*1.6;
+    const sz=sizeFor(activeT);
     const sp=_bubblePos[activeT.id];
     activeTaskBlocks.push({
       taskId:activeT.id,emoji:autoEmoji(activeT),color:activeT.color,name:activeT.name,
@@ -2759,12 +2759,9 @@ function stepTaskBlocks(W,H,fillY,hf,step,dt){
         const tRot=Math.atan2(hf.h[col+1]-hf.h[col-1],step*2)*(f.isActive?0.3:0.6);
         f.rot+=(tRot-f.rot)*0.10;
       }
-      // Horizontal drift / center attractor
-      if(!f.isActive&&!f.userPlaced&&hf&&col>0&&col<hf.cols-1){
+      // Horizontal drift from wave slope (skip if user has placed it)
+      if(!f.userPlaced&&hf&&col>0&&col<hf.cols-1){
         f.vx+=(hf.h[col+1]-hf.h[col-1])*0.04;
-      }
-      if(f.isActive&&!f.userPlaced){
-        f.vx+=(W/2-f.x)*0.0035;
       }
       // One-shot splash exactly when drag releases with throw velocity (set by _finishBubbleHoldAsTap)
       if(f._splashOnce&&hf&&col>=0&&col<hf.cols){
@@ -2851,16 +2848,15 @@ function stepTaskBlocks(W,H,fillY,hf,step,dt){
 function drawTaskBlocks(ctx){
   const dpr=_bgDpr();
   const _now=performance.now();
+  const hasActive=activeTaskBlocks.some(b=>b.isActive&&!b.isSunken);
   activeTaskBlocks.forEach(f=>{
     const t=S.tasks.find(x=>x.id===f.taskId);
     if(!t)return;
-    ctx.save();
-    ctx.translate(f.x,f.y);
-    if(!f.isActive)ctx.rotate(f.rot);
-    const r=f.size*0.5;
 
     if(f.isSunken){
-      // Sunken: emoji only, no body, no ring, no markers, slight transparency
+      ctx.save();
+      ctx.translate(f.x,f.y);
+      ctx.rotate(f.rot);
       ctx.globalAlpha=0.55;
       const emojiImg=getEmojiImg(f.emoji,Math.round(f.size*0.7));
       if(emojiImg)ctx.drawImage(emojiImg,-f.size*0.35,-f.size*0.35,f.size*0.7,f.size*0.7);
@@ -2868,32 +2864,47 @@ function drawTaskBlocks(ctx){
       return;
     }
 
-    const alpha=1.0;
+    // Inactive bubbles fade when there's a running task — focus on the active one
+    const alpha=f.isActive?1.0:(hasActive?0.45:1.0);
+    // Active bubble heartbeat: scale pulse on each timer tick
+    let pulseScale=1;
+    if(f.isActive&&t.running&&t._tickT){
+      const since=_now-t._tickT;
+      if(since<260)pulseScale=1+0.18*Math.exp(-since/90);
+    }
+
+    ctx.save();
+    ctx.translate(f.x,f.y);
+    ctx.rotate(f.rot);
+    if(pulseScale!==1)ctx.scale(pulseScale,pulseScale);
+    const r=f.size*0.5;
     ctx.globalAlpha=alpha;
+
     // Bubble body
     ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);
     ctx.fillStyle=f.color+'44';ctx.fill();
-    ctx.strokeStyle=f.color+'aa';
-    ctx.lineWidth=(f.isActive?3:2)*dpr;
+    ctx.strokeStyle=f.color+(f.isActive?'cc':'aa');
+    ctx.lineWidth=(f.isActive?2.5:1.5)*dpr;
     ctx.stroke();
     // Emoji
-    const emojiImg=getEmojiImg(f.emoji,Math.round(f.size*0.45));
-    if(emojiImg)ctx.drawImage(emojiImg,-f.size*0.22,-f.size*0.22,f.size*0.45,f.size*0.45);
-    // Name label
+    const emojiImg=getEmojiImg(f.emoji,Math.round(f.size*0.55));
+    if(emojiImg)ctx.drawImage(emojiImg,-f.size*0.275,-f.size*0.275,f.size*0.55,f.size*0.55);
+    // Name label below
     ctx.textAlign='center';ctx.textBaseline='top';
-    const fontSize=Math.round((f.isActive?12:10)*dpr);
+    const fontSize=Math.max(9,Math.round(f.size*0.18));
     ctx.font=`700 ${fontSize}px "Plus Jakarta Sans",sans-serif`;
-    const labelOff=r+(f.isActive?14:4)*dpr;
-    ctx.fillStyle='rgba(255,255,255,0.8)';
+    const labelOff=r+(f.isActive?9:3)*dpr;
+    ctx.fillStyle='rgba(255,255,255,0.75)';
     ctx.fillText(f.name,1*dpr,labelOff+1);
     ctx.fillStyle=f.color;
     ctx.fillText(f.name,0,labelOff);
-    // Ring (active bubble only, while it has work left)
-    const ringR=r+(f.isActive?12*dpr:0);
+
+    // Ring + markers ONLY on the active bubble (inactive bubbles stay clean)
     if(f.isActive&&!t.done){
+      const ringR=r+7*dpr;
       ctx.beginPath();ctx.arc(0,0,ringR,0,Math.PI*2);
       ctx.strokeStyle=f.color+'33';
-      ctx.lineWidth=4*dpr;ctx.stroke();
+      ctx.lineWidth=3*dpr;ctx.stroke();
       const phaseDur=t.isRest?Math.max(1,t.restDur):Math.max(1,t.workDur);
       const elapsed=phaseDur-Math.max(0,t.rem);
       const progress=Math.max(0,Math.min(1,elapsed/phaseDur));
@@ -2902,31 +2913,26 @@ function drawTaskBlocks(ctx){
         const endA=startA+progress*Math.PI*2;
         ctx.beginPath();ctx.arc(0,0,ringR,startA,endA);
         ctx.strokeStyle=t.isRest?'#2e9e6a':f.color;
-        ctx.lineWidth=4*dpr;ctx.lineCap='round';ctx.stroke();
+        ctx.lineWidth=3*dpr;ctx.lineCap='round';ctx.stroke();
         ctx.lineCap='butt';
       }
-    }
-    // Markers — one dot per work block, around the perimeter
-    const markerR=f.isActive?ringR:r+5*dpr;
-    const markerSize=(f.isActive?4.5:3)*dpr;
-    const N=Math.max(1,t.total||1);
-    for(let i=0;i<N;i++){
-      const ang=-Math.PI/2+(i/N)*Math.PI*2+(N>1?Math.PI/N:0);
-      const mx=Math.cos(ang)*markerR;
-      const my=Math.sin(ang)*markerR;
-      const mc=i<t.completed?'#2e9e6a':'#c0453a';
-      // Pulse the current block's marker on the active running bubble
-      if(f.isActive&&t.running&&!t.done&&i===t.completed){
-        const pulse=0.55+0.45*Math.sin(_now*0.005);
-        ctx.globalAlpha=alpha*pulse;
-      } else {
-        ctx.globalAlpha=alpha;
+      // Per-block markers around the ring (red pending, green done)
+      const markerSize=3*dpr;
+      const N=Math.max(1,t.total||1);
+      for(let i=0;i<N;i++){
+        const ang=-Math.PI/2+(i/N)*Math.PI*2+(N>1?Math.PI/N:0);
+        const mx=Math.cos(ang)*ringR;
+        const my=Math.sin(ang)*ringR;
+        const mc=i<t.completed?'#2e9e6a':'#c0453a';
+        if(t.running&&i===t.completed){
+          const p=0.55+0.45*Math.sin(_now*0.005);
+          ctx.globalAlpha=alpha*p;
+        } else {ctx.globalAlpha=alpha;}
+        ctx.beginPath();ctx.arc(mx,my,markerSize,0,Math.PI*2);
+        ctx.fillStyle=mc;ctx.fill();
+        ctx.strokeStyle='rgba(255,255,255,0.7)';
+        ctx.lineWidth=1*dpr;ctx.stroke();
       }
-      ctx.beginPath();ctx.arc(mx,my,markerSize,0,Math.PI*2);
-      ctx.fillStyle=mc;ctx.fill();
-      ctx.strokeStyle='rgba(255,255,255,0.7)';
-      ctx.lineWidth=1*dpr;
-      ctx.stroke();
     }
     ctx.restore();
   });
@@ -2938,19 +2944,20 @@ function _updateBubbleTimeOverlay(){
   if(!el){
     el=document.createElement('div');
     el.id='bubble-time';
-    el.style.cssText='position:fixed;pointer-events:none;font-family:var(--fd);font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;text-shadow:0 1px 4px rgba(255,255,255,0.6),0 1px 4px rgba(0,0,0,0.18);z-index:5;display:none;transform:translate(-50%,-50%);transition:color .25s';
+    el.style.cssText='position:fixed;pointer-events:none;font-family:var(--fd);font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;text-shadow:0 1px 4px rgba(255,255,255,0.7),0 1px 6px rgba(0,0,0,0.22);z-index:5;display:none;transform:translate(-50%,-50%);transition:color .25s,opacity .15s;will-change:transform'
     document.body.appendChild(el);
   }
   const active=activeTaskBlocks.find(b=>b.isActive);
   const t=active?S.tasks.find(x=>x.id===active.taskId):null;
   if(!active||!t||t.done){el.style.display='none';return;}
   const dpr=_bgDpr();
+  const sizeCss=active.size/dpr;
+  // Float the timer above the small bubble (centered horizontally, just above its top)
   el.style.display='block';
   el.style.left=(active.x/dpr)+'px';
-  el.style.top=(active.y/dpr)+'px';
+  el.style.top=((active.y/dpr)-sizeCss*0.65-6)+'px';
   el.style.color=t.isRest?'#2e9e6a':t.color;
-  const fs=Math.max(20,Math.round(active.size/dpr*0.30));
-  el.style.fontSize=fs+'px';
+  el.style.fontSize=Math.max(13,Math.round(sizeCss*0.4))+'px';
   el.textContent=fmtTime(Math.max(0,t.rem));
 }
 let _poppedBlock=null; // stash for morph animation in tapCard
@@ -2975,11 +2982,14 @@ function popTaskBlock(block){
   _poppedBlock={cx,cy,size:block.size/dpr,color:block.color,emoji:block.emoji};
 }
 function hitTestTaskBlock(tx,ty){
+  // Generous touch radius — at minimum a finger-friendly ~22px even when bubble is tiny
+  const dpr=_bgDpr();
+  const minHit=22*dpr;
   for(let i=activeTaskBlocks.length-1;i>=0;i--){
     const f=activeTaskBlocks[i];
     const dx=tx-f.x,dy=ty-f.y;
     const dist=Math.sqrt(dx*dx+dy*dy);
-    if(dist<f.size*0.6)return f;
+    if(dist<Math.max(f.size*0.6,minHit))return f;
   }
   return null;
 }
@@ -2987,17 +2997,21 @@ function hitTestTaskBlock(tx,ty){
 function spawnFloaters(W,fillY){
   activeFloaters.length=0;
   const dpr=_bgDpr();
-  // Beach ball: default-enabled, no purchase required
-  const def=FLOATER_DEFS['float_ball'];
-  activeFloaters.push({
-    type:'float_ball',emoji:def.emoji,
-    size:def.size*dpr,baseSize:def.size*dpr,
-    buoyancy:def.buoyancy,drag:def.drag,
-    bouncy:true,underwater:false,
-    x:W*0.5,y:fillY-def.size*dpr*0.3,vx:0,vy:0,rot:0,
-    fishDir:1,fishTimer:0,
-    melt:0,juggleCount:0
-  });
+  // Beach ball: a reward — only appears once everything visible today is done
+  const vis=S&&S.tasks?S.tasks.filter(taskVisibleToday):[];
+  const allDone=vis.length>0&&vis.every(t=>t.done);
+  if(allDone){
+    const def=FLOATER_DEFS['float_ball'];
+    activeFloaters.push({
+      type:'float_ball',emoji:def.emoji,
+      size:def.size*dpr,baseSize:def.size*dpr,
+      buoyancy:def.buoyancy,drag:def.drag,
+      bouncy:true,underwater:false,
+      x:W*0.5,y:fillY-def.size*dpr*0.3,vx:0,vy:0,rot:0,
+      fishDir:1,fishTimer:0,
+      melt:0,juggleCount:0
+    });
+  }
   // Theme floaters
   const th=getTheme();
   if(th.floaters&&th.floaters.length){
@@ -4260,6 +4274,7 @@ function render(){
   if(_rt){const _pd=_rt.isRest?_rt.restDur:_rt.workDur;updateSiteWave(_rt,14+(_pd>0?((_pd-_rt.rem)/_pd*86):0));}
   else updateSiteWave(null,0);
   activeTaskBlocks.length=0;
+  activeFloaters.length=0; // re-evaluate ball spawn (only appears once everything is done)
   setTimeout(startWaveLoop,50);
   // Empty hint visibility
   const eh=document.getElementById('empty-hint');
