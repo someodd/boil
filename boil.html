@@ -2661,19 +2661,21 @@ function spawnTaskBlocks(W,fillY){
   const activeId=activeT?activeT.id:null;
   const inactives=visible.filter(t=>t.id!==activeId&&!t.done);
   const dones=visible.filter(t=>t.done);
-  // Bubble sizing: scale with viewport so phones get small bubbles and bigger
-  // screens get proportionally larger ones (capped so they don't dominate).
-  // Within that range, each bubble shrinks linearly with completion (size = time-left).
+  // Bubble sizing: viewport sets the BASE range; each bubble's actual size within
+  // that range is driven by ABSOLUTE remaining work seconds (sqrt-scaled so the
+  // big-vs-small contrast is perceptually balanced). You can glance at any two
+  // bubbles and the bigger one has more time left on it.
   const Wcss=window.innerWidth;
   const minCss=Math.max(20,Math.min(Wcss*0.06,36));
   const maxCss=Math.max(40,Math.min(Wcss*0.13,80));
   const minSz=minCss*dpr,maxSz=maxCss*dpr;
+  const REF_SECS=4*3600; // a 4-hour task hits maxSz
   const sizeFor=(t)=>{
-    const N=Math.max(1,t.total||1);
-    const rem=Math.max(0,N-Math.max(0,t.completed));
-    const completionFrac=rem/N;
-    const base=minSz+0.6*(maxSz-minSz);
-    return base*(0.4+0.6*completionFrac);
+    const futureBlocks=Math.max(0,(t.total||1)-(t.completed||0)-1);
+    const cur=t.rem||0;
+    const remSecs=cur+futureBlocks*(t.workDur||60);
+    const frac=Math.min(1,Math.sqrt(Math.max(0,remSecs)/REF_SECS));
+    return minSz+frac*(maxSz-minSz);
   };
   // Inactive (live, undone) bubbles spread across surface
   const others=inactives.length;
@@ -2721,11 +2723,34 @@ function spawnTaskBlocks(W,fillY){
     });
   });
 }
+// Live size from the same viewport+seconds-remaining mapping as spawnTaskBlocks.
+// Called each frame so a running task's bubble visibly shrinks while time elapses.
+function _bubbleSizeFor(t){
+  const dpr=_bgDpr();
+  const Wcss=window.innerWidth;
+  const minCss=Math.max(20,Math.min(Wcss*0.06,36));
+  const maxCss=Math.max(40,Math.min(Wcss*0.13,80));
+  const minSz=minCss*dpr,maxSz=maxCss*dpr;
+  const REF_SECS=4*3600;
+  const futureBlocks=Math.max(0,(t.total||1)-(t.completed||0)-1);
+  const cur=t.rem||0;
+  const remSecs=cur+futureBlocks*(t.workDur||60);
+  const frac=Math.min(1,Math.sqrt(Math.max(0,remSecs)/REF_SECS));
+  return minSz+frac*(maxSz-minSz);
+}
 function stepTaskBlocks(W,H,fillY,hf,step,dt){
   const dpr=_bgDpr();
   // Per-bubble buoyancy + bobbing
   activeTaskBlocks.forEach(f=>{
     if(f.vx===undefined)f.vx=0;
+    // Ease size toward live time-left target (so a running task shrinks visibly each second)
+    if(!f.isSunken){
+      const t=S.tasks.find(x=>x.id===f.taskId);
+      if(t){
+        const tgt=_bubbleSizeFor(t);
+        f.size+=(tgt-f.size)*0.10;
+      }
+    }
     if(f.beingDragged){_bubblePos[f.taskId]={x:f.x,y:f.y,userPlaced:true};return;}
     if(f.isSunken){
       // Sink to bottom — gentle gravity, lots of drag once near floor
@@ -2880,49 +2905,63 @@ function drawTaskBlocks(ctx){
     const r=f.size*0.5;
     ctx.globalAlpha=alpha;
 
-    // Bubble body
+    // Bubble body fill (translucent task tint)
     ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);
     ctx.fillStyle=f.color+'44';ctx.fill();
-    ctx.strokeStyle=f.color+(f.isActive?'cc':'aa');
-    ctx.lineWidth=(f.isActive?2.5:1.5)*dpr;
-    ctx.stroke();
-    // Emoji
-    const emojiImg=getEmojiImg(f.emoji,Math.round(f.size*0.55));
-    if(emojiImg)ctx.drawImage(emojiImg,-f.size*0.275,-f.size*0.275,f.size*0.55,f.size*0.55);
-    // Name label below
-    ctx.textAlign='center';ctx.textBaseline='top';
-    const fontSize=Math.max(9,Math.round(f.size*0.18));
-    ctx.font=`700 ${fontSize}px "Plus Jakarta Sans",sans-serif`;
-    const labelOff=r+(f.isActive?9:3)*dpr;
-    ctx.fillStyle='rgba(255,255,255,0.75)';
-    ctx.fillText(f.name,1*dpr,labelOff+1);
-    ctx.fillStyle=f.color;
-    ctx.fillText(f.name,0,labelOff);
 
-    // Ring + markers ONLY on the active bubble (inactive bubbles stay clean)
     if(f.isActive&&!t.done){
-      const ringR=r+7*dpr;
-      ctx.beginPath();ctx.arc(0,0,ringR,0,Math.PI*2);
+      // ── ACTIVE: the bubble's own outline IS the stopwatch ring ──
+      const strokeW=3.5*dpr;
+      // Background full ring (faint task color)
+      ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);
       ctx.strokeStyle=f.color+'33';
-      ctx.lineWidth=3*dpr;ctx.stroke();
+      ctx.lineWidth=strokeW;
+      ctx.stroke();
+      // Filled progress arc (task color while working, green during rest)
       const phaseDur=t.isRest?Math.max(1,t.restDur):Math.max(1,t.workDur);
       const elapsed=phaseDur-Math.max(0,t.rem);
       const progress=Math.max(0,Math.min(1,elapsed/phaseDur));
       if(progress>0.001){
         const startA=-Math.PI/2;
         const endA=startA+progress*Math.PI*2;
-        ctx.beginPath();ctx.arc(0,0,ringR,startA,endA);
+        ctx.beginPath();ctx.arc(0,0,r,startA,endA);
         ctx.strokeStyle=t.isRest?'#2e9e6a':f.color;
-        ctx.lineWidth=3*dpr;ctx.lineCap='round';ctx.stroke();
+        ctx.lineWidth=strokeW;
+        ctx.lineCap='round';
+        ctx.stroke();
         ctx.lineCap='butt';
       }
-      // Per-block markers around the ring (red pending, green done)
-      const markerSize=3*dpr;
+    } else {
+      // Inactive: thin clean outline
+      ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);
+      ctx.strokeStyle=f.color+'aa';
+      ctx.lineWidth=1.5*dpr;
+      ctx.stroke();
+    }
+
+    // Emoji
+    const emojiImg=getEmojiImg(f.emoji,Math.round(f.size*0.55));
+    if(emojiImg)ctx.drawImage(emojiImg,-f.size*0.275,-f.size*0.275,f.size*0.55,f.size*0.55);
+    // Name label
+    ctx.textAlign='center';ctx.textBaseline='top';
+    const fontSize=Math.max(9,Math.round(f.size*0.18));
+    ctx.font=`700 ${fontSize}px "Plus Jakarta Sans",sans-serif`;
+    const labelOff=r+(f.isActive?7:3)*dpr;
+    ctx.fillStyle='rgba(255,255,255,0.75)';
+    ctx.fillText(f.name,1*dpr,labelOff+1);
+    ctx.fillStyle=f.color;
+    ctx.fillText(f.name,0,labelOff);
+
+    // Per-block markers — beads strung directly ON the stopwatch ring (the outline itself).
+    // Marker is wider than the stroke so it visibly punches through, white halo for separation.
+    if(f.isActive&&!t.done){
+      const markerR=r; // sit on the ring, not outside it
+      const markerSize=3.2*dpr;
       const N=Math.max(1,t.total||1);
       for(let i=0;i<N;i++){
         const ang=-Math.PI/2+(i/N)*Math.PI*2+(N>1?Math.PI/N:0);
-        const mx=Math.cos(ang)*ringR;
-        const my=Math.sin(ang)*ringR;
+        const mx=Math.cos(ang)*markerR;
+        const my=Math.sin(ang)*markerR;
         const mc=i<t.completed?'#2e9e6a':'#c0453a';
         if(t.running&&i===t.completed){
           const p=0.55+0.45*Math.sin(_now*0.005);
@@ -2930,8 +2969,8 @@ function drawTaskBlocks(ctx){
         } else {ctx.globalAlpha=alpha;}
         ctx.beginPath();ctx.arc(mx,my,markerSize,0,Math.PI*2);
         ctx.fillStyle=mc;ctx.fill();
-        ctx.strokeStyle='rgba(255,255,255,0.7)';
-        ctx.lineWidth=1*dpr;ctx.stroke();
+        ctx.strokeStyle='rgba(255,255,255,0.85)';
+        ctx.lineWidth=1.2*dpr;ctx.stroke();
       }
     }
     ctx.restore();
