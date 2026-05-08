@@ -37,7 +37,7 @@
       --fd: 'Syne', sans-serif;
       --spring: linear(0, 0.006, 0.025 2.8%, 0.101 6.1%, 0.236 10.1%, 0.44 15.3%, 0.684, 0.903 26.3%, 1.029 30.9%, 1.124 36.2%, 1.157, 1.171, 1.168, 1.149 48.1%, 1.104 52.2%, 1.012 60.8%, 0.981 67.5%, 0.974, 0.975, 0.984 78.8%, 1.001 87.4%, 1.007 100%);
     }
-    html.battery-saver .card,html.battery-saver .hdr,html.battery-saver .daybar,html.battery-saver .sheet{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+    html.battery-saver .hdr,html.battery-saver .daybar,html.battery-saver .sheet{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
     @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:0.01ms!important;animation-iteration-count:1!important;transition-duration:0.01ms!important}.tap-ripple{display:none!important}}
     *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
     html{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
@@ -60,7 +60,6 @@
       position:relative;z-index:2;
       box-sizing:border-box;
     }
-    .hdr-row{display:flex;align-items:center;justify-content:center;gap:12px} /* legacy */
     /* Gear button — circular icon */
     .profile-pill{
       width:34px;height:34px;border-radius:50%;
@@ -71,7 +70,6 @@
     }
     .profile-pill:hover{background:var(--brd)}
     .profile-pill:active{transform:scale(.9)}
-    .hdr-left{display:flex;align-items:center;gap:10px;flex-shrink:0} /* legacy, kept inert */
     .logo{
       font-family:var(--fd);font-size:21px;font-weight:800;
       color:var(--ink);letter-spacing:-.03em;
@@ -83,7 +81,6 @@
     }
     .logo-dot.pulse{animation:dot-pop .4s cubic-bezier(.34,1.56,.64,1)}
     @keyframes dot-pop{0%{transform:scale(1)}50%{transform:scale(1.8)}100%{transform:scale(1)}}
-    .hdr-acts{display:flex;gap:5px;align-items:center}
     /* Standard action pills */
     .pill{
       background:var(--card);border:1.5px solid var(--brd);
@@ -623,7 +620,6 @@ function applyNightTheme(){
   const meta=document.querySelector('meta[name="theme-color"]');
   if(meta)meta.content=lh('#f5f0e8','#0e1420',bgT);
   if(S&&isPastBedtime()){
-    document.querySelector('.app-wrap')?.classList.add('bedtime-active');
   }
 }
 function resetNightTheme(){
@@ -764,8 +760,6 @@ const SISTER={
   blockDone:['Good.','That\'s one.','The water knows.','Keep going.'],
   restStart:['Rest is part of the work.','Let it settle.','Grace between blocks.'],
   betweenBlocks:['Ready for the next?','Whenever you are.'],
-  halfway:['Halfway.','The water feels it.','Half done. Still here.','Middle of the work.'],
-  almostDone:['Almost.','Nearly there.','The water\'s about to boil.','Just a little more.'],
   returnShort:['Welcome back.','The water\'s still warm.'],
   returnLong:['You came back. That\'s everything.','The door was open the whole time.'],
   dayDone:[
@@ -777,14 +771,10 @@ const SISTER={
     ['Faithful again.','Rest is sacred.'],
   ],
   bedtimeNudge:['It\'s almost time to rest.','You did enough today.'],
-  windDown:['Starting to wind down.','The evening is settling.','Almost time to rest.'],
   bedtime:['It\'s bedtime. Rest.','The water rests now. So should you.','You did enough today.'],
-  pastBedtime:['Still here? The water can wait.','Tomorrow has its own work.'],
   bedtimeBlockEnd:['That was enough. Rest now.','Last one tonight. Go gently.'],
-  noStart:['The water\'s ready when you are.','One small thing. That\'s all.'],
   idle:['The water\'s still warm.','Whenever you\'re ready.'],
   taskDone:['Finished. Go gently.','Done. Every block was a gift.'],
-  mercy:['It\'s okay. Some moments need grace.','Grace is not weakness.','The water forgives.'],
 };
 function sisterSays(moment){
   const pool=SISTER[moment];
@@ -819,40 +809,19 @@ function boot(){
   if(!S.dayHours)S.dayHours=14;
   if(S.startTs===undefined)S.startTs=null;
   if(S.continuous===undefined)S.continuous=true;
-  if(S.streak===undefined)S.streak=0;
-  if(S.lastCompletedDate===undefined)S.lastCompletedDate='';
-  if(S.bestScore===undefined)S.bestScore=0;
-  if(S.lifetimeCoins===undefined)S.lifetimeCoins=0;
-  if(S.stars===undefined)S.stars=0;
-  S.tasks.forEach(t=>{delete t.perfectBlocks;delete t.pauseCount;if(t.emoji===undefined)t.emoji=null;});
-  if(S.streakFreezes===undefined)S.streakFreezes=0;
-  if(S.badges===undefined)S.badges=[];
-  if(S.shopItems===undefined)S.shopItems={};
-  if(!S.shopItems.disabledFloaters)S.shopItems.disabledFloaters=[];
-  if(S.aquariumOn===undefined)S.aquariumOn=false;
-  if(S.mercyCoins===undefined)S.mercyCoins=0;
-  if(S.daysCompleted===undefined)S.daysCompleted=99; // legacy field, retained for migration
-  if(S._lastBeganDate===undefined)S._lastBeganDate=null;
   if(S.seen===undefined)S.seen={};
-  if(S.isTrial===undefined)S.isTrial=false;
-  if(S.fullBoils===undefined)S.fullBoils=0;
   if(S.ballRecord===undefined)S.ballRecord=0;
   if(S.bedtime===undefined)S.bedtime=null;
+  if(S.wakeUp===undefined)S.wakeUp=null;
   if(S.batterySaver===undefined)S.batterySaver=false;
   if(S.muteAll===undefined)S.muteAll=false;
   if(S.muteWater===undefined)S.muteWater=false;
   if(S.lastActiveId===undefined)S.lastActiveId=null;
-  if(S.eco===undefined)S.eco={energy:0,peak:0};
-  if(S.eco.lastWorkDate===undefined)S.eco.lastWorkDate=null;
-  if(S.heatCoins===undefined)S.heatCoins=Math.max(0,S.lifetimeCoins||0); // non-decreasing heat accumulator
-  if(S.wakeUp===undefined)S.wakeUp=null;
   S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;if(t.desc===undefined)t.desc='';if(t.continuous===undefined)t.continuous=!!S.continuous;if(t.skipped===undefined)t.skipped=false;});
   const now=Date.now();
   if(shouldRollover()){
     creditPartialAtMidnight();S.tasks.forEach(resetTask);S.lastActiveId=null;
-    S.date=today();S.startTs=null;S.isTrial=false;_bedtimeReached=false;_togHidden=false;
-    document.querySelector('.app-wrap')?.classList.remove('bedtime-active');
-    delete S._daySnap; // day ended naturally — rewards earned
+    S.date=today();S.startTs=null;_bedtimeReached=false;_togHidden=false;
     resetNightTheme();bgBubbles.length=0;
   } else {
     const _preComp=S.tasks.reduce((a,t)=>a+t.completed,0);
@@ -875,7 +844,7 @@ function boot(){
     },600);
   }
 }
-function resetTask(t){t.completed=0;t.isRest=false;t.rem=t.workDur;t.running=false;t.done=false;t.skipped=false;t.savedAt=null;t._phaseStart=null;if(bubblePools[t.id])bubblePools[t.id]=[];delete window['_sf_'+t.id];}
+function resetTask(t){t.completed=0;t.isRest=false;t.rem=t.workDur;t.running=false;t.done=false;t.skipped=false;t.savedAt=null;t._phaseStart=null;if(bubblePools[t.id])bubblePools[t.id]=[];}
 function creditPartialAtMidnight(){
   S.tasks.forEach(t=>{
     if(!t.running||t.done)return;
@@ -895,7 +864,7 @@ function resolvePhaseEnd(t,animate){
     // Rest finished → next work block
     t.isRest=false;t.completed++;
     if(t.completed>=t.total){t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;return true;}
-    t.rem=t.workDur;t._halfShown=false;t._almostShown=false;
+    t.rem=t.workDur;
     if(cont){const _n=animate?Date.now():null;t.savedAt=_n;t._phaseStart=_n;}
     else{t.running=false;t.savedAt=null;t._phaseStart=null;}
   } else {
@@ -907,7 +876,7 @@ function resolvePhaseEnd(t,animate){
       // Work finished, no rest
       t.completed++;
       if(t.completed>=t.total){t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;return true;}
-      t.rem=t.workDur;t._halfShown=false;t._almostShown=false;
+      t.rem=t.workDur;
       if(cont){const _n=animate?Date.now():null;t.savedAt=_n;t._phaseStart=_n;}
       else{t.running=false;t.savedAt=null;t._phaseStart=null;}
     }
@@ -926,7 +895,6 @@ function skipRest(id){
 }
 function reconcileTask(t,now){
   if(!t.running||t.done||!t.savedAt)return;
-  if(t._quickStart)t._quickStart=0; // perceptual trick window passed during background
   let el=Math.max(0,Math.floor((now-t.savedAt)/1000));
   const _dbgEl=el,_dbgT0=performance.now();let _dbgIter=0;
   while(el>0&&t.running&&!t.done){
@@ -947,9 +915,9 @@ function reconcileTask(t,now){
 // Orientation string for return-from-background — tells the user exactly where they are
 // blocksGained = individual blocks completed while away; tasksDoneGained = whole tasks completed while away
 function returnStatus(awayMin,blocksGained,tasksDoneGained){
-  const vis=S.tasks.filter(t=>taskVisibleToday(t)&&!t.skipped);
+  const vis=S.tasks.filter(t=>taskVisibleToday(t));
   const rt=vis.find(t=>t.running&&!t.done);
-  const allDone=vis.length&&vis.every(t=>t.done);
+  const allDone=vis.length&&vis.every(t=>t.done||t.skipped);
   const next=vis.find(t=>!t.done&&!t.running);
   const away=awayMin>=60?fmtHM(awayMin*60):awayMin+'m away';
   if(allDone)return `${away} — everything's done`;
@@ -1052,9 +1020,7 @@ document.addEventListener('visibilitychange',()=>{
   if(shouldRollover()){
     console.log('[vis] day rollover triggered');
     creditPartialAtMidnight();
-    stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;S.isTrial=false;_bedtimeReached=false;_togHidden=false;
-    document.querySelector('.app-wrap')?.classList.remove('bedtime-active');
-    delete S._daySnap; // day ended naturally — rewards earned
+    stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;_bedtimeReached=false;_togHidden=false;
     resetNightTheme();clearInterval(ticker);ticker=null;bgBubbles.length=0;
     save();render();ensureDaybar();
     console.log(`[vis] rollover done in ${(performance.now()-_visT0).toFixed(1)}ms`);
@@ -1134,9 +1100,7 @@ function ensureTicker(){
     // Day rollover guard (wake-up time, or midnight if no bedtime)
     if(shouldRollover()){
       creditPartialAtMidnight();
-      stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;S.isTrial=false;_bedtimeReached=false;_togHidden=false;
-      document.querySelector('.app-wrap')?.classList.remove('bedtime-active');
-      delete S._daySnap;resetNightTheme(); // day ended naturally — rewards earned
+      stopAmbient();S.tasks.forEach(resetTask);S.date=today();S.startTs=null;_bedtimeReached=false;_togHidden=false;
       clearInterval(ticker);ticker=null;bgBubbles.length=0;
       save();render();return;
     }
@@ -1153,11 +1117,6 @@ function ensureTicker(){
       }else{t.rem=Math.max(0,t.rem-godTick());}
       // Stamp the moment of a tick so the bubble can pulse (visible heartbeat)
       if(t.rem!==_prevRem)t._tickT=performance.now();
-      // "Just 5 min" countdown — reveal full timer when elapsed
-      if(t._quickStart>0){const pd=t.isRest?t.restDur:t.workDur;const _prev=t._quickStart;t._quickStart=Math.max(0,300-(pd-t.rem));if(_prev>0&&t._quickStart===0){try{tone(_jHz(660),.15,.02);}catch(e){}sisterMsg('Five minutes. The hardest part is done.',2500);}}
-      // Sister: sparse mid-block encouragement
-      if(!t.isRest&&t.running){
-      }
       if(t.rem<=0){
         const allDone=resolvePhaseEnd(t,true);
         save();
@@ -1171,7 +1130,7 @@ function ensureTicker(){
     // Bedtime reached: dim cards + notification (one shot)
     if(S.bedtime!=null){
       const _dr=dayRem();
-      if(!_bedtimeReached&&_dr<=0){_bedtimeReached=true;document.querySelector('.app-wrap')?.classList.add('bedtime-active');if(document.hidden)notify('Bedtime',sisterSays('bedtime'));renderDaybar();}
+      if(!_bedtimeReached&&_dr<=0){_bedtimeReached=true;if(document.hidden)notify('Bedtime',sisterSays('bedtime'));renderDaybar();}
     }
     if(!S.tasks.some(t=>t.running)){
       console.warn('[ticker] self-stopping: no running tasks',S.tasks.map(t=>({n:t.name,run:t.running,done:t.done,isRest:t.isRest,rem:t.rem})));
@@ -1282,150 +1241,6 @@ function ensureDaybar(){
 function stopDaybar(){if(_daybarIv){clearInterval(_daybarIv);_daybarIv=null;}}
 ensureDaybar();
 
-const BOIL_THEMES={
-  default:{
-    name:'Water',emoji:'💧',
-    waterTint:null,opacityMul:1.0,foamColor:null,
-    floaters:[],noodles:false,
-    doneCopy:['Boiled through.'],
-    dayCopy:null,
-  },
-};
-
-// ── PROCEDURAL NOODLES ──────────────────────────────────────────────
-// Noodles: spaghetti dropped in as a bundle — stiff sticks fanning from
-// a grip point near the surface, many poking above the water. As they cook
-// they soften and slink down into the water, eventually draping limp.
-const _noodles=[];
-function initNoodles(W,H,fillY){
-  _noodles.length=0;
-  const dpr=Math.min(window.devicePixelRatio||1,2);
-  const count=22+Math.floor(Math.random()*6);
-  // Bundle grip point — where your hand dropped them in
-  // Slightly off-center for a natural look
-  const gripX=W*(0.4+Math.random()*0.2);
-  for(let i=0;i<count;i++){
-    const len=(320+Math.random()*180)*dpr;
-    // Fan angle: steep, mostly pointing UP from the bottom
-    const spread=(i/count-0.5)*1.2; // -0.6 to +0.6
-    const baseAngle=-Math.PI/2+spread; // straight up ± fan
-    const angle=baseAngle+(Math.random()-0.5)*0.3; // individual jitter
-    // Anchor x: clustered around the grip point with slight scatter
-    const x=gripX+(Math.random()-0.5)*30*dpr;
-    // bottomOff: small offset from the very bottom of the canvas
-    const bottomOff=(Math.random()-0.5)*20*dpr;
-    _noodles.push({
-      x,bottomOff,len,
-      initAngle:angle, // raw/rigid angle (steep, poking up from bottom)
-      cookedAngle:-0.1+Math.random()*0.2, // target: mostly horizontal when cooked
-      phase:Math.random()*Math.PI*2,
-      drift:0.15+Math.random()*0.25,
-      thick:(4.5+Math.random()*2.0)*dpr,
-      bendCenter:0.3+Math.random()*0.4,
-      cookOffset:Math.random()*0.18,
-      bob:0.4+Math.random()*0.6,
-      // Each strand settles to a different depth when fully cooked
-      settleDepth:0.15+Math.random()*0.55,
-      // Slight x drift as strand settles — they spread out
-      settleX:W*(0.05+Math.random()*0.9),
-    });
-  }
-}
-function drawNoodles(ctx,W,H,fillY,boil,t){
-  if(!_noodles.length)return;
-  const rawCook=Math.min(boil*2.0,1.0);
-  const waterDepth=H-fillY;
-  ctx.save();
-  ctx.lineCap='round';
-  ctx.lineJoin='round';
-
-  // Starchy water overlay — subtle milky tint that increases with cooking
-  if(rawCook>0.1){
-    ctx.save();
-    ctx.globalAlpha=rawCook*0.08;
-    ctx.fillStyle='rgb(245,240,230)';
-    ctx.fillRect(0,fillY,W,H-fillY);
-    ctx.restore();
-  }
-
-  _noodles.forEach(n=>{
-    const cook=Math.max(0,Math.min(1,rawCook-n.cookOffset));
-    // Ease function — fast initial slump, slow settle
-    const ease=1-Math.pow(1-cook,2.5);
-
-    // Anchor point transitions from bottom cluster to spread-out floating position
-    const nx=n.x+(n.settleX-n.x)*ease+Math.sin(t*0.3+n.phase)*n.drift*25*cook;
-    // Rigid: sits on the bottom. Cooked: floats up to settle in the water column.
-    const bottomY=H-8+n.bottomOff;
-    const floatY=fillY+waterDepth*n.settleDepth;
-    const ny=bottomY+(floatY-bottomY)*ease+Math.sin(t*0.2*n.bob+n.phase*1.3)*8*cook;
-
-    // Angle: steep (poking up) at raw → horizontal when cooked
-    const angle=n.initAngle+(n.cookedAngle-n.initAngle)*ease;
-
-    // Length above water shrinks as they cook (slink into the pot)
-    // At raw: most of the strand is above water. At cooked: fully submerged.
-    const segs=14;
-    const segLen=n.len/segs;
-    const pts=[];
-    for(let s=0;s<=segs;s++){
-      const frac=s/segs;
-      // Baseline: straight rigid stick from anchor at current angle
-      const bx=nx+Math.cos(angle)*segLen*s;
-      const by=ny+Math.sin(angle)*segLen*s;
-
-      // Softening bend — only develops as strand cooks
-      const maxBend=n.len*0.10;
-      const bendAmp=cook*cook*maxBend;
-      const bend=bendAmp*Math.sin((frac-n.bendCenter)*Math.PI*1.3+n.phase*0.3);
-
-      // Gravity: pulls tips downward. Stronger at the far end of the strand.
-      // At low cook: stiff, gravity barely affects. At high cook: tips droop heavily.
-      const gravityPull=cook*cook*n.len*0.12*frac*frac;
-
-      // Subtle secondary wave at high cook
-      const secondary=cook>0.5?(cook-0.5)*n.len*0.012*Math.sin(frac*Math.PI*2.3+t*0.15+n.phase):0;
-
-      const px=-Math.sin(angle);
-      const py=Math.cos(angle);
-      pts.push({
-        x:bx+px*(bend+secondary),
-        y:by+py*(bend+secondary)+gravityPull
-      });
-    }
-    // At low cook: allow points above fillY (sticking out of water)
-    // At high cook: clamp into water column
-    const minY=fillY*(1-Math.max(0,1-cook*1.5))+0; // at cook=0: allow y=0; at cook>0.67: clamp to fillY
-    const clampTop=cook<0.67?0:fillY+4;
-    pts.forEach(p=>{p.y=Math.max(clampTop,Math.min(H-6,p.y));});
-
-    // Draw smooth curve
-    ctx.beginPath();
-    ctx.moveTo(pts[0].x,pts[0].y);
-    for(let s=1;s<pts.length-1;s++){
-      const cx=(pts[s].x+pts[s+1].x)/2;
-      const cy=(pts[s].y+pts[s+1].y)/2;
-      ctx.quadraticCurveTo(pts[s].x,pts[s].y,cx,cy);
-    }
-    ctx.lineTo(pts[pts.length-1].x,pts[pts.length-1].y);
-
-    // Color: raw semolina → cooked pale wheat
-    const r=Math.round(224+cook*13);
-    const g=Math.round(204+cook*20);
-    const b=Math.round(144+cook*28);
-    const alpha=0.65+cook*0.10;
-    ctx.strokeStyle=`rgba(${r},${g},${b},${alpha})`;
-    ctx.lineWidth=n.thick*(1+cook*0.15);
-    ctx.stroke();
-
-    // Subtle highlight
-    ctx.strokeStyle=`rgba(250,243,220,${0.10+cook*0.06})`;
-    ctx.lineWidth=n.thick*0.25;
-    ctx.stroke();
-  });
-  ctx.restore();
-}
-function getTheme(){return BOIL_THEMES['default'];}
 
 function openProfile(){
   openSheet(`
@@ -1877,8 +1692,6 @@ function stopAmbient(){
 }
 const sndStop  =()=>{tone(460,.07,.018);haptic([5]);};
 // Retroactive credit: warm soft confirmation
-function sndCredit(){const now=ac().currentTime;tone(660,.25,.04,now);tone(880,.2,.03,now+.08);haptic([10,40,10]);}
-function sndUncredit(){const now=ac().currentTime;tone(880,.25,.04,now);tone(660,.2,.03,now+.08);haptic([10,40,10]);}
 // Shake fizz: bubbly noise burst
 let _lastSndShake=0;
 function sndShake(mag){
@@ -2080,20 +1893,6 @@ function rainConfetti(col,n=80){
     p.life=.85+Math.random()*.15;
     parts.push(p);
   }
-  // Noodle theme: toss pasta emojis with the confetti
-  if(getTheme().noodles){
-    const pastas=['🍝','🍜','🍝','🍜','🍝','🍜'];
-    for(let i=0;i<Math.round(n/6);i++){
-      const p=new P(
-        Math.random()*FX.width,-20-Math.random()*60,
-        (Math.random()-.5)*2.5,1.2+Math.random()*3,
-        'rgba(0,0,0,0)',14+Math.random()*10);
-      p.emoji=pastas[Math.floor(Math.random()*pastas.length)];
-      p.decay=.004+Math.random()*.003;
-      p.life=.9+Math.random()*.1;
-      parts.push(p);
-    }
-  }
   startFX();
 }
 
@@ -2138,21 +1937,12 @@ function tapCard(id){
     const _fbPool=(()=>{const h=new Date().getHours();return h<9?'firstBlockDawn':h>=20?'firstBlockEvening':'firstBlock';})();
     if(_isFirst){setTimeout(()=>sisterMsg(sisterSays(_fbPool),2500),1500);haptic([30,40,30,40,80]);}
   } else {
-    t._quickStart=0;
     t.savedAt=null;t._phaseStart=null;S.lastActiveId=id;sndStop();stopAmbient();
     showToast('The water cools.','#6b6258',1800);
   }
   _poppedBlock=null;
   activeTaskBlocks.length=0;
   save();render();updateLogoDot();
-}
-
-// ── "JUST 5 MINUTES" QUICK START ──────────────────────────────────
-function quickStart(id){
-  const t=S.tasks.find(x=>x.id===id);
-  if(!t||t.done||t.running)return;
-  t._quickStart=300; // 5 minutes perceptual cap
-  tapCard(id);
 }
 
 // ── RETROACTIVE CREDIT / UNDO ─────────────────────────────────────
@@ -2306,7 +2096,7 @@ function onTaskDone(id){
   activeTaskBlocks.length=0;
   renderDaybar();updateLogoDot();
   const vis=S.tasks.filter(taskVisibleToday);
-  if(vis.length&&vis.every(x=>x.done))setTimeout(()=>triggerDayCeremony(),600);
+  if(vis.length&&vis.every(x=>x.done||x.skipped))setTimeout(()=>triggerDayCeremony(),600);
 }
 
 function checkRuntimeBadges(t){} // legacy no-op
@@ -2371,7 +2161,7 @@ function renderDaybar(){
   const remS=Math.max(wr,1);
 
   // Task segments in the future portion of the bar
-  const active=S.tasks.filter(t=>!t.done&&taskVisibleToday(t));
+  const active=S.tasks.filter(t=>!t.done&&!t.skipped&&taskVisibleToday(t));
   let cursor=0;
   const segs=[];
   active.forEach(t=>{
@@ -2498,10 +2288,10 @@ function _attachSensors(){
             beginDay();
           } else if(S.startTs&&!S.tasks.some(t=>t.running&&!t.done)){
             // Day started, no task running: start last active or first undone
-            const _last=S.lastActiveId&&S.tasks.find(t=>t.id===S.lastActiveId&&!t.done&&!t.skipped);
+            const _last=S.lastActiveId&&S.tasks.find(t=>t.id===S.lastActiveId&&!t.done);
             if(_last){tapCard(_last.id);}
             else{
-              const _undone=S.tasks.filter(t=>taskVisibleToday(t)&&!t.done&&!t.skipped);
+              const _undone=S.tasks.filter(t=>taskVisibleToday(t)&&!t.done);
               if(_undone.length){tapCard(_undone[0].id);}
             }
           }
@@ -2636,11 +2426,7 @@ function updateTiltLayer(cols){
 // ── FLOATING OBJECTS ─────────────────────────────────────────────────
 const activeFloaters=[];
 const FLOATER_DEFS={
-  'float_ducky':{emoji:'🦆',size:28,buoyancy:0.06,drag:0.88},
-  'float_boat': {emoji:'⛵',size:24,buoyancy:0.05,drag:0.90},
-  'float_ice':  {emoji:'🧊',size:32,buoyancy:0.07,drag:0.86},
-  'float_ball': {emoji:'🏐',size:22,buoyancy:0.10,drag:0.88,bouncy:true},
-  'float_fish': {emoji:'🐟',size:22,buoyancy:0.06,drag:0.98,underwater:true},
+  'float_ball':{emoji:'🏐',size:22,buoyancy:0.10,drag:0.88,bouncy:true},
 };
 function taskVisibleToday(t){return !t.days||t.days.includes(new Date().getDay());}
 function fmtDays(days){if(!days||!days.length)return'daily';const d=['S','M','T','W','T','F','S'];return days.map(i=>d[i]).join('');}
@@ -2662,8 +2448,9 @@ function spawnTaskBlocks(W,fillY){
   if(!visible.length)return;
   const activeT=_activeTaskForBubble();
   const activeId=activeT?activeT.id:null;
-  const inactives=visible.filter(t=>t.id!==activeId&&!t.done);
+  const inactives=visible.filter(t=>t.id!==activeId&&!t.done&&!t.skipped);
   const dones=visible.filter(t=>t.done);
+  const skipped=visible.filter(t=>t.skipped&&!t.done);
   // Bubble sizing: viewport sets the BASE range; each bubble's actual size within
   // that range is driven by ABSOLUTE remaining work seconds (sqrt-scaled so the
   // big-vs-small contrast is perceptually balanced). You can glance at any two
@@ -2722,6 +2509,21 @@ function spawnTaskBlocks(W,fillY){
       y:sp?.y ?? fillY-sz*0.3,
       vy:0,rot:0,bobPhase:Math.random()*Math.PI*2,
       isActive:false,isSunken:true,
+      userPlaced:!!sp?.userPlaced,
+    });
+  });
+  // Skipped tasks: ghost bubble drifting on the surface — tap to un-skip
+  skipped.forEach((t,i)=>{
+    const sz=sizeFor(t);
+    const fallbackX=W*(0.2+0.6*((i+0.5)/Math.max(1,skipped.length)));
+    const sp=_bubblePos[t.id];
+    activeTaskBlocks.push({
+      taskId:t.id,emoji:autoEmoji(t),color:t.color,name:t.name,
+      size:sz,baseSize:sz,
+      x:sp?.x ?? fallbackX,
+      y:sp?.y ?? fillY-sz*0.3,
+      vy:0,rot:0,bobPhase:Math.random()*Math.PI*2,
+      isActive:false,isSunken:false,isSkipped:true,
       userPlaced:!!sp?.userPlaced,
     });
   });
@@ -2857,15 +2659,26 @@ function stepTaskBlocks(W,H,fillY,hf,step,dt){
       if(!bDr){b.vx+=nx*kick;b.vy+=ny*kick;}
     }
   }
-  // Apply vx with drag, clamp screen, persist position
+  // Apply vx with drag, clamp screen, persist position.
+  // Exception: a bubble being flung-skipped ignores walls and exits the viewport.
   activeTaskBlocks.forEach(f=>{
     f.vx*=0.86;
     f.x+=f.vx;
+    if(f._flinging){
+      // Let it fly off; once mostly off-screen, despawn (skipped state keeps it gone)
+      if(f.x<-f.size*1.5||f.x>W+f.size*1.5){
+        delete _bubblePos[f.taskId];
+        f._gone=true;
+      }
+      return;
+    }
     const margin=f.size*0.55+(f.isActive?12*dpr:0);
     if(f.x<margin){f.x=margin;f.vx=Math.max(0,f.vx);}
     if(f.x>W-margin){f.x=W-margin;f.vx=Math.min(0,f.vx);}
     _bubblePos[f.taskId]={x:f.x,y:f.y,userPlaced:!!f.userPlaced};
   });
+  // Drop bubbles that flew off
+  for(let i=activeTaskBlocks.length-1;i>=0;i--)if(activeTaskBlocks[i]._gone)activeTaskBlocks.splice(i,1);
   // Beach ball ↔ bubble collision (skip sunken bubbles).
   // Both want the surface, so bias the contact normal horizontal when they're stacked.
   if(typeof activeFloaters!=='undefined'&&activeFloaters.length){
@@ -2914,7 +2727,9 @@ function drawTaskBlocks(ctx){
     }
 
     // Inactive bubbles fade when there's a running task — focus on the active one
-    const alpha=f.isActive?1.0:(hasActive?0.45:1.0);
+    // Skipped bubbles are ghosted further (drift but minimally present)
+    let alpha=f.isActive?1.0:(hasActive?0.45:1.0);
+    if(f.isSkipped)alpha=0.22;
     // Active bubble heartbeat: scale pulse on each timer tick
     let pulseScale=1;
     if(f.isActive&&t.running&&t._tickT){
@@ -2966,35 +2781,50 @@ function drawTaskBlocks(ctx){
     // Emoji
     const emojiImg=getEmojiImg(f.emoji,Math.round(f.size*0.55));
     if(emojiImg)ctx.drawImage(emojiImg,-f.size*0.275,-f.size*0.275,f.size*0.55,f.size*0.55);
-    // Name label
-    ctx.textAlign='center';ctx.textBaseline='top';
-    const fontSize=Math.max(9,Math.round(f.size*0.18));
-    ctx.font=`700 ${fontSize}px "Plus Jakarta Sans",sans-serif`;
-    const labelOff=r+(f.isActive?7:3)*dpr;
-    ctx.fillStyle='rgba(255,255,255,0.75)';
-    ctx.fillText(f.name,1*dpr,labelOff+1);
-    ctx.fillStyle=f.color;
-    ctx.fillText(f.name,0,labelOff);
+    // Name label (skipped bubbles get no name — keep them quiet)
+    if(!f.isSkipped){
+      ctx.textAlign='center';ctx.textBaseline='top';
+      const fontSize=Math.max(9,Math.round(f.size*0.18));
+      ctx.font=`700 ${fontSize}px "Plus Jakarta Sans",sans-serif`;
+      const labelOff=r+(f.isActive?7:3)*dpr;
+      ctx.fillStyle='rgba(255,255,255,0.75)';
+      ctx.fillText(f.name,1*dpr,labelOff+1);
+      ctx.fillStyle=f.color;
+      ctx.fillText(f.name,0,labelOff);
+    }
 
-    // Per-block markers — beads strung directly ON the stopwatch ring (the outline itself).
-    // Marker is wider than the stroke so it visibly punches through, white halo for separation.
+    // Per-block pip strip — sits below the active bubble's name label.
+    // Decoupled from the ring: ring = current block timer, pips = per-block status.
     if(f.isActive&&!t.done){
-      const markerR=r; // sit on the ring, not outside it
-      const markerSize=3.2*dpr;
       const N=Math.max(1,t.total||1);
+      const pipW=Math.min(f.size/N-2*dpr,8*dpr);
+      const pipH=4*dpr;
+      const gap=2*dpr;
+      const stripW=N*pipW+(N-1)*gap;
+      const stripY=r+(f.isActive?7:3)*dpr+Math.max(9,Math.round(f.size*0.18))+4*dpr;
       for(let i=0;i<N;i++){
-        const ang=-Math.PI/2+(i/N)*Math.PI*2+(N>1?Math.PI/N:0);
-        const mx=Math.cos(ang)*markerR;
-        const my=Math.sin(ang)*markerR;
-        const mc=i<t.completed?'#2e9e6a':'#c0453a';
+        const px=-stripW/2+i*(pipW+gap);
+        const isDone=i<t.completed;
+        const mc=isDone?'#2e9e6a':'#c0453a';
         if(t.running&&i===t.completed){
           const p=0.55+0.45*Math.sin(_now*0.005);
           ctx.globalAlpha=alpha*p;
         } else {ctx.globalAlpha=alpha;}
-        ctx.beginPath();ctx.arc(mx,my,markerSize,0,Math.PI*2);
-        ctx.fillStyle=mc;ctx.fill();
-        ctx.strokeStyle='rgba(255,255,255,0.85)';
-        ctx.lineWidth=1.2*dpr;ctx.stroke();
+        ctx.fillStyle=mc;
+        const rr=pipH*0.5;
+        // rounded rect
+        ctx.beginPath();
+        ctx.moveTo(px+rr,stripY);
+        ctx.lineTo(px+pipW-rr,stripY);
+        ctx.quadraticCurveTo(px+pipW,stripY,px+pipW,stripY+rr);
+        ctx.lineTo(px+pipW,stripY+pipH-rr);
+        ctx.quadraticCurveTo(px+pipW,stripY+pipH,px+pipW-rr,stripY+pipH);
+        ctx.lineTo(px+rr,stripY+pipH);
+        ctx.quadraticCurveTo(px,stripY+pipH,px,stripY+pipH-rr);
+        ctx.lineTo(px,stripY+rr);
+        ctx.quadraticCurveTo(px,stripY,px+rr,stripY);
+        ctx.closePath();
+        ctx.fill();
       }
     }
     ctx.restore();
@@ -3090,7 +2920,7 @@ function spawnFloaters(W,fillY){
   const dpr=_bgDpr();
   // Beach ball: a reward — only appears once everything visible today is done
   const vis=S&&S.tasks?S.tasks.filter(taskVisibleToday):[];
-  const allDone=vis.length>0&&vis.every(t=>t.done);
+  const allDone=vis.length>0&&vis.every(t=>t.done||t.skipped);
   if(allDone){
     const def=FLOATER_DEFS['float_ball'];
     activeFloaters.push({
@@ -3103,156 +2933,56 @@ function spawnFloaters(W,fillY){
       melt:0,juggleCount:0
     });
   }
-  // Theme floaters
-  const th=getTheme();
-  if(th.floaters&&th.floaters.length){
-    th.floaters.forEach(def=>{
-      for(let c=0;c<(def.count||1);c++){
-        const sz=def.size*dpr;
-        const spawnY=def.sinkFirst?fillY+80+Math.random()*60:fillY-sz*0.3;
-        activeFloaters.push({
-          type:'theme',emoji:def.emoji,
-          size:sz,baseSize:sz,
-          buoyancy:def.buoyancy,drag:def.drag,
-          bouncy:false,underwater:false,
-          sinkFirst:!!def.sinkFirst,sinkTimer:def.sinkFirst?2.5+Math.random():0,
-          roll:!!def.roll,
-          x:W*(0.1+idx*0.12+Math.random()*0.08),
-          y:spawnY,vx:0,vy:0,rot:0,
-          fishDir:1,fishTimer:3+Math.random()*4,melt:0,juggleCount:0
-        });
-        idx++;
-      }
-    });
-  }
 }
 function stepFloaters(W,H,fillY,hf,step,dt,boil){
-  const flowing=S&&S.tasks&&S.tasks.some(t=>t.running);
+  // Only the beach ball spawns now. Two states: in-air (gravity+drag) or on-water (buoyancy).
   activeFloaters.forEach(f=>{
     const col=Math.round(f.x/step);
     const tOff=(tiltH&&col>=0&&col<tiltH.length)?tiltH[col]:0;
     const surfY=(hf&&col>=0&&col<hf.cols)?fillY+hf.h[col]+tOff:fillY+tOff;
-    // Ball → anchor during work: sinks to bottom
-    if(f.bouncy&&flowing){
-      if(!f._anchored){f._anchored=true;f._origEmoji=f.emoji;f.emoji='⚓';f.juggleCount=0;}
-      f.vy+=0.25; // gravity pulls anchor down
-      f.vy*=0.96;
+    const submerge=f.size*0.35;
+    const targetY=surfY-submerge;
+    const aboveWater=f.y<targetY-2;
+    if(aboveWater){
+      // Airborne: gravity + air drag
+      f.vy+=0.55;
+      f.vy*=0.991;
+      f.vx*=0.991;
       f.y+=f.vy;
-      if(f.y>H-f.size){f.y=H-f.size;f.vy=0;}
-      // Gentle sway at bottom
-      f.rot=Math.sin(waveT*0.5)*0.08;
-      f.vx*=0.95;f.x+=f.vx;
-      if(f.x<f.size)f.x=f.size;if(f.x>W-f.size)f.x=W-f.size;
-      return;
-    }
-    if(f.bouncy&&!flowing&&f._anchored){f._anchored=false;f.emoji=f._origEmoji||'🏐';f.vy=-3;} // float back up
-    // Fish: swim through the water with sinusoidal path
-    if(f.underwater){
-      // Target: middle of the water column
-      const waterMid=surfY+(H-surfY)*0.5;
-      f.vy+=(waterMid-f.y)*0.02;
-      f.vy*=0.92;
-      f.y+=f.vy;
-      // Fish AI: gentle turns with longer intervals
-      f.fishTimer-=dt;
-      if(f.fishTimer<=0){f.fishDir*=-1;f.fishTimer=3+Math.random()*5;}
-      // Wall bounce — nudge away so it doesn't re-trigger
-      if(f.x<=f.size+4){f.x=f.size+5;f.fishDir=1;f.fishTimer=3+Math.random()*4;}
-      if(f.x>=W-f.size-4){f.x=W-f.size-5;f.fishDir=-1;f.fishTimer=3+Math.random()*4;}
-      const panicMult=boil>0.5?1+boil*2:1;
-      const baseSwim=0.7*panicMult;
-      f.vx+=(f.fishDir*baseSwim-f.vx)*0.08; // smooth acceleration
-      f.x+=f.vx;
-      // Sinusoidal swimming path — gentle wave motion
-      f.y+=Math.sin(waveT*2.5+f.x*0.01)*0.4*panicMult;
-      // Tilt into swim direction + slight bobbing
-      f.rot=f.fishDir<0?0.08:-0.08;
-      f.rot+=Math.sin(waveT*3)*0.04;
-      // Flip direction stored for drawing
-      f.flipX=f.fishDir>0;
-      // Panic jump at high boil
-      if(boil>0.6&&Math.random()<boil*0.002){
-        f.vy=-6-boil*4;
-        if(hf&&col>=0&&col<hf.cols)hf.v[col]+=2;
-      }
-    } else if(f.sinkFirst&&f.sinkTimer>0){
-      // Dumpling: sink first, then float up
-      f.sinkTimer-=dt;
-      f.vy+=0.3; // gravity pulls down
-      f.vy*=0.95;
-      f.y+=f.vy;
-      // Don't fall through bottom
-      if(f.y>H-f.size){f.y=H-f.size;f.vy=0;}
-    } else {
-      // Surface floaters
-      if(f.sinkFirst)f.sinkFirst=false; // done sinking, now float normally
-      const submerge=f.size*0.35;
-      const targetY=surfY-submerge;
-      const aboveWater=f.y<targetY-2;
-      if(f.bouncy&&aboveWater){
-        // Ball in air: gravity + air drag
-        f.vy+=0.55;
-        f.vy*=0.991;
-        f.vx*=0.991;
-        f.y+=f.vy;
-        // Bounce off top of screen
-        if(f.y<0){f.y=0;f.vy=Math.abs(f.vy)*0.6;}
-        // Spin while airborne
-        f.rot+=f.vx*0.015;
-        // Splash on landing
-        if(f.y>=targetY){
-          f.y=targetY;
-          if(hf&&Math.abs(f.vy)>2){
-            const c=Math.round(f.x/step);
-            if(c>=0&&c<hf.cols)applyForce(hf,c,f.vy*0.3,5);
-            if(f.juggleCount>0){try{tone(100,.08,.025);}catch(e){}haptic([5]);}
-          }
-          f.vy*=-0.2; // weak water bounce — must tap before it sinks
+      if(f.y<0){f.y=0;f.vy=Math.abs(f.vy)*0.6;}
+      f.rot+=f.vx*0.015;
+      if(f.y>=targetY){
+        f.y=targetY;
+        if(hf&&Math.abs(f.vy)>2){
+          const c=Math.round(f.x/step);
+          if(c>=0&&c<hf.cols)applyForce(hf,c,f.vy*0.3,5);
+          if(f.juggleCount>0){try{tone(100,.08,.025);}catch(e){}haptic([5]);}
         }
-      } else if(f.bouncy){
-        // Ball on water surface — buoyancy + drift
-        f.vy+=(targetY-f.y)*f.buoyancy;
-        f.vy*=f.drag;
-        f.y+=f.vy;
-        // Combo ends on water contact
-        if(f.juggleCount>0)f.juggleCount=0;
-      } else {
-        f.vy+=(targetY-f.y)*f.buoyancy;
-        f.vy*=f.drag;
-        f.y+=f.vy;
+        f.vy*=-0.2;
       }
-      // Rotation from surface slope (or slow continuous roll for eggs)
-      if(f.roll){
-        f.rot+=dt*0.3;
-      } else if(hf&&col>0&&col<hf.cols-1){
+    } else {
+      // On water: buoyancy spring
+      f.vy+=(targetY-f.y)*f.buoyancy;
+      f.vy*=f.drag;
+      f.y+=f.vy;
+      if(f.juggleCount>0)f.juggleCount=0;
+      // Rotate with surface slope
+      if(hf&&col>0&&col<hf.cols-1){
         const tRot=Math.atan2(hf.h[col+1]-hf.h[col-1],step*2)*0.8;
         f.rot+=(tRot-f.rot)*0.12;
       }
     }
-    // Gentle horizontal drift from wave slope
-    if(!f.underwater&&hf&&col>0&&col<hf.cols-1){
+    // Wave-slope horizontal drift + tilt
+    if(hf&&col>0&&col<hf.cols-1){
       f.vx+=(hf.h[col+1]-hf.h[col-1])*0.08;
     }
     f.vx+=tiltSmooth*0.004;
-    if(!f.underwater){f.vx*=f.drag;f.x+=f.vx;}
-    else f.x+=f.vx;
-    // Walls
-    if(f.bouncy){
-      if(f.x<f.size){f.x=f.size;f.vx=Math.abs(f.vx)*0.8;}
-      if(f.x>W-f.size){f.x=W-f.size;f.vx=-Math.abs(f.vx)*0.8;}
-      // Hard velocity cap — prevents any edge case from sending ball to space
-      f.vy=Math.max(-18,Math.min(f.vy,18));
-      f.vx=Math.max(-14,Math.min(f.vx,14));
-    } else {
-      if(f.x<f.size){f.x=f.size;f.vx*=-0.3;}
-      if(f.x>W-f.size){f.x=W-f.size;f.vx*=-0.3;}
-    }
-    // Ice cube melting: shrinks with boil intensity
-    if(f.type==='float_ice'){
-      f.melt=Math.min(0.85,f.melt+boil*dt*0.12);
-      f.size=f.baseSize*(1-f.melt);
-      if(f.size<f.baseSize*0.15)f.size=f.baseSize*0.15;
-    }
+    f.vx*=f.drag;f.x+=f.vx;
+    // Walls — bouncy
+    if(f.x<f.size){f.x=f.size;f.vx=Math.abs(f.vx)*0.8;}
+    if(f.x>W-f.size){f.x=W-f.size;f.vx=-Math.abs(f.vx)*0.8;}
+    f.vy=Math.max(-18,Math.min(f.vy,18));
+    f.vx=Math.max(-14,Math.min(f.vx,14));
   });
 }
 const _emojiCache={};
@@ -3270,13 +3000,9 @@ function getEmojiImg(emoji,size){
   return c;
 }
 function drawFloaters(ctx){
-  const flowing=S&&S.tasks&&S.tasks.some(t=>t.running);
   activeFloaters.forEach(f=>{
     ctx.save();
-    // Surface toys fade during flowing (task blocks are the primary layer)
-    if(flowing&&!f.underwater)ctx.globalAlpha=0.4;
     ctx.translate(f.x,f.y);
-    if(f.flipX)ctx.scale(-1,1);
     ctx.rotate(f.rot);
     const img=getEmojiImg(f.emoji,f.size);
     ctx.drawImage(img,-f.size,-f.size,f.size*2,f.size*2);
@@ -3389,20 +3115,6 @@ function pushFloatersAt(tx,ty,vx,vy){
       return;
     }
 
-    // Other floaters: gentle proximity push + sounds on direct hit
-    const force=Math.max(0,1-dist/(f.size*3));
-    f.vx+=(vx-dx*0.05)*force*0.5;
-    f.vy+=(vy-dy*0.05)*force*0.5;
-    if(dist<f.size*1.5){
-      try{const now=ac().currentTime;
-        if(f.type==='float_ducky'){tone(280,.12,.04,now,'square');tone(220,.14,.035,now+.1,'square');}
-        else if(f.type==='float_boat'){tone(150,.08,.03,now);tone(120,.1,.02,now+.05);}
-        else if(f.type==='float_ice'){tone(2400,.06,.025,now);tone(3200,.04,.02,now+.04);}
-      }catch(e){}
-      if(f.type==='float_ducky')haptic([15]);
-      else if(f.type==='float_boat')haptic([8]);
-      else haptic([5]);
-    }
   });
 }
 
@@ -3495,17 +3207,50 @@ function _maybeCancelBubbleHoldByMove(clientX,clientY){
     b.vx=0;b.vy=0;
   }
 }
+// Track per-task tap timing for double-tap detection
+const _lastTapByTask={};
+const _DBL_TAP_MS=350;
 function _finishBubbleHoldAsTap(block){
   if(_bubbleHold&&_bubbleHold.dragging){
     const b=activeTaskBlocks.find(x=>x.taskId===_bubbleHold.taskId);
-    if(b){
+    const t=b?S.tasks.find(x=>x.id===b.taskId):null;
+    if(b&&t){
       b.beingDragged=false;
-      b.userPlaced=true;
       const dpr=_bgDpr();
-      // Clamp throw velocity well below the spring period to prevent wild overshoot
-      b.vx=Math.max(-12,Math.min(12,_bubbleHold.velX*dpr));
-      b.vy=Math.max(-12,Math.min(12,_bubbleHold.velY*dpr));
-      b._splashOnce=true; // one wave on landing, then quiet
+      const H=window.innerHeight*dpr;
+      const W=window.innerWidth*dpr;
+      const vxCss=_bubbleHold.velX, vyCss=_bubbleHold.velY;
+      const vMagCss=Math.sqrt(vxCss*vxCss+vyCss*vyCss);
+      // ── Drag-to-bottom band → mark task entirely complete ─────────────
+      if(b.y>H*0.85&&!t.done){
+        t.completed=t.total;t.done=true;t.running=false;
+        t.savedAt=null;t._phaseStart=null;t.isRest=false;t.rem=0;
+        save();
+        onTaskDone(t.id);
+        _cancelBubbleHold();
+        return;
+      }
+      // ── Fling off the side edge → skip for the day ───────────────────
+      // High horizontal velocity + mostly-sideways direction = a fling.
+      // Let the bubble keep its momentum, mark skipped, despawn on edge cross.
+      const isFling=vMagCss>14&&Math.abs(vxCss)>Math.abs(vyCss)*1.4;
+      if(isFling&&!t.done&&!t.skipped){
+        t.skipped=true;
+        save();
+        // Carry full throw velocity (no clamp) so the bubble flies off-screen
+        b.vx=vxCss*dpr*1.4;
+        b.vy=vyCss*dpr;
+        b._flinging=true; // physics ignores walls until it crosses the edge
+        haptic([10,20,40]);
+        try{const now=ac().currentTime;tone(360,.15,.04,now);tone(280,.18,.03,now+.06);}catch(e){}
+        _cancelBubbleHold();
+        return;
+      }
+      // ── Normal release → place where dropped, throw with damped velocity
+      b.userPlaced=true;
+      b.vx=Math.max(-12,Math.min(12,vxCss*dpr));
+      b.vy=Math.max(-12,Math.min(12,vyCss*dpr));
+      b._splashOnce=true;
     }
     _cancelBubbleHold();
     return;
@@ -3514,7 +3259,39 @@ function _finishBubbleHoldAsTap(block){
   _cancelBubbleHold();
   if(fired)return;
   const t=S.tasks.find(x=>x.id===block.taskId);
-  if(t&&t.done)return; // done bubbles: tap is a no-op (long-press still edits)
+  if(!t)return;
+  if(t.done)return; // done bubbles: tap is a no-op (long-press still edits)
+  // ── Double-tap detection: second tap within 350ms credits a block ──
+  const now=performance.now();
+  const last=_lastTapByTask[t.id]||0;
+  if(now-last<_DBL_TAP_MS){
+    _lastTapByTask[t.id]=0;
+    // Undo the single-tap effect from the first tap (revert running state)
+    if(t.running!==undefined){
+      // Whatever the first tap toggled, flip back. tapCard already ran.
+      // Simpler: just trust tapCard happened, then credit a block on top.
+    }
+    // Credit one block
+    if(t.completed<t.total){
+      t.completed+=1;
+      if(t.completed>=t.total){
+        t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;t.isRest=false;t.rem=0;
+        save();onTaskDone(t.id);
+      } else {
+        t.rem=t.workDur;t.isRest=false;
+        if(t.savedAt)t.savedAt=Date.now();
+        if(t._phaseStart)t._phaseStart=Date.now();
+        save();
+        onSubBlockDone(t.id);
+      }
+      activeTaskBlocks.length=0; // respawn so size + markers update
+      haptic([20,30,50]);
+    }
+    return;
+  }
+  _lastTapByTask[t.id]=now;
+  // Single tap — fires immediately. tapCard handles unskip-on-tap.
+  if(t.skipped){t.skipped=false;save();activeTaskBlocks.length=0;return;}
   popTaskBlock(block);
   tapCard(block.taskId);
 }
@@ -3870,12 +3647,7 @@ function waveLoop(now){
       updateTiltLayer(bgN);
       tickBubbles(bgBubbles,W,H,bgWaveState.fill,dt,bgWaveState.color,true);
       drawWater(ctx,W,H,bgWaveState.fill,bgWaveState.color,waveT*0.35,bgBubbles,true,bgHF);
-      // Noodles (drawn submerged, before floaters)
       const bgFillY=H*(1-bgWaveState.fill/100);
-      if(getTheme().noodles){
-        if(!_noodles.length)initNoodles(W,H,bgFillY);
-        drawNoodles(ctx,W,H,bgFillY,boil2,waveT);
-      }
       // Floaters
       if(activeFloaters.length===0)spawnFloaters(W,bgFillY);
       stepFloaters(W,H,bgFillY,bgHF,bgStep,dt,boil2);
@@ -4078,10 +3850,6 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
   let gi=parseInt(colorHex.slice(3,5),16);
   let bi=parseInt(colorHex.slice(5,7),16);
   // Theme tint — shifts task color toward theme character
-  const _theme=getTheme();
-  if(_theme.waterTint&&isBg){
-    ri=clr(ri+_theme.waterTint.r);gi=clr(gi+_theme.waterTint.g);bi=clr(bi+_theme.waterTint.b);
-  }
   // Temperature color tint — task color stays the base, warmth intensifies with boil
   // Heat level amplifies the visual intensity
   const _hm=heatMultiplier();
@@ -4121,7 +3889,7 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
   const gt=Math.max(0,minY-3);
 
   // ── Body gradient (light at surface, deep at bottom) ──────────────
-  const _om=_theme.opacityMul||1.0;
+  const _om=1.0;
   // Background water starts transparent, reaches full opacity near completion
   // Flowing mode: boost opacity so water is more visually prominent
   const _flowing=isBg&&S&&S.tasks&&S.tasks.some(t=>t.running&&!t.isRest);
@@ -4202,16 +3970,14 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
     ctx.save();
     const foamA=Math.min((boil-0.3)*1.5,0.7)*(1+cresc*0.4);
     ctx.globalAlpha=foamA;
-    const _fc=_theme.foamColor||null;
     for(let i=0;i<N;i++){
       const x=i*step,sy=_surf[i];
-      // Deterministic foam using sin hash — stable per frame, noisy across x
       const h=(Math.sin(x*127.1+t*2.1)*43758.5453)%1;
       if(Math.abs(h)>0.4-cresc*0.12){
         const fr=(0.4+Math.abs(h)*2.0)*(1+cresc*0.3);
         ctx.beginPath();
         ctx.arc(x,sy+Math.sin(x*0.8+t*3)*1.5,fr,0,Math.PI*2);
-        ctx.fillStyle=_fc||`rgba(255,255,255,${0.45*foamA})`;
+        ctx.fillStyle=`rgba(255,255,255,${0.45*foamA})`;
         ctx.fill();
       }
     }
@@ -4302,10 +4068,10 @@ function beginDay(){
   if(!_sensorsAttached)requestMotionPermission();
   S.startTs=Date.now();S.dayHours=24;
   S.bedtime=timeToDecimal(document.getElementById('begin-bed').value);
-  _snapshotDay();
   save();
   document.getElementById('begin-screen').style.display='none';
   if(beginWaveRaf){cancelAnimationFrame(beginWaveRaf);beginWaveRaf=null;}
+  render(); // activate canvas + spawn bubbles immediately (was delayed by ~1s ticker)
   renderDaybar();updateLogoDot();
   activeTaskBlocks.length=0;
   if('Notification' in window && Notification.permission==='default'){
@@ -4433,7 +4199,6 @@ function eraseAll(){
   stopAmbient();
   bgBubbles.length=0;activeFloaters.length=0;
   Object.keys(bubblePools).forEach(k=>delete bubblePools[k]);
-  _noodles.length=0;
   if(bgHF.h)bgHF.h.fill(0);if(bgHF.v)bgHF.v.fill(0);
   S=defaults();
   _erasing=false;
@@ -4454,7 +4219,6 @@ function askReset(){
     <p style="font-size:14px;color:var(--mid);line-height:1.7;margin-bottom:4px">All tasks reset. Coins, stars, and purchases from today are undone.</p>
     <div class="sh-btns"><button class="bs" onclick="closeSheet()">Cancel</button><button class="bp" onclick="doReset()">Reset day</button></div>`);
 }
-function _snapshotDay(){} // legacy no-op
 function doReset(){bgBubbles.length=0;activeFloaters.length=0;if(bgHF.h)bgHF.h.fill(0);if(bgHF.v)bgHF.v.fill(0);
   S.tasks.forEach(resetTask);S.date=today();
   S.startTs=null; // force begin screen
@@ -4583,20 +4347,27 @@ function openFinishDay(){
   const elapsed = dayEl();
   const fmtElapsed = fmtHM(elapsed);
 
-  // Per-task breakdown — each task as a row of N pip dots, red=pending green=done.
-  // All done → row goes solid green with a ✓.
+  // Per-task breakdown — each task as a row of N pip dots.
+  // Done → solid green with ✓. Skipped → grey row with "skipped" label.
   const taskRows = S.tasks.map(t=>{
     const tot=t.total||1;
     const comp=Math.min(t.completed||0,tot);
     const allDone=!!t.done||comp>=tot;
-    const dots=allDone
-      ?`<div style="flex:1;display:flex;align-items:center;justify-content:center;background:#2e9e6a;border-radius:6px;color:#fff;font-weight:800;font-size:13px;padding:4px 0">✓</div>`
-      :`<div style="flex:1;display:flex;gap:3px">${Array.from({length:tot},(_,k)=>`<div style="flex:1;height:10px;border-radius:3px;background:${k<comp?'#2e9e6a':'#c0453a'};box-shadow:0 1px 2px rgba(0,0,0,.15)"></div>`).join('')}</div>`;
-    return `<div class="fin-task-row" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--brd)">
-      <div class="fin-task-dot" style="width:8px;height:8px;border-radius:50%;background:${t.color};flex-shrink:0"></div>
+    const skipped=!!t.skipped&&!allDone;
+    let dots;
+    if(allDone){
+      dots=`<div style="flex:1;display:flex;align-items:center;justify-content:center;background:#2e9e6a;border-radius:6px;color:#fff;font-weight:800;font-size:13px;padding:4px 0">✓</div>`;
+    } else if(skipped){
+      dots=`<div style="flex:1;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--mid) 25%,transparent);border-radius:6px;color:var(--mid);font-weight:800;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:4px 0">skipped</div>`;
+    } else {
+      dots=`<div style="flex:1;display:flex;gap:3px">${Array.from({length:tot},(_,k)=>`<div style="flex:1;height:10px;border-radius:3px;background:${k<comp?'#2e9e6a':'#c0453a'};box-shadow:0 1px 2px rgba(0,0,0,.15)"></div>`).join('')}</div>`;
+    }
+    const rowOpacity=skipped?'opacity:.5;':'';
+    return `<div class="fin-task-row" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--brd);${rowOpacity}">
+      <div class="fin-task-dot" style="width:8px;height:8px;border-radius:50%;background:${skipped?'var(--dim)':t.color};flex-shrink:0"></div>
       <div class="fin-task-name" style="flex:0 0 90px;font-size:13px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${allDone?`<s style="text-decoration-color:${t.color}">${esc(t.name)}</s>`:esc(t.name)}</div>
       ${dots}
-      <div style="font-size:11px;font-weight:700;color:var(--dim);font-variant-numeric:tabular-nums;min-width:30px;text-align:right">${comp}/${tot}</div>
+      <div style="font-size:11px;font-weight:700;color:var(--dim);font-variant-numeric:tabular-nums;min-width:30px;text-align:right">${skipped?'—':comp+'/'+tot}</div>
     </div>`;
   }).join('');
 
