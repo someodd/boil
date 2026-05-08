@@ -775,6 +775,7 @@ const SISTER={
   bedtimeBlockEnd:['That was enough. Rest now.','Last one tonight. Go gently.'],
   idle:['The water\'s still warm.','Whenever you\'re ready.'],
   taskDone:['Finished. Go gently.','Done. Every block was a gift.'],
+  timeDone:['The water\'s done. The work is in your hands now.','Time\'s up. A few small things to finish.','You stayed. Just the items now.','The timer rests. Your hands take over.','Time complete. Pop the rest when you can.'],
 };
 function sisterSays(moment){
   const pool=SISTER[moment];
@@ -817,7 +818,7 @@ function boot(){
   if(S.muteAll===undefined)S.muteAll=false;
   if(S.muteWater===undefined)S.muteWater=false;
   if(S.lastActiveId===undefined)S.lastActiveId=null;
-  S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;if(t.desc===undefined)t.desc='';if(t.continuous===undefined)t.continuous=!!S.continuous;if(t.skipped===undefined)t.skipped=false;if(t.checklist===undefined)t.checklist=[];});
+  S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;if(t.desc===undefined)t.desc='';if(t.continuous===undefined)t.continuous=!!S.continuous;if(t.skipped===undefined)t.skipped=false;if(t.checklist===undefined)t.checklist=[];if(t._timeDoneFiredAt===undefined)t._timeDoneFiredAt=null;});
   const now=Date.now();
   if(shouldRollover()){
     creditPartialAtMidnight();S.tasks.forEach(resetTask);S.lastActiveId=null;
@@ -844,8 +845,9 @@ function boot(){
     },600);
   }
 }
-function resetTask(t){t.completed=0;t.isRest=false;t.rem=t.workDur;t.running=false;t.done=false;t.skipped=false;t.savedAt=null;t._phaseStart=null;if(t.checklist)t.checklist.forEach(c=>{c.done=false;});if(bubblePools[t.id])bubblePools[t.id]=[];}
+function resetTask(t){t.completed=0;t.isRest=false;t.rem=t.workDur;t.running=false;t.done=false;t.skipped=false;t.savedAt=null;t._phaseStart=null;t._timeDoneFiredAt=null;if(t.checklist)t.checklist.forEach(c=>{c.done=false;});if(bubblePools[t.id])bubblePools[t.id]=[];}
 function _checklistAllDone(t){return !t.checklist||t.checklist.length===0||t.checklist.every(c=>c.done);}
+function isStalled(t){return !!(t&&!t.done&&t.completed>=t.total&&!_checklistAllDone(t));}
 function creditPartialAtMidnight(){
   S.tasks.forEach(t=>{
     if(!t.running||t.done)return;
@@ -866,7 +868,9 @@ function resolvePhaseEnd(t,animate){
     t.isRest=false;t.completed++;
     if(t.completed>=t.total){
       if(_checklistAllDone(t)){t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;return true;}
-      t.completed=t.total;t.running=false;t.savedAt=null;t._phaseStart=null;t.rem=0;return false;
+      t.completed=t.total;t.running=false;t.savedAt=null;t._phaseStart=null;t.rem=0;
+      if(animate)setTimeout(()=>onTaskTimeDone(t),0);
+      return false;
     }
     t.rem=t.workDur;
     if(cont){const _n=animate?Date.now():null;t.savedAt=_n;t._phaseStart=_n;}
@@ -881,7 +885,9 @@ function resolvePhaseEnd(t,animate){
       t.completed++;
       if(t.completed>=t.total){
         if(_checklistAllDone(t)){t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;return true;}
-        t.completed=t.total;t.running=false;t.savedAt=null;t._phaseStart=null;t.rem=0;return false;
+        t.completed=t.total;t.running=false;t.savedAt=null;t._phaseStart=null;t.rem=0;
+        if(animate)setTimeout(()=>onTaskTimeDone(t),0);
+        return false;
       }
       t.rem=t.workDur;
       if(cont){const _n=animate?Date.now():null;t.savedAt=_n;t._phaseStart=_n;}
@@ -2080,6 +2086,37 @@ function onSubBlockDone(id){
   }
 }
 
+function onTaskTimeDone(t){
+  if(!t)return;
+  // One-shot per task per day. Survives reload (date stamp), resets at rollover via resetTask.
+  if(t._timeDoneFiredAt===today())return;
+  t._timeDoneFiredAt=today();
+  clearBgNotifs();
+  // Confetti-style burst at the bubble — task color + warm white + a touch of gold
+  const pos=_bubbleScreenPos(t.id);
+  if(pos){
+    burstAt(pos.cx,pos.cy,t.color,22);
+    burstAt(pos.cx,pos.cy,'#fff',10);
+    burstAt(pos.cx,pos.cy,'#c8841a',8);
+    // Water splash — energy returning to the pool
+    if(bgHF&&bgHF.cols>0){
+      const dpr=_bgDpr();
+      const col=Math.round((pos.cx*dpr)/Math.max(3,Math.ceil((window.innerWidth*dpr)/1023)));
+      if(col>=0&&col<bgHF.cols)applyForce(bgHF,col,-28,8);
+    }
+  }
+  // Suspended chord — open / unresolved (resolved fanfare reserved for true taskDone)
+  try{
+    const now=ac().currentTime;
+    tone(523.25,0.10,0.025,now);
+    tone(659.25,0.12,0.022,now+0.06);
+    tone(783.99,0.14,0.020,now+0.12);
+  }catch(e){}
+  haptic([30,50,30,50,30]);
+  setTimeout(()=>sisterMsg(sisterSays('timeDone'),2500),600);
+  if(document.hidden)notify(t.name+': time complete','A few items left to pop.');
+  save();
+}
 function onTaskDone(id){
   clearBgNotifs();
   stopAmbient();sndTask();
@@ -2482,10 +2519,8 @@ function spawnTaskBlocks(W,fillY){
   const minSz=minCss*dpr,maxSz=maxCss*dpr;
   const REF_SECS=4*3600; // a 4-hour task hits maxSz
   const sizeFor=(t)=>{
-    // Stalled-on-checklist: blocks done but checklist pending — keep midsize for the orbit
-    if(t.completed>=t.total&&!t.done&&t.checklist&&t.checklist.some(c=>!c.done)){
-      return minSz+0.45*(maxSz-minSz);
-    }
+    // Stalled (time done, checklist pending): deflated husk — orbit takes visual focus.
+    if(isStalled(t))return minSz*0.7;
     const futureBlocks=Math.max(0,(t.total||1)-(t.completed||0)-1);
     const cur=t.rem||0;
     const remSecs=cur+futureBlocks*(t.workDur||60);
@@ -2767,6 +2802,7 @@ function drawTaskBlocks(ctx){
 
     // Inactive bubbles fade when there's a running task — focus on the active one
     // Skipped bubbles are ghosted further (drift but minimally present)
+    const stalled=isStalled(t);
     let alpha=f.isActive?1.0:(hasActive?0.45:1.0);
     if(f.isSkipped)alpha=0.22;
     // Active bubble heartbeat: scale pulse on each timer tick
@@ -2775,6 +2811,8 @@ function drawTaskBlocks(ctx){
       const since=_now-t._tickT;
       if(since<260)pulseScale=1+0.18*Math.exp(-since/90);
     }
+    // Stalled: slow steady breathing — "I'm waiting"
+    if(stalled)pulseScale*=1+0.04*Math.sin(_now*0.0035);
     // Hover lift — desktop only; composes multiplicatively with pulse so they don't cancel
     const isHover=_hoverBubbleHit===f;
     if(isHover){pulseScale*=1.06;if(f.isSkipped)alpha=0.55;}
@@ -2786,11 +2824,20 @@ function drawTaskBlocks(ctx){
     const r=f.size*0.5;
     ctx.globalAlpha=alpha;
 
-    // Bubble body fill (translucent task tint)
+    // Bubble body fill (translucent task tint; stalled = hollower)
     ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);
-    ctx.fillStyle=f.color+'44';ctx.fill();
+    ctx.fillStyle=f.color+(stalled?'22':'44');ctx.fill();
 
-    if(f.isActive&&!t.done){
+    if(stalled){
+      // ── STALLED: full ring in green — "time done, waiting on items" ──
+      const strokeW=(isHover?3.2:2.6)*dpr;
+      ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);
+      ctx.strokeStyle='#5fb27a';
+      ctx.lineWidth=strokeW;
+      ctx.lineCap='round';
+      ctx.stroke();
+      ctx.lineCap='butt';
+    } else if(f.isActive&&!t.done){
       // ── ACTIVE: the bubble's own outline IS the stopwatch ring ──
       const strokeW=(isHover?4.2:3.5)*dpr;
       // Background full ring (faint task color)
@@ -2820,30 +2867,34 @@ function drawTaskBlocks(ctx){
       ctx.stroke();
     }
 
-    // Emoji
+    // Emoji (dimmed in stalled state — task identity quieted while waiting on items)
     const emojiImg=getEmojiImg(f.emoji,Math.round(f.size*0.55));
-    if(emojiImg)ctx.drawImage(emojiImg,-f.size*0.275,-f.size*0.275,f.size*0.55,f.size*0.55);
+    if(emojiImg){
+      if(stalled){ctx.save();ctx.globalAlpha=alpha*0.55;}
+      ctx.drawImage(emojiImg,-f.size*0.275,-f.size*0.275,f.size*0.55,f.size*0.55);
+      if(stalled)ctx.restore();
+    }
     // Name label (skipped bubbles get no name — keep them quiet)
     if(!f.isSkipped){
       ctx.textAlign='center';ctx.textBaseline='top';
       const fontSize=Math.max(9,Math.round(f.size*0.18));
       ctx.font=`700 ${fontSize}px "Plus Jakarta Sans",sans-serif`;
-      const labelOff=r+(f.isActive?7:3)*dpr;
+      const labelOff=r+((f.isActive||stalled)?7:3)*dpr;
       ctx.fillStyle='rgba(255,255,255,0.75)';
       ctx.fillText(f.name,1*dpr,labelOff+1);
       ctx.fillStyle=f.color;
       ctx.fillText(f.name,0,labelOff);
     }
 
-    // Per-block pip strip — sits below the active bubble's name label.
+    // Per-block pip strip — sits below the active or stalled bubble's name label.
     // Decoupled from the ring: ring = current block timer, pips = per-block status.
-    if(f.isActive&&!t.done){
+    if((f.isActive||stalled)&&!t.done){
       const N=Math.max(1,t.total||1);
       const pipW=Math.min(f.size/N-2*dpr,8*dpr);
       const pipH=4*dpr;
       const gap=2*dpr;
       const stripW=N*pipW+(N-1)*gap;
-      const stripY=r+(f.isActive?7:3)*dpr+Math.max(9,Math.round(f.size*0.18))+4*dpr;
+      const stripY=r+((f.isActive||stalled)?7:3)*dpr+Math.max(9,Math.round(f.size*0.18))+4*dpr;
       for(let i=0;i<N;i++){
         const px=-stripW/2+i*(pipW+gap);
         const isDone=i<t.completed;
@@ -2904,12 +2955,26 @@ function _drawChecklistOrbitFor(ctx,a,_now,dpr){
   if(!t)return;
   const items=t.checklist.filter(c=>!c.done);
   if(items.length===0)return;
+  const stalled=isStalled(t);
   const cx=a.x, cy=a.y;
   const mainR=a.size*0.5;
   const itemR=Math.max(14*dpr, mainR*0.32);
-  const orbitR=mainR*1.85+itemR*0.25;
+  // In stalled state the orbit becomes the visual focus. Push items further out
+  // so they're not crowding the deflated husk.
+  const orbitR=mainR*(stalled?2.4:1.85)+itemR*0.25;
   const phase=_now/1000*0.4;
   const N=items.length;
+  // Stalled: small green ✓ glyph above the husk, telegraphing "time done"
+  if(stalled){
+    ctx.save();
+    const glyphFs=Math.max(13,Math.round(mainR*0.55));
+    ctx.font=`800 ${glyphFs}px "Plus Jakarta Sans",sans-serif`;
+    ctx.textAlign='center';ctx.textBaseline='bottom';
+    const gx=cx, gy=cy-mainR-8*dpr;
+    ctx.fillStyle='rgba(255,255,255,0.85)';ctx.fillText('✓',gx+1,gy+1);
+    ctx.fillStyle='#5fb27a';ctx.fillText('✓',gx,gy);
+    ctx.restore();
+  }
   for(let i=0;i<N;i++){
     const it=items[i];
     const ang=(i/N)*Math.PI*2+phase;
@@ -2918,19 +2983,25 @@ function _drawChecklistOrbitFor(ctx,a,_now,dpr){
     const iy=cy+Math.sin(ang)*orbitR+bob;
     const isHover=_hoverBubbleHit&&_hoverBubbleHit.kind==='checklist'&&_hoverBubbleHit.itemId===it.id;
     const drawR=isHover?itemR*1.18:itemR;
+    // Item appearance — recede in normal state, step forward when stalled
+    const fillA = isHover?'88':(stalled?'66':'22');
+    const strokeA = isHover?'ff':(stalled?'ff':'cc');
+    const strokeW = (isHover?2.6:(stalled?2:1.5))*dpr;
+    const leashA = isHover?'aa':(stalled?'77':'33');
+    const leashW = (isHover?2:(stalled?1.6:1.2))*dpr;
     // leash
     ctx.save();
     ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(ix,iy);
-    ctx.strokeStyle=t.color+(isHover?'88':'55');
-    ctx.lineWidth=(isHover?2.2:1.5)*dpr;
+    ctx.strokeStyle=t.color+leashA;
+    ctx.lineWidth=leashW;
     ctx.stroke();
     ctx.restore();
     // item bubble
     ctx.save();
     ctx.beginPath();ctx.arc(ix,iy,drawR,0,Math.PI*2);
-    ctx.fillStyle=t.color+(isHover?'88':'55');ctx.fill();
-    ctx.strokeStyle=t.color;
-    ctx.lineWidth=(isHover?2.8:2)*dpr;
+    ctx.fillStyle=t.color+fillA;ctx.fill();
+    ctx.strokeStyle=t.color+strokeA;
+    ctx.lineWidth=strokeW;
     ctx.stroke();
     // text — outside the bubble, on the side away from main center
     const txt=(it.text||'').slice(0,40);
@@ -3304,6 +3375,7 @@ let _lastBlockTapT=0; // guard against synthetic mousedown after touchstart
 let _bubbleHold=null;
 const _BUBBLE_LONG_MS=500, _BUBBLE_MOVE_TOL=10;
 function _cancelBubbleHold(){
+  _hideDragHints();
   if(_bubbleHold){
     clearTimeout(_bubbleHold.timer);
     if(_bubbleHold.dragging){
@@ -3353,7 +3425,66 @@ function _maybeCancelBubbleHoldByMove(clientX,clientY){
     b.x=clientX*dpr;
     b.y=clientY*dpr;
     b.vx=0;b.vy=0;
+    _updateDragHints(clientY,_bubbleHold.velX,_bubbleHold.velY);
   }
+}
+// Drag affordance overlays — only appear while a bubble is being dragged.
+// Bottom band lights up as you approach drag-to-bottom commit zone.
+// Side wedges hint at "fling to skip" when horizontal velocity is high.
+function _ensureDragHints(){
+  let bot=document.getElementById('drag-hint-bottom');
+  if(!bot){
+    bot=document.createElement('div');
+    bot.id='drag-hint-bottom';
+    bot.style.cssText='position:fixed;left:0;right:0;bottom:0;height:72px;display:flex;align-items:center;justify-content:center;font-family:var(--fs);font-weight:800;font-size:13px;letter-spacing:.08em;text-transform:uppercase;z-index:8;pointer-events:none;background:linear-gradient(to top,rgba(46,158,106,0.0),transparent);color:transparent;transition:background .18s,color .18s,transform .18s;transform:translateY(10px)';
+    bot.textContent='✓ mark as complete';
+    document.body.appendChild(bot);
+  }
+  let side=document.getElementById('drag-hint-side');
+  if(!side){
+    side=document.createElement('div');
+    side.id='drag-hint-side';
+    side.style.cssText='position:fixed;top:35%;font-family:var(--fs);font-weight:800;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#6b6258;background:rgba(255,255,255,0.85);padding:8px 14px;border-radius:100px;border:1.5px solid var(--brd);z-index:8;pointer-events:none;display:none;box-shadow:0 4px 14px rgba(0,0,0,.12);transition:opacity .15s';
+    side.textContent='fling to skip →';
+    document.body.appendChild(side);
+  }
+  return {bot,side};
+}
+function _updateDragHints(clientY,vx,vy){
+  const {bot,side}=_ensureDragHints();
+  const vh=window.innerHeight, vw=window.innerWidth;
+  // Bottom band — completion target
+  if(clientY>vh*0.85){
+    bot.style.background='linear-gradient(to top,rgba(46,158,106,0.55),rgba(46,158,106,0.10))';
+    bot.style.color='#fff';
+    bot.style.transform='translateY(0)';
+  } else if(clientY>vh*0.65){
+    const frac=(clientY-vh*0.65)/(vh*0.20);
+    bot.style.background=`linear-gradient(to top,rgba(46,158,106,${(0.20*frac).toFixed(2)}),transparent)`;
+    bot.style.color=`rgba(46,158,106,${(0.4+0.6*frac).toFixed(2)})`;
+    bot.style.transform=`translateY(${(10*(1-frac)).toFixed(1)}px)`;
+  } else {
+    bot.style.background='linear-gradient(to top,rgba(46,158,106,0.0),transparent)';
+    bot.style.color='transparent';
+    bot.style.transform='translateY(10px)';
+  }
+  // Side wedge — appears when horizontal velocity is high enough that release would fling
+  const vMag=Math.sqrt((vx||0)*(vx||0)+(vy||0)*(vy||0));
+  if(vMag>9 && Math.abs(vx)>3){
+    side.style.display='block';
+    if(vx>0){side.style.right='16px';side.style.left='auto';side.textContent='fling to skip →';}
+    else{side.style.left='16px';side.style.right='auto';side.textContent='← fling to skip';}
+    side.style.opacity='1';
+  } else {
+    side.style.opacity='0';
+    setTimeout(()=>{if(side&&side.style.opacity==='0')side.style.display='none';},160);
+  }
+}
+function _hideDragHints(){
+  const bot=document.getElementById('drag-hint-bottom');
+  if(bot){bot.style.background='linear-gradient(to top,rgba(46,158,106,0.0),transparent)';bot.style.color='transparent';bot.style.transform='translateY(10px)';}
+  const side=document.getElementById('drag-hint-side');
+  if(side){side.style.opacity='0';setTimeout(()=>{if(side&&side.style.opacity==='0')side.style.display='none';},160);}
 }
 // Track per-task tap timing for double-tap detection
 const _lastTapByTask={};
@@ -3378,26 +3509,27 @@ function _finishBubbleHoldAsTap(block){
         _cancelBubbleHold();
         return;
       }
-      // ── Fling off the side edge → skip for the day ───────────────────
-      // High horizontal velocity + mostly-sideways direction = a fling.
-      // Let the bubble keep its momentum, mark skipped, despawn on edge cross.
-      const isFling=vMagCss>14&&Math.abs(vxCss)>Math.abs(vyCss)*1.4;
+      // ── Fling in any direction → skip for the day ────────────────────
+      // Any sufficiently fast release = a fling. Low threshold so small wrist
+      // flicks register. Direction-agnostic; skip-by-toss should feel forgiving.
+      const isFling=vMagCss>10;
       if(isFling&&!t.done&&!t.skipped){
         t.skipped=true;
         save();
         // Carry full throw velocity (no clamp) so the bubble flies off-screen
-        b.vx=vxCss*dpr*1.4;
-        b.vy=vyCss*dpr;
+        b.vx=vxCss*dpr*1.5;
+        b.vy=vyCss*dpr*1.5;
         b._flinging=true; // physics ignores walls until it crosses the edge
         haptic([10,20,40]);
         try{const now=ac().currentTime;tone(360,.15,.04,now);tone(280,.18,.03,now+.06);}catch(e){}
+        showToast('Flung — skipped for today.','#6b6258',1400);
         _cancelBubbleHold();
         return;
       }
-      // ── Normal release → place where dropped, throw with damped velocity
+      // ── Normal release → toss with carried momentum, not a straight drop
       b.userPlaced=true;
-      b.vx=Math.max(-12,Math.min(12,vxCss*dpr));
-      b.vy=Math.max(-12,Math.min(12,vyCss*dpr));
+      b.vx=Math.max(-28,Math.min(28,vxCss*dpr*1.2));
+      b.vy=Math.max(-28,Math.min(28,vyCss*dpr*1.2));
       b._splashOnce=true;
     }
     _cancelBubbleHold();
@@ -3425,7 +3557,7 @@ function _finishBubbleHoldAsTap(block){
       if(t.completed>=t.total){
         t.running=false;t.savedAt=null;t._phaseStart=null;t.isRest=false;t.rem=0;
         if(_checklistAllDone(t)){t.done=true;save();onTaskDone(t.id);}
-        else {save();}
+        else {save();onTaskTimeDone(t);}
       } else {
         t.rem=t.workDur;t.isRest=false;
         if(t.savedAt)t.savedAt=Date.now();
@@ -4561,27 +4693,68 @@ function openFinishDay(){
   const elapsed = dayEl();
   const fmtElapsed = fmtHM(elapsed);
 
-  // Per-task breakdown — each task as a row of N pip dots.
-  // Done → solid green with ✓. Skipped → grey row with "skipped" label.
+  // ── Top summary strip: one puck per task, telegraphing task-level state ──
+  // Empty (border only) = not started. Half-fill = in progress. Solid green ✓ = done.
+  // Gold half-fill = stalled (time done, items left). Grey dash = skipped.
+  const summaryPucks=S.tasks.map(t=>{
+    const tot=t.total||1;
+    const comp=Math.min(t.completed||0,tot);
+    const stalled=isStalled(t);
+    const done=!!t.done;
+    const skipped=!!t.skipped&&!done;
+    const inProg=!done&&!skipped&&!stalled&&comp>0;
+    const empty=!done&&!skipped&&!stalled&&comp===0;
+    let inner='';
+    if(done){
+      inner=`background:#2e9e6a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800`;
+      return `<button title="${esc(t.name)} — done" onclick="document.querySelectorAll('.fin-task-row').forEach((r,i)=>{if(i===${S.tasks.indexOf(t)})r.style.background='var(--brd)';setTimeout(()=>r.style.background='',900)})" style="width:14px;height:14px;border-radius:50%;border:1.5px solid #2e9e6a;${inner};cursor:pointer;flex:0 0 14px;padding:0">✓</button>`;
+    }
+    if(stalled){
+      // Gold half-fill puck (bottom half filled — "halfway there")
+      return `<button title="${esc(t.name)} — time complete, items remain" onclick="document.querySelectorAll('.fin-task-row').forEach((r,i)=>{if(i===${S.tasks.indexOf(t)})r.style.background='var(--brd)';setTimeout(()=>r.style.background='',900)})" style="width:14px;height:14px;border-radius:50%;border:1.5px solid #c8841a;background:linear-gradient(to top,#c8841a 0,#c8841a 50%,transparent 50%,transparent 100%);cursor:pointer;flex:0 0 14px;padding:0"></button>`;
+    }
+    if(skipped){
+      return `<button title="${esc(t.name)} — skipped" onclick="document.querySelectorAll('.fin-task-row').forEach((r,i)=>{if(i===${S.tasks.indexOf(t)})r.style.background='var(--brd)';setTimeout(()=>r.style.background='',900)})" style="width:14px;height:14px;border-radius:50%;border:1.5px solid var(--dim);background:transparent;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:14px;line-height:1;cursor:pointer;flex:0 0 14px;padding:0">–</button>`;
+    }
+    if(inProg){
+      const pctH=Math.round((comp/tot)*100);
+      return `<button title="${esc(t.name)} — ${comp}/${tot} blocks" onclick="document.querySelectorAll('.fin-task-row').forEach((r,i)=>{if(i===${S.tasks.indexOf(t)})r.style.background='var(--brd)';setTimeout(()=>r.style.background='',900)})" style="width:14px;height:14px;border-radius:50%;border:1.5px solid ${t.color};background:linear-gradient(to top,${t.color} 0,${t.color} ${pctH}%,transparent ${pctH}%,transparent 100%);cursor:pointer;flex:0 0 14px;padding:0"></button>`;
+    }
+    // Empty — not started
+    return `<button title="${esc(t.name)} — not started" onclick="document.querySelectorAll('.fin-task-row').forEach((r,i)=>{if(i===${S.tasks.indexOf(t)})r.style.background='var(--brd)';setTimeout(()=>r.style.background='',900)})" style="width:14px;height:14px;border-radius:50%;border:1.5px solid ${t.color};background:transparent;cursor:pointer;flex:0 0 14px;padding:0"></button>`;
+  }).join('');
+
+  // Per-task breakdown — each task as a row of N pip rectangles plus checklist circles.
+  // Done (truly: blocks + checklist) → solid green with ✓. Skipped → grey row.
+  // Stalled (blocks done, items remain) → green pips + open checklist circles + "✓ time" text.
   const taskRows = S.tasks.map(t=>{
     const tot=t.total||1;
     const comp=Math.min(t.completed||0,tot);
-    const allDone=!!t.done||comp>=tot;
-    const skipped=!!t.skipped&&!allDone;
+    const done=!!t.done;
+    const stalled=isStalled(t);
+    const skipped=!!t.skipped&&!done;
+    const cl=t.checklist||[];
+    const clDone=cl.filter(c=>c.done).length;
     let dots;
-    if(allDone){
+    if(done){
       dots=`<div style="flex:1;display:flex;align-items:center;justify-content:center;background:#2e9e6a;border-radius:6px;color:#fff;font-weight:800;font-size:13px;padding:4px 0">✓</div>`;
     } else if(skipped){
       dots=`<div style="flex:1;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--mid) 25%,transparent);border-radius:6px;color:var(--mid);font-weight:800;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:4px 0">skipped</div>`;
     } else {
-      dots=`<div style="flex:1;display:flex;gap:3px">${Array.from({length:tot},(_,k)=>`<div style="flex:1;height:10px;border-radius:3px;background:${k<comp?'#2e9e6a':'#c0453a'};box-shadow:0 1px 2px rgba(0,0,0,.15)"></div>`).join('')}</div>`;
+      const pips=Array.from({length:tot},(_,k)=>`<div style="flex:1;height:10px;border-radius:3px;background:${k<comp?'#2e9e6a':'#c0453a'};box-shadow:0 1px 2px rgba(0,0,0,.15)"></div>`).join('');
+      const clCircles=cl.length?`<div style="width:1px;height:8px;background:var(--brd);margin:0 4px;flex:0 0 1px"></div>`+cl.map(c=>`<div style="width:8px;height:8px;border-radius:50%;background:${c.done?'#2e9e6a':'#c0453a'};box-shadow:0 1px 2px rgba(0,0,0,.15);flex:0 0 8px"></div>`).join(''):'';
+      dots=`<div style="flex:1;display:flex;gap:3px;align-items:center">${pips}${clCircles}</div>`;
     }
     const rowOpacity=skipped?'opacity:.5;':'';
-    return `<div class="fin-task-row" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--brd);${rowOpacity}">
+    let rightText;
+    if(skipped)rightText='—';
+    else if(stalled)rightText=`<span style="color:#5fb27a">✓ time</span>`+(cl.length?` <span style="color:var(--dim)">${clDone}/${cl.length}</span>`:'');
+    else rightText=comp+'/'+tot;
+    return `<div class="fin-task-row" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--brd);transition:background .25s;${rowOpacity}">
       <div class="fin-task-dot" style="width:8px;height:8px;border-radius:50%;background:${skipped?'var(--dim)':t.color};flex-shrink:0"></div>
-      <div class="fin-task-name" style="flex:0 0 90px;font-size:13px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${allDone?`<s style="text-decoration-color:${t.color}">${esc(t.name)}</s>`:esc(t.name)}</div>
+      <div class="fin-task-name" style="flex:0 0 90px;font-size:13px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${done?`<s style="text-decoration-color:${t.color}">${esc(t.name)}</s>`:esc(t.name)}</div>
       ${dots}
-      <div style="font-size:11px;font-weight:700;color:var(--dim);font-variant-numeric:tabular-nums;min-width:30px;text-align:right">${skipped?'—':comp+'/'+tot}</div>
+      <div style="font-size:11px;font-weight:700;color:var(--dim);font-variant-numeric:tabular-nums;min-width:48px;text-align:right">${rightText}</div>
     </div>`;
   }).join('');
 
@@ -4590,6 +4763,9 @@ function openFinishDay(){
 
   openSheet(`<div class="sh-ttl">today</div>
     <div style="text-align:center;font-style:italic;font-size:14px;font-weight:600;color:var(--mid);margin-bottom:20px;line-height:1.6">${_refl}</div>
+
+    ${S.tasks.length?`<div style="margin-bottom:8px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)">tasks</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:18px;padding:8px 12px;background:var(--bg);border:1.5px solid var(--brd);border-radius:14px">${summaryPucks}</div>`:''}
 
     <div style="margin-bottom:10px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)">by block</div>
     <div style="background:var(--bg);border:1.5px solid var(--brd);border-radius:14px;padding:4px 14px;margin-bottom:20px">
