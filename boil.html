@@ -736,7 +736,7 @@ function defaults(){
   };
 }
 function mkTask(id,name,color,total,workDur,restDur,days,desc,emoji){
-  return{id,name,color,total,workDur,restDur,days:days||null,desc:desc||'',emoji:emoji||null,continuous:!!S?.continuous,completed:0,isRest:false,rem:workDur,running:false,done:false,savedAt:null};
+  return{id,name,color,total,workDur,restDur,days:days||null,desc:desc||'',emoji:emoji||null,continuous:!!S?.continuous,completed:0,isRest:false,rem:workDur,running:false,done:false,savedAt:null,checklist:[]};
 }
 // Auto-assign emoji for tasks that don't have one
 const TASK_EMOJIS=['📖','✏️','💻','🎯','🏋️','🎨','🎵','🧹','📞','🍳','🧘','📐','🔧','🌱','📝','🗂️','💡','🎓','🧪','📦'];
@@ -817,7 +817,7 @@ function boot(){
   if(S.muteAll===undefined)S.muteAll=false;
   if(S.muteWater===undefined)S.muteWater=false;
   if(S.lastActiveId===undefined)S.lastActiveId=null;
-  S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;if(t.desc===undefined)t.desc='';if(t.continuous===undefined)t.continuous=!!S.continuous;if(t.skipped===undefined)t.skipped=false;});
+  S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;if(t.desc===undefined)t.desc='';if(t.continuous===undefined)t.continuous=!!S.continuous;if(t.skipped===undefined)t.skipped=false;if(t.checklist===undefined)t.checklist=[];});
   const now=Date.now();
   if(shouldRollover()){
     creditPartialAtMidnight();S.tasks.forEach(resetTask);S.lastActiveId=null;
@@ -844,14 +844,15 @@ function boot(){
     },600);
   }
 }
-function resetTask(t){t.completed=0;t.isRest=false;t.rem=t.workDur;t.running=false;t.done=false;t.skipped=false;t.savedAt=null;t._phaseStart=null;if(bubblePools[t.id])bubblePools[t.id]=[];}
+function resetTask(t){t.completed=0;t.isRest=false;t.rem=t.workDur;t.running=false;t.done=false;t.skipped=false;t.savedAt=null;t._phaseStart=null;if(t.checklist)t.checklist.forEach(c=>{c.done=false;});if(bubblePools[t.id])bubblePools[t.id]=[];}
+function _checklistAllDone(t){return !t.checklist||t.checklist.length===0||t.checklist.every(c=>c.done);}
 function creditPartialAtMidnight(){
   S.tasks.forEach(t=>{
     if(!t.running||t.done)return;
     // Credit work block past halfway (don't silently lose real work)
     if(!t.isRest&&t.rem<t.workDur/2){
       t.completed++;
-      if(t.completed>=t.total)t.done=true;
+      if(t.completed>=t.total&&_checklistAllDone(t))t.done=true;
     }
     t.running=false;t.savedAt=null;t._phaseStart=null;
   });
@@ -863,7 +864,10 @@ function resolvePhaseEnd(t,animate){
   if(t.isRest){
     // Rest finished → next work block
     t.isRest=false;t.completed++;
-    if(t.completed>=t.total){t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;return true;}
+    if(t.completed>=t.total){
+      if(_checklistAllDone(t)){t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;return true;}
+      t.completed=t.total;t.running=false;t.savedAt=null;t._phaseStart=null;t.rem=0;return false;
+    }
     t.rem=t.workDur;
     if(cont){const _n=animate?Date.now():null;t.savedAt=_n;t._phaseStart=_n;}
     else{t.running=false;t.savedAt=null;t._phaseStart=null;}
@@ -875,7 +879,10 @@ function resolvePhaseEnd(t,animate){
     } else {
       // Work finished, no rest
       t.completed++;
-      if(t.completed>=t.total){t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;return true;}
+      if(t.completed>=t.total){
+        if(_checklistAllDone(t)){t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;return true;}
+        t.completed=t.total;t.running=false;t.savedAt=null;t._phaseStart=null;t.rem=0;return false;
+      }
       t.rem=t.workDur;
       if(cont){const _n=animate?Date.now():null;t.savedAt=_n;t._phaseStart=_n;}
       else{t.running=false;t.savedAt=null;t._phaseStart=null;}
@@ -1917,6 +1924,11 @@ function launchSolitaire(){
 function tapCard(id){
   const t=S.tasks.find(x=>x.id===id);
   if(!t||t.done)return;
+  // Stalled on checklist: blocks already complete, can't restart timer; just nudge.
+  if(t.completed>=t.total&&!_checklistAllDone(t)){
+    showToast('Pop the checklist to finish.','var(--mid)',1600);
+    return;
+  }
   const wasRunning=t.running;
   // single-block rule: pause anything else (don't render individually — render() rebuilds all)
   S.tasks.forEach(o=>{
@@ -2026,7 +2038,7 @@ function onSubBlockDone(id){
   sndSub();
   // Steam burst at the active bubble's position
   if(!isBatterySaver()&&bgWaveState.active){
-    const _dpr=_bgDpr(),_W=window.innerWidth*_dpr,_surfY=window.innerHeight*_dpr*(1-bgWaveState.fill/100);
+    const _dpr=_bgDpr(),_W=window.innerWidth*_dpr,_surfY=_fillYpx(window.innerHeight*_dpr,bgWaveState.fill);
     for(let i=0;i<18;i++){
       const p=new P(_W*(0.15+Math.random()*0.7),_surfY,(Math.random()-.5)*60,-40-Math.random()*80,'rgba(255,255,255,0.5)',2+Math.random()*3,0.05);
       p.decay=0.025+Math.random()*0.015;p.round=true;parts.push(p);
@@ -2237,6 +2249,15 @@ function fastUpdateAll(){
 // ── WATER ENGINE ─────────────────────────────────────────────────────
 
 const bgWaveState={fill:0,color:'#4a9eba',active:false,targetFill:0,targetColor:'#4a9eba',ambient:false,kick:0};
+// Water surface mapping. The water never reaches the very top — a third of the
+// viewport stays as sky so bubbles riding the surface don't crash into the
+// header where they're hard to tap. fill=100 maps to ~33% from top, not 0.
+const WATER_CEILING_FRAC=0.33;
+function _fillYpx(H,fp){
+  const c=H*WATER_CEILING_FRAC;
+  const f=Math.max(0,Math.min(100,fp))/100;
+  return c+(H-c)*(1-f);
+}
 let waveRaf=null;
 let waveT=0;
 let lastFrame=0;
@@ -2461,6 +2482,10 @@ function spawnTaskBlocks(W,fillY){
   const minSz=minCss*dpr,maxSz=maxCss*dpr;
   const REF_SECS=4*3600; // a 4-hour task hits maxSz
   const sizeFor=(t)=>{
+    // Stalled-on-checklist: blocks done but checklist pending — keep midsize for the orbit
+    if(t.completed>=t.total&&!t.done&&t.checklist&&t.checklist.some(c=>!c.done)){
+      return minSz+0.45*(maxSz-minSz);
+    }
     const futureBlocks=Math.max(0,(t.total||1)-(t.completed||0)-1);
     const cur=t.rem||0;
     const remSecs=cur+futureBlocks*(t.workDur||60);
@@ -2707,10 +2732,24 @@ function stepTaskBlocks(W,H,fillY,hf,step,dt){
   // GC stale entries (deleted tasks)
   for(const k in _bubblePos){if(!S.tasks.find(t=>t.id===k))delete _bubblePos[k];}
 }
+let _checklistOrbitHits=[];
+// Hover state — desktop only. Mobile synthesized mousemove is suppressed by the matchMedia gate.
+const _canHover=(typeof window!=='undefined'&&window.matchMedia&&window.matchMedia('(hover: hover) and (pointer: fine)').matches);
+let _hoverCss={x:-9999,y:-9999};
+let _hoverBubbleHit=null; // re-evaluated each frame in drawTaskBlocks
+let _bubbleCursor='';
+function _setBubbleCursor(c){if(c===_bubbleCursor)return;_bubbleCursor=c;document.body.style.cursor=c;}
+if(_canHover){
+  window.addEventListener('mousemove',(e)=>{_hoverCss.x=e.clientX;_hoverCss.y=e.clientY;},{passive:true});
+  window.addEventListener('mouseout',(e)=>{if(!e.relatedTarget){_hoverCss.x=-9999;_hoverCss.y=-9999;}},{passive:true});
+}
 function drawTaskBlocks(ctx){
   const dpr=_bgDpr();
   const _now=performance.now();
   const hasActive=activeTaskBlocks.some(b=>b.isActive&&!b.isSunken);
+  // Resolve hover once per frame. hitTestTaskBlock already prioritizes checklist items
+  // over their parent bubble, so this is the same target the user would actually tap.
+  _hoverBubbleHit=_canHover?hitTestTaskBlock(_hoverCss.x*dpr,_hoverCss.y*dpr):null;
   activeTaskBlocks.forEach(f=>{
     const t=S.tasks.find(x=>x.id===f.taskId);
     if(!t)return;
@@ -2736,6 +2775,9 @@ function drawTaskBlocks(ctx){
       const since=_now-t._tickT;
       if(since<260)pulseScale=1+0.18*Math.exp(-since/90);
     }
+    // Hover lift — desktop only; composes multiplicatively with pulse so they don't cancel
+    const isHover=_hoverBubbleHit===f;
+    if(isHover){pulseScale*=1.06;if(f.isSkipped)alpha=0.55;}
 
     ctx.save();
     ctx.translate(f.x,f.y);
@@ -2750,10 +2792,10 @@ function drawTaskBlocks(ctx){
 
     if(f.isActive&&!t.done){
       // ── ACTIVE: the bubble's own outline IS the stopwatch ring ──
-      const strokeW=3.5*dpr;
+      const strokeW=(isHover?4.2:3.5)*dpr;
       // Background full ring (faint task color)
       ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);
-      ctx.strokeStyle=f.color+'33';
+      ctx.strokeStyle=f.color+(isHover?'55':'33');
       ctx.lineWidth=strokeW;
       ctx.stroke();
       // Filled progress arc (task color while working, green during rest)
@@ -2773,8 +2815,8 @@ function drawTaskBlocks(ctx){
     } else {
       // Inactive: thin clean outline
       ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);
-      ctx.strokeStyle=f.color+'aa';
-      ctx.lineWidth=1.5*dpr;
+      ctx.strokeStyle=f.color+(isHover?'ff':'aa');
+      ctx.lineWidth=(isHover?2.4:1.5)*dpr;
       ctx.stroke();
     }
 
@@ -2830,8 +2872,84 @@ function drawTaskBlocks(ctx){
     ctx.restore();
   });
   ctx.globalAlpha=1;
+  _drawChecklistOrbit(ctx);
+  // Re-check hover after orbit hits are populated this frame, then flip cursor.
+  // Sunken bubbles aren't tappable — exclude them from the pointer cue.
+  if(_canHover){
+    const fresh=hitTestTaskBlock(_hoverCss.x*dpr,_hoverCss.y*dpr);
+    const live=fresh&&!(fresh.isSunken);
+    _setBubbleCursor(live?'pointer':'');
+  }
   _updateBubbleTimeOverlay();
   _updateRestSkipButton();
+}
+function _showChecklistFor(t){
+  if(!t||t.done)return false;
+  if(!t.checklist||t.checklist.length===0)return false;
+  if(t.checklist.every(c=>c.done))return false;
+  // Rest is for stepping away — don't surface pop-able items mid-recovery.
+  if(t.isRest)return false;
+  return t.running||t.completed>=t.total;
+}
+function _drawChecklistOrbit(ctx){
+  const dpr=_bgDpr();
+  const _now=performance.now();
+  _checklistOrbitHits.length=0;
+  const targets=activeTaskBlocks.filter(b=>!b.isSunken&&_showChecklistFor(S.tasks.find(x=>x.id===b.taskId)));
+  if(!targets.length)return;
+  targets.forEach(a=>_drawChecklistOrbitFor(ctx,a,_now,dpr));
+}
+function _drawChecklistOrbitFor(ctx,a,_now,dpr){
+  const t=S.tasks.find(x=>x.id===a.taskId);
+  if(!t)return;
+  const items=t.checklist.filter(c=>!c.done);
+  if(items.length===0)return;
+  const cx=a.x, cy=a.y;
+  const mainR=a.size*0.5;
+  const itemR=Math.max(14*dpr, mainR*0.32);
+  const orbitR=mainR*1.85+itemR*0.25;
+  const phase=_now/1000*0.4;
+  const N=items.length;
+  for(let i=0;i<N;i++){
+    const it=items[i];
+    const ang=(i/N)*Math.PI*2+phase;
+    const bob=Math.sin(_now/1000*1.3+i*0.7)*1.5*dpr;
+    const ix=cx+Math.cos(ang)*orbitR;
+    const iy=cy+Math.sin(ang)*orbitR+bob;
+    const isHover=_hoverBubbleHit&&_hoverBubbleHit.kind==='checklist'&&_hoverBubbleHit.itemId===it.id;
+    const drawR=isHover?itemR*1.18:itemR;
+    // leash
+    ctx.save();
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(ix,iy);
+    ctx.strokeStyle=t.color+(isHover?'88':'55');
+    ctx.lineWidth=(isHover?2.2:1.5)*dpr;
+    ctx.stroke();
+    ctx.restore();
+    // item bubble
+    ctx.save();
+    ctx.beginPath();ctx.arc(ix,iy,drawR,0,Math.PI*2);
+    ctx.fillStyle=t.color+(isHover?'88':'55');ctx.fill();
+    ctx.strokeStyle=t.color;
+    ctx.lineWidth=(isHover?2.8:2)*dpr;
+    ctx.stroke();
+    // text — outside the bubble, on the side away from main center
+    const txt=(it.text||'').slice(0,40);
+    if(txt){
+      const fs=Math.max(11,Math.round(itemR*0.6));
+      ctx.font=`700 ${fs}px "Plus Jakarta Sans",sans-serif`;
+      const cosA=Math.cos(ang), sinA=Math.sin(ang);
+      const outX=ix+cosA*(drawR+5*dpr);
+      const outY=iy+sinA*(drawR+5*dpr);
+      ctx.textAlign=cosA>0.3?'left':(cosA<-0.3?'right':'center');
+      ctx.textBaseline=sinA>0.3?'top':(sinA<-0.3?'bottom':'middle');
+      ctx.fillStyle='rgba(255,255,255,0.85)';
+      ctx.fillText(txt,outX+1,outY+1);
+      ctx.fillStyle=t.color;
+      ctx.fillText(txt,outX,outY);
+    }
+    ctx.restore();
+    _checklistOrbitHits.push({taskId:t.id,itemId:it.id,x:ix,y:iy,r:itemR,color:t.color});
+  }
 }
 function _updateRestSkipButton(){
   let ov=document.getElementById('rest-overlay');
@@ -2906,6 +3024,14 @@ function hitTestTaskBlock(tx,ty){
   // Generous touch radius — at minimum a finger-friendly ~22px even when bubble is tiny
   const dpr=_bgDpr();
   const minHit=22*dpr;
+  // Checklist items first — small targets, intentional taps
+  for(let i=0;i<_checklistOrbitHits.length;i++){
+    const h=_checklistOrbitHits[i];
+    const dx=tx-h.x,dy=ty-h.y;
+    if(Math.sqrt(dx*dx+dy*dy)<Math.max(h.r*1.2,minHit*0.85)){
+      return {kind:'checklist',taskId:h.taskId,itemId:h.itemId,x:h.x,y:h.y,size:h.r*2,color:h.color,emoji:''};
+    }
+  }
   for(let i=activeTaskBlocks.length-1;i>=0;i--){
     const f=activeTaskBlocks[i];
     const dx=tx-f.x,dy=ty-f.y;
@@ -2913,6 +3039,28 @@ function hitTestTaskBlock(tx,ty){
     if(dist<Math.max(f.size*0.6,minHit))return f;
   }
   return null;
+}
+function _popChecklistItem(taskId,itemId){
+  const t=S.tasks.find(x=>x.id===taskId);
+  if(!t||!t.checklist)return;
+  const it=t.checklist.find(c=>c.id===itemId);
+  if(!it||it.done)return;
+  it.done=true;
+  const dpr=_bgDpr();
+  const hit=_checklistOrbitHits.find(h=>h.taskId===taskId&&h.itemId===itemId);
+  if(hit){
+    const cx=hit.x/dpr, cy=hit.y/dpr;
+    burstAt(cx,cy,t.color,14);
+    burstAt(cx,cy,'#fff',5);
+  }
+  try{const now=ac().currentTime;tone(420,.08,.03,now);tone(640,.1,.02,now+0.05);}catch(e){}
+  haptic([10,20,12]);
+  if(t.completed>=t.total&&_checklistAllDone(t)){
+    t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;t.isRest=false;t.rem=0;
+    save();onTaskDone(t.id);
+  } else {
+    save();
+  }
 }
 
 function spawnFloaters(W,fillY){
@@ -3061,7 +3209,7 @@ function pushFloatersAt(tx,ty,vx,vy){
       if(dist<f.size*1.6){
         // Only count juggles when ball is above water surface
         const _H=window.innerHeight*_bgDpr();
-        const _waterSurf=_H*(1-bgWaveState.fill/100);
+        const _waterSurf=_fillYpx(_H,bgWaveState.fill);
         const aboveSurf=f.y<_waterSurf+f.size*0.5;
         // Direction from tap point to ball center — tap position matters
         const nx=f.x-tx, ny=f.y-ty;
@@ -3129,7 +3277,7 @@ function _touchCol(tx){
 function popBubbleAt(tx,ty){
   // Don't pop bubbles above the waterline
   const _pH=window.innerHeight*_bgDpr();
-  const _pW=_pH*(1-bgWaveState.fill/100);
+  const _pW=_fillYpx(_pH,bgWaveState.fill);
   if(ty<_pW-20*_bgDpr())return;
   for(let j=bgBubbles.length-1;j>=0;j--){
     const b=bgBubbles[j];
@@ -3275,8 +3423,9 @@ function _finishBubbleHoldAsTap(block){
     if(t.completed<t.total){
       t.completed+=1;
       if(t.completed>=t.total){
-        t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;t.isRest=false;t.rem=0;
-        save();onTaskDone(t.id);
+        t.running=false;t.savedAt=null;t._phaseStart=null;t.isRest=false;t.rem=0;
+        if(_checklistAllDone(t)){t.done=true;save();onTaskDone(t.id);}
+        else {save();}
       } else {
         t.rem=t.workDur;t.isRest=false;
         if(t.savedAt)t.savedAt=Date.now();
@@ -3301,13 +3450,14 @@ document.addEventListener('touchstart',(e)=>{
     for(let i=0;i<e.changedTouches.length;i++){
       const t0=e.changedTouches[i];
       const hitBlock=hitTestTaskBlock(t0.clientX*dpr0,t0.clientY*dpr0);
+      if(hitBlock&&hitBlock.kind==='checklist'){_lastBlockTapT=Date.now();_popChecklistItem(hitBlock.taskId,hitBlock.itemId);return;}
       if(hitBlock){_lastBlockTapT=Date.now();_startBubbleHold(hitBlock,t0.clientX,t0.clientY);return;}
     }
   }
   if(!bgWaveState.active||e.target.closest('.sheet,.fab,.hdr,.pill'))return;
   const dpr=_bgDpr();
   const H=window.innerHeight*dpr;
-  const waterY=H*(1-bgWaveState.fill/100);
+  const waterY=_fillYpx(H,bgWaveState.fill);
   const surfZone=80*dpr; // surface interaction zone below waterline
   const aboveZone=20*dpr; // narrow zone above waterline
   for(let i=0;i<e.changedTouches.length;i++){
@@ -3336,7 +3486,7 @@ document.addEventListener('touchmove',(e)=>{
   if(!bgWaveState.active)return;
   const dpr=_bgDpr();
   const H=window.innerHeight*dpr;
-  const waterY=H*(1-bgWaveState.fill/100);
+  const waterY=_fillYpx(H,bgWaveState.fill);
   const surfZone=80*dpr;
   for(let i=0;i<e.changedTouches.length;i++){
     const t=e.changedTouches[i];
@@ -3375,10 +3525,11 @@ document.addEventListener('mousedown',(e)=>{
   const tx=e.clientX*dpr,ty=e.clientY*dpr;
   // Bubble hit: start long-press tracker
   const hitBlock=hitTestTaskBlock(tx,ty);
+  if(hitBlock&&hitBlock.kind==='checklist'){_popChecklistItem(hitBlock.taskId,hitBlock.itemId);return;}
   if(hitBlock){_startBubbleHold(hitBlock,e.clientX,e.clientY);return;}
   if(!bgWaveState.active)return;
   const H=window.innerHeight*dpr;
-  const waterY=H*(1-bgWaveState.fill/100);
+  const waterY=_fillYpx(H,bgWaveState.fill);
   const surfZone=80*dpr;
   const aboveZone=20*dpr;
   // Star twinkle (sky zone)
@@ -3402,7 +3553,7 @@ document.addEventListener('mousemove',(e)=>{
   const tx=e.clientX*dpr,ty=e.clientY*dpr;
   const vx=tx-prev.x,vy=ty-prev.y;
   const H=window.innerHeight*dpr;
-  const waterY=H*(1-bgWaveState.fill/100);
+  const waterY=_fillYpx(H,bgWaveState.fill);
   const surfZone=80*dpr;
   if(ty<waterY+surfZone){
     const col=_touchCol(tx);
@@ -3436,7 +3587,7 @@ document.addEventListener('pointerdown',(e)=>{
   if(e.target.closest('button,a,.card,.pill,.coin-pill,.fab,.sw,[onclick]')){spawnRipple(e.clientX,e.clientY);return;}
   // Ripple on water surface taps
   if(bgWaveState.active&&bgWaveState.fill>1){
-    const waterY=window.innerHeight*(1-bgWaveState.fill/100);
+    const waterY=_fillYpx(window.innerHeight,bgWaveState.fill);
     if(Math.abs(e.clientY-waterY)<60)spawnRipple(e.clientX,e.clientY);
   }
 },{passive:true});
@@ -3610,7 +3761,7 @@ function waveLoop(now){
       const bgStep=Math.max(3,Math.ceil(W/1023));
       const bgN=Math.min(Math.ceil(W/bgStep)+1,1024);
       ensureBgHF(bgN);
-      const restFillY=H*(1-bgWaveState.fill/100);
+      const restFillY=_fillYpx(H,bgWaveState.fill);
       if(activeTaskBlocks.length===0&&S.tasks&&S.tasks.length)spawnTaskBlocks(W,restFillY);
       stepTaskBlocks(W,H,restFillY,bgHF,bgStep,dt);
       drawTaskBlocks(ctx);
@@ -3624,9 +3775,11 @@ function waveLoop(now){
       updateTiltLayer(bgN);
       if(shakeF>0.1)injectBoilEnergy(bgHF,shakeF*0.1,dt);
       drawWater(ctx,W,H,bgWaveState.fill,bgWaveState.color,waveT*0.2,[],true,bgHF);
-      const ambFillY=H*(1-bgWaveState.fill/100);
+      const ambFillY=_fillYpx(H,bgWaveState.fill);
       // Floaters
-      if(activeFloaters.length===0)spawnFloaters(W,ambFillY);
+      // Defer spawn until water level has converged on its target — otherwise
+      // a fast-rising surface drowns the ball faster than buoyancy can lift it.
+      if(activeFloaters.length===0&&Math.abs(bgWaveState.fill-bgWaveState.targetFill)<3)spawnFloaters(W,ambFillY);
       stepFloaters(W,H,ambFillY,bgHF,bgStep,dt,0);
       drawFloaters(ctx);
       // Task bubbles (every task is a bubble, always visible)
@@ -3647,9 +3800,9 @@ function waveLoop(now){
       updateTiltLayer(bgN);
       tickBubbles(bgBubbles,W,H,bgWaveState.fill,dt,bgWaveState.color,true);
       drawWater(ctx,W,H,bgWaveState.fill,bgWaveState.color,waveT*0.35,bgBubbles,true,bgHF);
-      const bgFillY=H*(1-bgWaveState.fill/100);
+      const bgFillY=_fillYpx(H,bgWaveState.fill);
       // Floaters
-      if(activeFloaters.length===0)spawnFloaters(W,bgFillY);
+      if(activeFloaters.length===0&&Math.abs(bgWaveState.fill-bgWaveState.targetFill)<3)spawnFloaters(W,bgFillY);
       stepFloaters(W,H,bgFillY,bgHF,bgStep,dt,boil2);
       drawFloaters(ctx);
       // Task bubbles (always visible while there are tasks)
@@ -3686,7 +3839,7 @@ function waveLoop(now){
     if(steamBoil>0.10){
       const steamRate=(steamBoil-0.10)*5*_steamHm*(1-nightT()*0.4);
       const sN=Math.floor(steamRate*dt+(Math.random()<(steamRate*dt%1)?1:0));
-      const surfY=FX.height*(1-bgWaveState.fill/100);
+      const surfY=_fillYpx(FX.height,bgWaveState.fill);
       for(let si=0;si<sN;si++){
         const sp=new P(
           FX.width*(0.12+Math.random()*0.76),
@@ -3730,7 +3883,7 @@ const _waterSeed={
 };
 function tickBubbles(pool,W,H,fp,dt,color,isBg){
   const b2=(fp/100)*(fp/100);
-  const fillY=H*(1-fp/100);
+  const fillY=_fillYpx(H,fp);
   const hm=heatMultiplier();
   const _nd=1-nightT()*0.4; // night damping: 60% energy at full night
   const fizzM=1+shakeF*4;
@@ -3834,7 +3987,7 @@ function drawWater(ctx,W,H,fp,colorHex,t,bubbles,isBg,hf){
   if(fp<1)return;
 
   const boil=(fp/100)*(fp/100);
-  const fillY=H*(1-fp/100);
+  const fillY=_fillYpx(H,fp);
   // Anticipatory crescendo: quadratic ramp in final 20% (Salimpoor — caudate anticipation)
   const cresc=fp>80?Math.pow((fp-80)/20,2):0;
 
@@ -4259,6 +4412,11 @@ function taskForm(t,simple){
         <button class="tog${contOn?' on':''}" id="ctog" onclick="toggleCont()"></button>
       </div>
     </div>
+    <div class="field" id="checklist-field" style="${hideSimple}"><label>Checklist <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--dimmer)">optional</span></label>
+      <div id="checklist-rows">${(t?.checklist||[]).map(c=>checklistRowHtml(c)).join('')}</div>
+      <button class="cl-add" onclick="addChecklistRow()" style="background:none;border:1.5px dashed var(--brd);border-radius:10px;width:100%;padding:8px;color:var(--dim);font-family:var(--fs);font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;cursor:pointer">+ add item</button>
+      <div style="font-size:10px;color:var(--dim);margin-top:4px">Tap an orbiting item to pop it. Tap a checkbox here to un-pop. Resets daily.</div>
+    </div>
     <div class="field" id="days-field" style="${hideSimple}"><label>Days</label>
       <div class="day-picker" id="day-picker">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d,i)=>{
         const on=t&&t.days?t.days.includes(i):false;
@@ -4266,6 +4424,7 @@ function taskForm(t,simple){
       }).join('')}</div>
       <div style="font-size:10px;color:var(--dim);margin-top:4px">Leave all off = every day</div>
     </div>
+    ${(t&&!simple)?`<div class="field"><label>Today</label><button type="button" onclick="confirmResetToday('${t.id}')" style="background:none;border:1.5px solid var(--brd);border-radius:10px;width:100%;padding:10px;color:var(--mid);font-family:var(--fs);font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;cursor:pointer">Reset today's progress</button><div style="font-size:10px;color:var(--dim);margin-top:4px">Undo blocks completed and pop-state for today only.</div></div>`:''}
     ${simple?'<div style="text-align:center;margin-top:4px"><button onclick="showAllFormFields(this)" style="background:none;border:none;color:var(--dim);font-size:11px;font-family:var(--fs);text-decoration:underline;cursor:pointer">more options</button></div>':''}`;
 }
 function togglePomo(){pomoOn=!pomoOn;document.getElementById('ptog').classList.toggle('on',pomoOn);document.getElementById('rfield').style.display=pomoOn?'block':'none';}
@@ -4285,6 +4444,47 @@ function getPickedDays(){
   const pills=document.querySelectorAll('#day-picker .day-pill.on');
   if(!pills.length)return null;
   return Array.from(pills).map(p=>parseInt(p.dataset.day));
+}
+function checklistRowHtml(c){
+  const id=c.id||Math.random().toString(36).slice(2,8);
+  const checked=c.done?'checked':'';
+  const txt=esc(c.text||'');
+  return `<div class="cl-row" data-id="${id}" data-done="${c.done?1:0}" style="display:flex;gap:6px;margin-bottom:5px;align-items:center">`+
+    `<button class="cl-chk" onclick="toggleChecklistRow(this)" aria-label="toggle popped" style="background:${c.done?'var(--ink)':'transparent'};border:1.5px solid ${c.done?'var(--ink)':'var(--brd)'};border-radius:8px;width:30px;height:30px;color:#fff;font-size:14px;cursor:pointer;flex:0 0 30px;display:flex;align-items:center;justify-content:center">${c.done?'✓':''}</button>`+
+    `<input type="text" class="cl-input" value="${txt}" placeholder="sub-item…" maxlength="80" autocomplete="off" style="flex:1${c.done?';opacity:.55;text-decoration:line-through':''}">`+
+    `<button class="cl-del" onclick="removeChecklistRow(this)" style="background:none;border:1.5px solid var(--brd);border-radius:8px;width:30px;height:30px;color:var(--dim);font-size:16px;cursor:pointer;flex:0 0 30px">×</button>`+
+  `</div>`;
+}
+function toggleChecklistRow(btn){
+  const row=btn.closest('.cl-row');if(!row)return;
+  const wasDone=row.dataset.done==='1';
+  const c={id:row.dataset.id,text:row.querySelector('.cl-input').value,done:!wasDone};
+  row.outerHTML=checklistRowHtml(c);
+}
+function addChecklistRow(){
+  const host=document.getElementById('checklist-rows');
+  if(!host)return;
+  const id=Math.random().toString(36).slice(2,8);
+  const tmp=document.createElement('div');
+  tmp.innerHTML=checklistRowHtml({id,text:'',done:false});
+  const row=tmp.firstElementChild;
+  host.appendChild(row);
+  setTimeout(()=>row.querySelector('input')?.focus(),20);
+}
+function removeChecklistRow(btn){
+  const row=btn.closest('.cl-row');if(row)row.remove();
+}
+function getEditedChecklist(prevList){
+  const rows=document.querySelectorAll('#checklist-rows .cl-row');
+  const out=[];
+  rows.forEach(r=>{
+    const id=r.dataset.id;
+    const text=r.querySelector('.cl-input')?.value.trim()||'';
+    if(!text)return;
+    const done=r.dataset.done==='1';
+    out.push({id,text,done});
+  });
+  return out;
 }
 
 function applyPreset(label,total,workMin,restMin){
@@ -4317,6 +4517,20 @@ function confirmDel(id){
   conf.innerHTML=`<p>Delete this block?</p><div class="sh-btns"><button class="bs" onclick="this.closest('.conf-ask').remove()">No</button><button class="bd" onclick="delTask('${id}')">Yes, delete</button></div>`;
   document.getElementById('sb').appendChild(conf);
 }
+function confirmResetToday(id){
+  const conf=document.createElement('div');conf.className='conf-ask';
+  conf.innerHTML=`<p>Reset today's progress for this block?</p><div class="sh-btns"><button class="bs" onclick="this.closest('.conf-ask').remove()">No</button><button class="bd" onclick="resetTaskToday('${id}')">Yes, reset</button></div>`;
+  document.getElementById('sb').appendChild(conf);
+}
+function resetTaskToday(id){
+  const t=S.tasks.find(x=>x.id===id);
+  if(!t)return;
+  resetTask(t);
+  if(S.lastActiveId===id)S.lastActiveId=null;
+  delete _bubblePos[id];
+  save();closeSheet();render();
+  showToast('Reset for today.','#3d3530',1500);
+}
 function saveTask(id){
   const name=document.getElementById('fn').value.trim();
   const desc=document.getElementById('fdesc').value.trim();
@@ -4328,9 +4542,9 @@ function saveTask(id){
   if(!name)return;
   if(id){
     const t=S.tasks.find(x=>x.id===id);
-    if(t){t.name=name;t.desc=desc;t.color=color;t.emoji=pickedEmoji||t.emoji;t.days=days;t.total=total;t.continuous=contOn;if(t.workDur!==workDur||t.restDur!==restDur){t.workDur=workDur;t.restDur=restDur;resetTask(t);}if(t.completed>=t.total){t.completed=t.total;t.done=true;t.running=false;t.isRest=false;t.rem=0;t.savedAt=null;t._phaseStart=null;}else if(t.done){t.done=false;t.isRest=false;t.rem=t.workDur;}}
+    if(t){t.name=name;t.desc=desc;t.color=color;t.emoji=pickedEmoji||t.emoji;t.days=days;t.total=total;t.continuous=contOn;if(t.workDur!==workDur||t.restDur!==restDur){t.workDur=workDur;t.restDur=restDur;resetTask(t);}t.checklist=getEditedChecklist(t.checklist);if(t.completed>=t.total){t.completed=t.total;t.running=false;t.isRest=false;t.rem=0;t.savedAt=null;t._phaseStart=null;t.done=_checklistAllDone(t);}else if(t.done){t.done=false;t.isRest=false;t.rem=t.workDur;}}
   } else {
-    const nt=mkTask('t-'+Date.now(),name,color,total,workDur,restDur,days,desc,pickedEmoji);nt.continuous=contOn;S.tasks.push(nt);
+    const nt=mkTask('t-'+Date.now(),name,color,total,workDur,restDur,days,desc,pickedEmoji);nt.continuous=contOn;nt.checklist=getEditedChecklist([]);S.tasks.push(nt);
   }
   pickedCol=null;pickedEmoji=null;save();closeSheet();render();
 }
@@ -4414,7 +4628,7 @@ function animateBeginWater(){
   if(nA>0.01){drawStars(c,W,H,performance.now()/1000,nA);}
   const t=performance.now()/1000;
   const fp=18;
-  const fillY=H*(1-fp/100);
+  const fillY=_fillYpx(H,fp);
   const A=4.8,lam=W/1.6,spd=0.15;
   c.beginPath();
   c.moveTo(0,fillY+Math.sin(2*Math.PI*(-t*spd))*A);
