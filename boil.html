@@ -144,19 +144,18 @@
     }
     .day-done-sub{font-size:22px;opacity:.65;font-weight:700;display:block;margin-top:4px}
     /* ── FAB ───────────────────────────── */
+    /* Add-task button — header-resident, sits next to the gear */
     .fab{
-      position:fixed;bottom:20px;right:16px;width:58px;height:58px;
-      border-radius:50%;background:var(--ink);color:#fff;border:none;
-      font-size:30px;cursor:pointer;
-      display:flex;align-items:center;justify-content:center;
-      box-shadow:0 2px 4px rgba(28,25,23,.12),0 8px 24px rgba(28,25,23,.16);
-      transition:transform .45s cubic-bezier(.34,1.56,.64,1),box-shadow .2s;
+      width:34px;height:34px;border-radius:50%;
+      background:var(--ink);color:#fff;border:none;
+      font-size:22px;line-height:1;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;
+      flex-shrink:0;padding:0;
+      transition:transform .14s,background .14s,box-shadow .14s;
+      box-shadow:0 1px 3px rgba(28,25,23,.18);
     }
-    @media(min-width:680px){
-      .fab{right:calc(50% - 340px + 16px)}
-    }
-    .fab:hover{transform:scale(1.08);box-shadow:0 4px 8px rgba(28,25,23,.12),0 12px 32px rgba(28,25,23,.2)}
-    .fab:active{transform:scale(.86)!important;transition:transform .1s ease!important;box-shadow:0 2px 8px rgba(28,25,23,.2)}
+    .fab:hover{background:#000;transform:scale(1.06)}
+    .fab:active{transform:scale(.9)}
 
     /* ── SHEET ─────────────────────────── */
     .ov{position:fixed;inset:0;background:rgba(0,0,0,0);z-index:200;display:flex;align-items:flex-end;transition:background .25s;pointer-events:none}
@@ -432,14 +431,14 @@
 <div class="hdr">
   <div class="logo" id="logo-tap">boil<div class="logo-dot" id="logo-dot"></div></div>
   <div class="daybar" id="daybar" onclick="openFinishDay()" title="Today's blocks"></div>
-  <button class="profile-pill" onclick="openProfile()" id="profile-pill" title="Settings">⚙</button>
   <span id="bs-indicator" style="font-size:12px;color:var(--dim);display:none">⚡</span>
+  <button class="profile-pill" onclick="openProfile()" id="profile-pill" title="Settings">⚙</button>
+  <button class="fab" onclick="openAdd()" title="Add block">+</button>
 </div>
 
 <canvas id="bg-canvas"></canvas>
 <div class="app-wrap">
-<div id="empty-hint" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;font-family:var(--fs);font-size:14px;font-weight:600;color:var(--dim);max-width:240px;line-height:1.6;display:none;pointer-events:none;z-index:3">nothing to boil yet.<br>tap <b style="font-weight:800;color:var(--ink)">+</b> to add a block</div>
-<button class="fab" onclick="openAdd()" title="Add block">+</button>
+<div id="empty-hint" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;font-family:var(--fs);font-size:14px;font-weight:600;color:var(--dim);max-width:240px;line-height:1.6;display:none;pointer-events:none;z-index:3">nothing to boil yet.<br>tap <b style="font-weight:800;color:var(--ink)">+</b> at the top right to add a block</div>
 <div id="steam-banner" style="display:none"></div>
 </div><!-- /app-wrap -->
 <div class="ov" id="ov" onclick="ovClick(event)">
@@ -819,6 +818,9 @@ function boot(){
   if(S.muteWater===undefined)S.muteWater=false;
   if(S.lastActiveId===undefined)S.lastActiveId=null;
   S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;if(t.desc===undefined)t.desc='';if(t.continuous===undefined)t.continuous=!!S.continuous;if(t.skipped===undefined)t.skipped=false;if(t.checklist===undefined)t.checklist=[];if(t._timeDoneFiredAt===undefined)t._timeDoneFiredAt=null;});
+  // Defensive: drop any tasks sharing an id (a tap-double-fire could have created
+  // two `t-<sameMs>` entries; keep the first, discard the rest).
+  {const _seen=new Set();S.tasks=S.tasks.filter(t=>{if(!t.id||_seen.has(t.id))return false;_seen.add(t.id);return true;});}
   const now=Date.now();
   if(shouldRollover()){
     creditPartialAtMidnight();S.tasks.forEach(resetTask);S.lastActiveId=null;
@@ -2169,12 +2171,13 @@ function p2(n){return String(n).padStart(2,'0');}
 
 function totalRemSecs(){
   return S.tasks.filter(taskVisibleToday).reduce((a,t)=>{
-    if(t.done||t.skipped)return a;
-    const futureBlocks=t.total-t.completed-1;
+    // Stalled tasks have done their time work; they contribute no remaining time.
+    if(t.done||t.skipped||isStalled(t))return a;
+    const futureBlocks=Math.max(0,t.total-t.completed-1);
     const extra=futureBlocks*t.workDur
       +(!t.isRest&&t.restDur>0?(futureBlocks+1)*t.restDur:0)
       +(t.isRest&&t.restDur>0?futureBlocks*t.restDur:0);
-    return a+t.rem+extra;
+    return a+Math.max(0,t.rem)+extra;
   },0);
 }
 
@@ -2209,13 +2212,16 @@ function renderDaybar(){
   const futureW=100-nowPct;
   const remS=Math.max(wr,1);
 
-  // Task segments in the future portion of the bar
-  const active=S.tasks.filter(t=>!t.done&&!t.skipped&&taskVisibleToday(t));
+  // Task segments in the future portion of the bar.
+  // Stalled tasks (time done, items remaining) don't have any *time* work
+  // left, so they shouldn't draw a segment — they'd otherwise contribute a
+  // negative width and trip the daybar into a phantom "done" state.
+  const active=S.tasks.filter(t=>!t.done&&!t.skipped&&!isStalled(t)&&taskVisibleToday(t));
   let cursor=0;
   const segs=[];
   active.forEach(t=>{
-    const fb=t.total-t.completed-1;
-    const tSecs=t.rem+fb*t.workDur
+    const fb=Math.max(0,t.total-t.completed-1);
+    const tSecs=Math.max(0,t.rem)+fb*t.workDur
       +(!t.isRest&&t.restDur>0?(fb+1)*t.restDur:0)
       +(t.isRest&&t.restDur>0?fb*t.restDur:0);
     const wPct=tSecs/remS*futureW;
@@ -2240,9 +2246,16 @@ function renderDaybar(){
   const segEnd=Math.min(100,nowPct+(isOver?futureW:Math.min(cursor,futureW)));
   const freeStart=segEnd;
   const freeWidth=Math.max(0,100-freeStart);
-  const slackLabel=totalB<=0
+  // "done ✓" only if every visible task is genuinely finished or skipped.
+  // Stalled tasks contribute 0 to totalB but aren't done — saying "done" then is a lie.
+  const _vis=S.tasks.filter(taskVisibleToday);
+  const _allFinished=_vis.length>0&&_vis.every(t=>t.done||t.skipped);
+  const _someStalled=_vis.some(t=>isStalled(t));
+  const slackLabel=_allFinished
     ?'done ✓'
-    :isOver?`${fmtHM(Math.abs(slack))} over`:`${fmtHM(free)} free`;
+    :totalB<=0&&_someStalled
+      ?'items left'
+      :isOver?`${fmtHM(Math.abs(slack))} over`:`${fmtHM(free)} free`;
   const showSlack=freeWidth>14&&!isOver; // only show "free" text when there's room
   document.getElementById('daybar').innerHTML=`
     <div class="db-track">
@@ -4663,7 +4676,11 @@ function resetTaskToday(id){
   save();closeSheet();render();
   showToast('Reset for today.','#3d3530',1500);
 }
+let _savingTaskAt=0;
 function saveTask(id){
+  // Guard against double-fire (touchend → synthesized click) creating two tasks
+  if(performance.now()-_savingTaskAt<500)return;
+  _savingTaskAt=performance.now();
   const name=document.getElementById('fn').value.trim();
   const desc=document.getElementById('fdesc').value.trim();
   const total=parseInt(document.getElementById('ftot').value)||1;
@@ -4676,7 +4693,7 @@ function saveTask(id){
     const t=S.tasks.find(x=>x.id===id);
     if(t){t.name=name;t.desc=desc;t.color=color;t.emoji=pickedEmoji||t.emoji;t.days=days;t.total=total;t.continuous=contOn;if(t.workDur!==workDur||t.restDur!==restDur){t.workDur=workDur;t.restDur=restDur;resetTask(t);}t.checklist=getEditedChecklist(t.checklist);if(t.completed>=t.total){t.completed=t.total;t.running=false;t.isRest=false;t.rem=0;t.savedAt=null;t._phaseStart=null;t.done=_checklistAllDone(t);}else if(t.done){t.done=false;t.isRest=false;t.rem=t.workDur;}}
   } else {
-    const nt=mkTask('t-'+Date.now(),name,color,total,workDur,restDur,days,desc,pickedEmoji);nt.continuous=contOn;nt.checklist=getEditedChecklist([]);S.tasks.push(nt);
+    const nt=mkTask('t-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),name,color,total,workDur,restDur,days,desc,pickedEmoji);nt.continuous=contOn;nt.checklist=getEditedChecklist([]);S.tasks.push(nt);
   }
   pickedCol=null;pickedEmoji=null;save();closeSheet();render();
 }
