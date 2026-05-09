@@ -3159,6 +3159,22 @@ function _popChecklistItem(taskId,itemId){
   }
 }
 
+// Reconcile the volleyball with the "all visible tasks done/skipped" state every
+// frame. Spawn-only-when-empty gating means a stale ball persists forever after
+// the user un-skips, resets, or otherwise breaks the condition. This bridges
+// data state and floater state on each tick.
+function _reconcileFloaters(W,fillY){
+  if(!S||!S.tasks){if(activeFloaters.length)activeFloaters.length=0;return;}
+  const vis=S.tasks.filter(taskVisibleToday);
+  const allDone=vis.length>0&&vis.every(t=>t.done||t.skipped);
+  if(!allDone){
+    if(activeFloaters.length)activeFloaters.length=0;
+    return;
+  }
+  if(activeFloaters.length===0&&Math.abs(bgWaveState.fill-bgWaveState.targetFill)<3){
+    spawnFloaters(W,fillY);
+  }
+}
 function spawnFloaters(W,fillY){
   activeFloaters.length=0;
   const dpr=_bgDpr();
@@ -4050,7 +4066,7 @@ function waveLoop(now){
       // Floaters
       // Defer spawn until water level has converged on its target — otherwise
       // a fast-rising surface drowns the ball faster than buoyancy can lift it.
-      if(activeFloaters.length===0&&Math.abs(bgWaveState.fill-bgWaveState.targetFill)<3)spawnFloaters(W,ambFillY);
+      _reconcileFloaters(W,ambFillY);
       stepFloaters(W,H,ambFillY,bgHF,bgStep,dt,0);
       drawFloaters(ctx);
       // Task bubbles (every task is a bubble, always visible)
@@ -4073,7 +4089,7 @@ function waveLoop(now){
       drawWater(ctx,W,H,bgWaveState.fill,bgWaveState.color,waveT*0.35,bgBubbles,true,bgHF);
       const bgFillY=_fillYpx(H,bgWaveState.fill);
       // Floaters
-      if(activeFloaters.length===0&&Math.abs(bgWaveState.fill-bgWaveState.targetFill)<3)spawnFloaters(W,bgFillY);
+      _reconcileFloaters(W,bgFillY);
       stepFloaters(W,H,bgFillY,bgHF,bgStep,dt,boil2);
       drawFloaters(ctx);
       // Task bubbles (always visible while there are tasks)
