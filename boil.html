@@ -2750,8 +2750,15 @@ function stepTaskBlocks(W,H,fillY,hf,step,dt){
     if(f.x>W-margin){f.x=W-margin;f.vx=Math.min(0,f.vx);}
     _bubblePos[f.taskId]={x:f.x,y:f.y,userPlaced:!!f.userPlaced};
   });
-  // Drop bubbles that flew off
-  for(let i=activeTaskBlocks.length-1;i>=0;i--)if(activeTaskBlocks[i]._gone)activeTaskBlocks.splice(i,1);
+  // Drop bubbles that flew off — and if any did, clear the rest too so the
+  // skipped task's ghost spawns on the next frame. Otherwise, with other
+  // bubbles still in the array, the spawn-when-empty gate never trips and
+  // the flung task ends up invisible (looks like the skip didn't take).
+  let _anyGone=false;
+  for(let i=activeTaskBlocks.length-1;i>=0;i--){
+    if(activeTaskBlocks[i]._gone){activeTaskBlocks.splice(i,1);_anyGone=true;}
+  }
+  if(_anyGone)activeTaskBlocks.length=0;
   // Beach ball ↔ bubble collision (skip sunken bubbles).
   // Both want the surface, so bias the contact normal horizontal when they're stacked.
   if(typeof activeFloaters!=='undefined'&&activeFloaters.length){
@@ -3401,9 +3408,13 @@ function _cancelBubbleHold(){
 function _startBubbleHold(block,clientX,clientY){
   _cancelBubbleHold();
   const id=block.taskId;
+  const _t0=performance.now();
   _bubbleHold={taskId:id,startX:clientX,startY:clientY,fired:false,dragging:false,
-    lastX:clientX,lastY:clientY,lastT:performance.now(),
-    velX:0,velY:0,
+    lastX:clientX,lastY:clientY,lastT:_t0,
+    // Windowed velocity samples — last ~80ms of motion. The single-last-event
+    // method missed flings because finger decelerates before release; averaging
+    // over a window captures the throw, not the final near-stop.
+    velSamples:[{x:clientX,y:clientY,t:_t0}],
     timer:setTimeout(()=>{
       if(_bubbleHold&&_bubbleHold.taskId===id&&!_bubbleHold.dragging){
         _bubbleHold.fired=true;
@@ -3424,26 +3435,33 @@ function _maybeCancelBubbleHoldByMove(clientX,clientY){
     _bubbleHold.dragging=true;
     b.beingDragged=true;
     haptic([12]);
+    // Surface ALL gesture indicators on drag start so the user can see what's
+    // available before committing to a direction.
+    _updateDragHints(clientY,clientX);
   }
   if(_bubbleHold.dragging){
     const b=activeTaskBlocks.find(x=>x.taskId===_bubbleHold.taskId);
     if(!b)return;
     const dpr=_bgDpr();
-    // Track velocity for throw-on-release
     const now=performance.now();
-    const dt=Math.max(1,now-_bubbleHold.lastT);
-    _bubbleHold.velX=(clientX-_bubbleHold.lastX)/dt*16; // per ~16ms frame
-    _bubbleHold.velY=(clientY-_bubbleHold.lastY)/dt*16;
+    // Append to windowed velocity sample buffer; keep only the last 80ms.
+    _bubbleHold.velSamples.push({x:clientX,y:clientY,t:now});
+    const cutoff=now-80;
+    while(_bubbleHold.velSamples.length>2&&_bubbleHold.velSamples[0].t<cutoff){
+      _bubbleHold.velSamples.shift();
+    }
     _bubbleHold.lastX=clientX;_bubbleHold.lastY=clientY;_bubbleHold.lastT=now;
     b.x=clientX*dpr;
     b.y=clientY*dpr;
     b.vx=0;b.vy=0;
-    _updateDragHints(clientY,_bubbleHold.velX,_bubbleHold.velY);
+    _updateDragHints(clientY,clientX);
   }
 }
-// Drag affordance overlays — only appear while a bubble is being dragged.
-// Bottom band lights up as you approach drag-to-bottom commit zone.
-// Side wedges hint at "fling to skip" when horizontal velocity is high.
+// Drag affordance overlays — visible while a bubble is being dragged.
+// Three commit zones: bottom (complete), left edge (skip), right edge (skip).
+// All bands fade in on drag start at "hint" alpha; brighten when bubble enters
+// the corresponding zone.
+const _EDGE_PCT=0.10; // 10% of viewport width = skip commit zone on each side
 function _ensureDragHints(){
   let bot=document.getElementById('drag-hint-bottom');
   if(!bot){
@@ -3453,55 +3471,103 @@ function _ensureDragHints(){
     bot.textContent='✓ mark as complete';
     document.body.appendChild(bot);
   }
-  let side=document.getElementById('drag-hint-side');
-  if(!side){
-    side=document.createElement('div');
-    side.id='drag-hint-side';
-    side.style.cssText='position:fixed;top:35%;font-family:var(--fs);font-weight:800;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#6b6258;background:rgba(255,255,255,0.85);padding:8px 14px;border-radius:100px;border:1.5px solid var(--brd);z-index:8;pointer-events:none;display:none;box-shadow:0 4px 14px rgba(0,0,0,.12);transition:opacity .15s';
-    side.textContent='fling to skip →';
-    document.body.appendChild(side);
+  let lft=document.getElementById('drag-hint-left');
+  if(!lft){
+    lft=document.createElement('div');
+    lft.id='drag-hint-left';
+    lft.style.cssText='position:fixed;left:0;top:64px;bottom:72px;width:72px;display:flex;align-items:center;justify-content:center;font-family:var(--fs);font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;z-index:8;pointer-events:none;background:linear-gradient(to right,rgba(168,158,146,0.0),transparent);color:transparent;transition:background .18s,color .18s,transform .18s;transform:translateX(-8px)';
+    lft.textContent='← skip';
+    document.body.appendChild(lft);
   }
-  return {bot,side};
+  let rgt=document.getElementById('drag-hint-right');
+  if(!rgt){
+    rgt=document.createElement('div');
+    rgt.id='drag-hint-right';
+    rgt.style.cssText='position:fixed;right:0;top:64px;bottom:72px;width:72px;display:flex;align-items:center;justify-content:center;font-family:var(--fs);font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;z-index:8;pointer-events:none;background:linear-gradient(to left,rgba(168,158,146,0.0),transparent);color:transparent;transition:background .18s,color .18s,transform .18s;transform:translateX(8px)';
+    rgt.textContent='skip →';
+    document.body.appendChild(rgt);
+  }
+  return {bot,lft,rgt};
 }
-function _updateDragHints(clientY,vx,vy){
-  const {bot,side}=_ensureDragHints();
+// _updateDragHints is called both on drag-start (so all bands surface immediately)
+// and on every move (so brightness tracks bubble position).
+function _updateDragHints(clientY,clientX){
+  const {bot,lft,rgt}=_ensureDragHints();
   const vh=window.innerHeight, vw=window.innerWidth;
-  // Bottom band — completion target
+  // Bottom band — completion target (green)
   if(clientY>vh*0.85){
     bot.style.background='linear-gradient(to top,rgba(46,158,106,0.55),rgba(46,158,106,0.10))';
     bot.style.color='#fff';
     bot.style.transform='translateY(0)';
-  } else if(clientY>vh*0.65){
-    const frac=(clientY-vh*0.65)/(vh*0.20);
-    bot.style.background=`linear-gradient(to top,rgba(46,158,106,${(0.20*frac).toFixed(2)}),transparent)`;
-    bot.style.color=`rgba(46,158,106,${(0.4+0.6*frac).toFixed(2)})`;
-    bot.style.transform=`translateY(${(10*(1-frac)).toFixed(1)}px)`;
   } else {
-    bot.style.background='linear-gradient(to top,rgba(46,158,106,0.0),transparent)';
-    bot.style.color='transparent';
-    bot.style.transform='translateY(10px)';
+    // Hint visibility: faint always while dragging, brightening in the warmup zone (65–85%)
+    const inWarmup=clientY>vh*0.65;
+    const frac=inWarmup?(clientY-vh*0.65)/(vh*0.20):0;
+    bot.style.background=`linear-gradient(to top,rgba(46,158,106,${(0.06+0.14*frac).toFixed(2)}),transparent)`;
+    bot.style.color=`rgba(46,158,106,${(0.30+0.7*frac).toFixed(2)})`;
+    bot.style.transform=`translateY(${(6*(1-frac)).toFixed(1)}px)`;
   }
-  // Side wedge — appears when horizontal velocity is high enough that release would fling
-  const vMag=Math.sqrt((vx||0)*(vx||0)+(vy||0)*(vy||0));
-  if(vMag>9 && Math.abs(vx)>3){
-    side.style.display='block';
-    if(vx>0){side.style.right='16px';side.style.left='auto';side.textContent='fling to skip →';}
-    else{side.style.left='16px';side.style.right='auto';side.textContent='← fling to skip';}
-    side.style.opacity='1';
+  // Left band — skip (warm tan)
+  const edgePx=vw*_EDGE_PCT;
+  if(clientX<edgePx){
+    lft.style.background='linear-gradient(to right,rgba(168,158,146,0.55),rgba(168,158,146,0.10))';
+    lft.style.color='#3d3530';
+    lft.style.transform='translateX(0)';
   } else {
-    side.style.opacity='0';
-    setTimeout(()=>{if(side&&side.style.opacity==='0')side.style.display='none';},160);
+    const inWarmup=clientX<vw*0.30;
+    const frac=inWarmup?1-(clientX-edgePx)/(vw*0.30-edgePx):0;
+    lft.style.background=`linear-gradient(to right,rgba(168,158,146,${(0.08+0.12*frac).toFixed(2)}),transparent)`;
+    lft.style.color=`rgba(107,98,88,${(0.35+0.6*frac).toFixed(2)})`;
+    lft.style.transform=`translateX(${(-6*(1-frac)).toFixed(1)}px)`;
+  }
+  // Right band — skip (warm tan)
+  if(clientX>vw-edgePx){
+    rgt.style.background='linear-gradient(to left,rgba(168,158,146,0.55),rgba(168,158,146,0.10))';
+    rgt.style.color='#3d3530';
+    rgt.style.transform='translateX(0)';
+  } else {
+    const inWarmup=clientX>vw*0.70;
+    const frac=inWarmup?(clientX-vw*0.70)/(vw-edgePx-vw*0.70):0;
+    rgt.style.background=`linear-gradient(to left,rgba(168,158,146,${(0.08+0.12*frac).toFixed(2)}),transparent)`;
+    rgt.style.color=`rgba(107,98,88,${(0.35+0.6*frac).toFixed(2)})`;
+    rgt.style.transform=`translateX(${(6*(1-frac)).toFixed(1)}px)`;
   }
 }
 function _hideDragHints(){
-  const bot=document.getElementById('drag-hint-bottom');
-  if(bot){bot.style.background='linear-gradient(to top,rgba(46,158,106,0.0),transparent)';bot.style.color='transparent';bot.style.transform='translateY(10px)';}
-  const side=document.getElementById('drag-hint-side');
-  if(side){side.style.opacity='0';setTimeout(()=>{if(side&&side.style.opacity==='0')side.style.display='none';},160);}
+  const ids=['drag-hint-bottom','drag-hint-left','drag-hint-right'];
+  ids.forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    el.style.background=el.style.background.replace(/rgba\([^)]+\)/g,'rgba(0,0,0,0)');
+    el.style.color='transparent';
+    if(id==='drag-hint-bottom')el.style.transform='translateY(10px)';
+    if(id==='drag-hint-left')el.style.transform='translateX(-8px)';
+    if(id==='drag-hint-right')el.style.transform='translateX(8px)';
+  });
 }
 // Track per-task tap timing for double-tap detection
 const _lastTapByTask={};
 const _DBL_TAP_MS=350;
+// Shared retirement path for both drag-to-edge and fling. Stops the timer
+// (so the ticker doesn't keep draining rem on a skipped task), preserves
+// completed/rem/isRest so un-skip resumes the prior phase, and gives the
+// bubble enough velocity to leave the viewport.
+function _skipTaskAndFly(t,b,dirX,vyCss,dpr,vxCssOpt){
+  t.skipped=true;t.running=false;t.savedAt=null;t._phaseStart=null;
+  if(S.lastActiveId===t.id)S.lastActiveId=null;
+  clearBgNotifs();
+  save();
+  // Carry whatever horizontal velocity exists, but minimum 24 raw px/frame
+  // toward the edge so a slow drag-to-edge still flies off cleanly.
+  const baseVx=(typeof vxCssOpt==='number'?vxCssOpt*dpr*1.5:0);
+  const minPush=dirX*24;
+  b.vx=(Math.abs(baseVx)>Math.abs(minPush))?baseVx:minPush;
+  b.vy=(vyCss||0)*dpr*1.2;
+  b._flinging=true;
+  haptic([10,20,40]);
+  try{const now=ac().currentTime;tone(360,.15,.04,now);tone(280,.18,.03,now+.06);}catch(e){}
+  showToast('Skipped for today.','#6b6258',1400);
+}
 function _finishBubbleHoldAsTap(block){
   if(_bubbleHold&&_bubbleHold.dragging){
     const b=activeTaskBlocks.find(x=>x.taskId===_bubbleHold.taskId);
@@ -3511,10 +3577,23 @@ function _finishBubbleHoldAsTap(block){
       const dpr=_bgDpr();
       const H=window.innerHeight*dpr;
       const W=window.innerWidth*dpr;
-      const vxCss=_bubbleHold.velX, vyCss=_bubbleHold.velY;
+      const vw=window.innerWidth, vh=window.innerHeight;
+      // Windowed velocity — average over the last ~80ms of motion. The single-
+      // last-event method missed real flings because the finger decelerates
+      // before release; this captures the throw, not the final near-stop.
+      const samp=_bubbleHold.velSamples||[];
+      let vxCss=0, vyCss=0;
+      if(samp.length>=2){
+        const oldest=samp[0], newest=samp[samp.length-1];
+        const dtW=Math.max(16,newest.t-oldest.t);
+        vxCss=(newest.x-oldest.x)/dtW*16;
+        vyCss=(newest.y-oldest.y)/dtW*16;
+      }
       const vMagCss=Math.sqrt(vxCss*vxCss+vyCss*vyCss);
+      const bClientX=b.x/dpr, bClientY=b.y/dpr;
+      const edgePx=vw*_EDGE_PCT;
       // ── Drag-to-bottom band → mark task entirely complete ─────────────
-      if(b.y>H*0.85&&!t.done){
+      if(bClientY>vh*0.85&&!t.done){
         t.completed=t.total;t.done=true;t.running=false;
         t.savedAt=null;t._phaseStart=null;t.isRest=false;t.rem=0;
         save();
@@ -3522,20 +3601,18 @@ function _finishBubbleHoldAsTap(block){
         _cancelBubbleHold();
         return;
       }
+      // ── Drag-to-edge band → skip for today (deterministic, position-based)
+      if((bClientX<edgePx||bClientX>vw-edgePx)&&!t.done&&!t.skipped){
+        _skipTaskAndFly(t,b,bClientX<edgePx?-1:1,vyCss,dpr);
+        _cancelBubbleHold();
+        return;
+      }
       // ── Fling in any direction → skip for the day ────────────────────
-      // Any sufficiently fast release = a fling. Low threshold so small wrist
-      // flicks register. Direction-agnostic; skip-by-toss should feel forgiving.
-      const isFling=vMagCss>10;
+      // Velocity-based delight overlay. Now uses windowed velocity so a real
+      // throw registers even when the finger decelerates before release.
+      const isFling=vMagCss>14;
       if(isFling&&!t.done&&!t.skipped){
-        t.skipped=true;
-        save();
-        // Carry full throw velocity (no clamp) so the bubble flies off-screen
-        b.vx=vxCss*dpr*1.5;
-        b.vy=vyCss*dpr*1.5;
-        b._flinging=true; // physics ignores walls until it crosses the edge
-        haptic([10,20,40]);
-        try{const now=ac().currentTime;tone(360,.15,.04,now);tone(280,.18,.03,now+.06);}catch(e){}
-        showToast('Flung — skipped for today.','#6b6258',1400);
+        _skipTaskAndFly(t,b,vxCss>0?1:-1,vyCss,dpr,vxCss);
         _cancelBubbleHold();
         return;
       }
