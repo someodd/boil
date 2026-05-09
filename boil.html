@@ -3640,9 +3640,17 @@ function _finishBubbleHoldAsTap(block){
       const vMagCss=Math.sqrt(vxCss*vxCss+vyCss*vyCss);
       const bClientX=b.x/dpr, bClientY=b.y/dpr;
       const edgePx=vw*_EDGE_PCT;
-      // ── Drag-to-top band → reset today's progress ─────────────────────
       const topZoneEnd=Math.max(132,vh*0.18);
-      if(bClientY<topZoneEnd){
+      // Intent gating: a zone only commits if the bubble was DRAGGED into it
+      // from outside. Otherwise — say, water is low and the bubble naturally
+      // bobs in the bottom band — a press-with-tremor would falsely commit.
+      const startX=_bubbleHold.startX, startY=_bubbleHold.startY;
+      const movedIntoTop=startY>=topZoneEnd&&bClientY<topZoneEnd;
+      const movedIntoBottom=startY<=vh*0.85&&bClientY>vh*0.85;
+      const movedIntoLeft=startX>=edgePx&&bClientX<edgePx;
+      const movedIntoRight=startX<=vw-edgePx&&bClientX>vw-edgePx;
+      // ── Drag-to-top band → reset today's progress ─────────────────────
+      if(movedIntoTop){
         resetTask(t);
         if(S.lastActiveId===t.id)S.lastActiveId=null;
         delete _bubblePos[t.id];
@@ -3658,7 +3666,7 @@ function _finishBubbleHoldAsTap(block){
         return;
       }
       // ── Drag-to-bottom band → mark task entirely complete ─────────────
-      if(bClientY>vh*0.85&&!t.done){
+      if(movedIntoBottom&&!t.done){
         t.completed=t.total;t.done=true;t.running=false;
         t.savedAt=null;t._phaseStart=null;t.isRest=false;t.rem=0;
         save();
@@ -3667,8 +3675,8 @@ function _finishBubbleHoldAsTap(block){
         return;
       }
       // ── Drag-to-edge band → skip for today (deterministic, position-based)
-      if((bClientX<edgePx||bClientX>vw-edgePx)&&!t.done&&!t.skipped){
-        _skipTaskAndFly(t,b,bClientX<edgePx?-1:1,vyCss,dpr);
+      if((movedIntoLeft||movedIntoRight)&&!t.done&&!t.skipped){
+        _skipTaskAndFly(t,b,movedIntoLeft?-1:1,vyCss,dpr);
         _cancelBubbleHold();
         return;
       }
@@ -4852,37 +4860,6 @@ function openFinishDay(){
   const elapsed = dayEl();
   const fmtElapsed = fmtHM(elapsed);
 
-  // ── Top summary strip: one puck per task, telegraphing task-level state ──
-  // Empty (border only) = not started. Half-fill = in progress. Solid green ✓ = done.
-  // Gold half-fill = stalled (time done, items left). Grey dash = skipped.
-  const summaryPucks=S.tasks.map(t=>{
-    const tot=t.total||1;
-    const comp=Math.min(t.completed||0,tot);
-    const stalled=isStalled(t);
-    const done=!!t.done;
-    const skipped=!!t.skipped&&!done;
-    const inProg=!done&&!skipped&&!stalled&&comp>0;
-    const empty=!done&&!skipped&&!stalled&&comp===0;
-    let inner='';
-    if(done){
-      inner=`background:#2e9e6a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800`;
-      return `<button title="${esc(t.name)} — done" onclick="document.querySelectorAll('.fin-task-row').forEach((r,i)=>{if(i===${S.tasks.indexOf(t)})r.style.background='var(--brd)';setTimeout(()=>r.style.background='',900)})" style="width:14px;height:14px;border-radius:50%;border:1.5px solid #2e9e6a;${inner};cursor:pointer;flex:0 0 14px;padding:0">✓</button>`;
-    }
-    if(stalled){
-      // Gold half-fill puck (bottom half filled — "halfway there")
-      return `<button title="${esc(t.name)} — time complete, items remain" onclick="document.querySelectorAll('.fin-task-row').forEach((r,i)=>{if(i===${S.tasks.indexOf(t)})r.style.background='var(--brd)';setTimeout(()=>r.style.background='',900)})" style="width:14px;height:14px;border-radius:50%;border:1.5px solid #c8841a;background:linear-gradient(to top,#c8841a 0,#c8841a 50%,transparent 50%,transparent 100%);cursor:pointer;flex:0 0 14px;padding:0"></button>`;
-    }
-    if(skipped){
-      return `<button title="${esc(t.name)} — skipped" onclick="document.querySelectorAll('.fin-task-row').forEach((r,i)=>{if(i===${S.tasks.indexOf(t)})r.style.background='var(--brd)';setTimeout(()=>r.style.background='',900)})" style="width:14px;height:14px;border-radius:50%;border:1.5px solid var(--dim);background:transparent;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:14px;line-height:1;cursor:pointer;flex:0 0 14px;padding:0">–</button>`;
-    }
-    if(inProg){
-      const pctH=Math.round((comp/tot)*100);
-      return `<button title="${esc(t.name)} — ${comp}/${tot} blocks" onclick="document.querySelectorAll('.fin-task-row').forEach((r,i)=>{if(i===${S.tasks.indexOf(t)})r.style.background='var(--brd)';setTimeout(()=>r.style.background='',900)})" style="width:14px;height:14px;border-radius:50%;border:1.5px solid ${t.color};background:linear-gradient(to top,${t.color} 0,${t.color} ${pctH}%,transparent ${pctH}%,transparent 100%);cursor:pointer;flex:0 0 14px;padding:0"></button>`;
-    }
-    // Empty — not started
-    return `<button title="${esc(t.name)} — not started" onclick="document.querySelectorAll('.fin-task-row').forEach((r,i)=>{if(i===${S.tasks.indexOf(t)})r.style.background='var(--brd)';setTimeout(()=>r.style.background='',900)})" style="width:14px;height:14px;border-radius:50%;border:1.5px solid ${t.color};background:transparent;cursor:pointer;flex:0 0 14px;padding:0"></button>`;
-  }).join('');
-
   // Per-task breakdown — each task as a row of N pip rectangles plus checklist circles.
   // Done (truly: blocks + checklist) → solid green with ✓. Skipped → grey row.
   // Stalled (blocks done, items remain) → green pips + open checklist circles + "✓ time" text.
@@ -4922,9 +4899,6 @@ function openFinishDay(){
 
   openSheet(`<div class="sh-ttl">today</div>
     <div style="text-align:center;font-style:italic;font-size:14px;font-weight:600;color:var(--mid);margin-bottom:20px;line-height:1.6">${_refl}</div>
-
-    ${S.tasks.length?`<div style="margin-bottom:8px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)">tasks</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:18px;padding:8px 12px;background:var(--bg);border:1.5px solid var(--brd);border-radius:14px">${summaryPucks}</div>`:''}
 
     <div style="margin-bottom:10px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)">by block</div>
     <div style="background:var(--bg);border:1.5px solid var(--brd);border-radius:14px;padding:4px 14px;margin-bottom:20px">
