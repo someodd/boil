@@ -168,6 +168,21 @@
     /* form */
     .field{margin-bottom:14px}
     .field label{display:block;font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin-bottom:7px}
+    /* Form grouping — visual containers for related fields */
+    .form-group{background:var(--bg);border:1.5px solid var(--brd);border-radius:14px;padding:14px 13px 6px;margin-bottom:14px}
+    .form-group .field input,.form-group .field select{background:var(--card)}
+    .form-group-label{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:10px}
+    /* Stepper — round +/− around a tabular digit */
+    .stepper{display:flex;align-items:center;gap:14px}
+    .stp-btn{width:40px;height:40px;border-radius:50%;background:var(--ink);color:#fff;border:none;font-size:22px;font-weight:800;line-height:1;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:transform .12s,opacity .12s}
+    .stp-btn:active{transform:scale(.9)}
+    .stp-btn:disabled{opacity:.35;cursor:default}
+    .stp-val{flex:1;text-align:center;font-family:var(--fd);font-size:30px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1}
+    /* Chip-row — preset values + custom */
+    .chip-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+    .chip{background:transparent;color:var(--mid);border:2px solid var(--brd);border-radius:100px;padding:8px 14px;font-size:13px;font-weight:800;font-family:var(--fs);cursor:pointer;transition:all .14s;line-height:1}
+    .chip:hover{border-color:var(--mid)}
+    .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
     .field input,.field select{width:100%;background:var(--bg);border:2px solid var(--brd);color:var(--ink);font-size:16px;font-weight:600;font-family:var(--fs);padding:11px 13px;border-radius:12px;outline:none;transition:border-color .14s;appearance:none;-webkit-appearance:none}
     .field input:focus,.field select:focus{border-color:var(--ink)}
     .tog-row{display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:2px solid var(--brd);padding:11px 13px;border-radius:12px}
@@ -184,7 +199,7 @@
     .day-pill:hover{border-color:var(--mid);color:var(--mid)}
     .day-pill.on{background:var(--ink);color:#fff;border-color:var(--ink)}
     .sw.on{border-color:var(--ink);transform:scale(1.2)}
-    .sh-btns{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap}
+    .sh-btns{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap;position:sticky;bottom:0;background:var(--bg);padding:10px 0 4px;z-index:2}
     .bp{flex:1;background:var(--ink);color:#fff;border:none;padding:14px;border-radius:12px;font-size:14px;font-family:var(--fs);font-weight:800;cursor:pointer;transition:opacity .12s}
     .bp:active{opacity:.8}
     .bs{flex:1;background:none;color:var(--mid);border:2px solid var(--brd);padding:14px;border-radius:12px;font-size:14px;font-family:var(--fs);font-weight:700;cursor:pointer}
@@ -433,12 +448,12 @@
   <div class="daybar" id="daybar" onclick="openFinishDay()" title="Today's blocks"></div>
   <span id="bs-indicator" style="font-size:12px;color:var(--dim);display:none">⚡</span>
   <button class="profile-pill" onclick="openProfile()" id="profile-pill" title="Settings">⚙</button>
-  <button class="fab" onclick="openAdd()" title="Add block">+</button>
+  <button class="fab" onclick="openAdd()" title="Add task">+</button>
 </div>
 
 <canvas id="bg-canvas"></canvas>
 <div class="app-wrap">
-<div id="empty-hint" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;font-family:var(--fs);font-size:14px;font-weight:600;color:var(--dim);max-width:240px;line-height:1.6;display:none;pointer-events:none;z-index:3">nothing to boil yet.<br>tap <b style="font-weight:800;color:var(--ink)">+</b> at the top right to add a block</div>
+<div id="empty-hint" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;font-family:var(--fs);font-size:14px;font-weight:600;color:var(--dim);max-width:240px;line-height:1.6;display:none;pointer-events:none;z-index:3">nothing to boil yet.<br>tap <b style="font-weight:800;color:var(--ink)">+</b> at the top right to add a task</div>
 <div id="steam-banner" style="display:none"></div>
 </div><!-- /app-wrap -->
 <div class="ov" id="ov" onclick="ovClick(event)">
@@ -1261,51 +1276,56 @@ function openProfile(){
   openSheet(`
     <div class="sh-ttl">settings</div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:2px solid var(--brd);padding:11px 13px;border-radius:12px;margin-bottom:12px">
-      <div><div style="font-size:15px;font-weight:600;color:var(--ink)">⚡ Battery saver</div><div style="font-size:11px;color:var(--dim);margin-top:1px">Disables water, blur, sensors</div></div>
-      <button class="tog${S.batterySaver?' on':''}" onclick="toggleBatterySaver();closeSheet()"></button>
-    </div>
-
-    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:2px solid var(--brd);padding:11px 13px;border-radius:12px;margin-bottom:12px">
-      <div><div style="font-size:15px;font-weight:600;color:var(--ink)">🔇 Mute all sound</div><div style="font-size:11px;color:var(--dim);margin-top:1px">Silences everything</div></div>
-      <button class="tog${S.muteAll?' on':''}" onclick="toggleMuteAll();closeSheet()"></button>
-    </div>
-
-    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border:2px solid var(--brd);padding:11px 13px;border-radius:12px;margin-bottom:12px">
-      <div><div style="font-size:15px;font-weight:600;color:var(--ink)">🌊 Mute background</div><div style="font-size:11px;color:var(--dim);margin-top:1px">Water and ambient sounds</div></div>
-      <button class="tog${S.muteWater?' on':''}" onclick="toggleMuteWater();closeSheet()"></button>
-    </div>
-
-    <div style="margin-bottom:12px">
-      <div style="font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin-bottom:8px">bedtime</div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <input type="time" id="profile-bed" value="${decimalToTime(S.bedtime)}" onchange="S.bedtime=timeToDecimal(this.value);save();renderDaybar();showToast(S.bedtime!=null?'Bedtime saved':'Bedtime cleared','#6b6258',1500)" style="background:var(--bg);border:2px solid var(--brd);color:var(--ink);font-size:16px;font-weight:600;font-family:var(--fs);padding:9px 12px;border-radius:12px;outline:none;width:140px">
-        <button onclick="document.getElementById('profile-bed').value='';S.bedtime=null;save();renderDaybar();showToast('Bedtime cleared','#6b6258',1500)" style="background:none;border:none;font-family:var(--fs);font-size:12px;font-weight:700;color:var(--dim);cursor:pointer;padding:4px 8px">clear</button>
+    <div class="form-group"><div class="form-group-label">Behavior</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0">
+        <div><div style="font-size:14px;font-weight:600;color:var(--ink)">⚡ Battery saver</div><div style="font-size:11px;color:var(--dim);margin-top:1px">Disables water, blur, sensors</div></div>
+        <button class="tog${S.batterySaver?' on':''}" onclick="toggleBatterySaver();closeSheet()"></button>
       </div>
-      <div style="font-size:10px;color:var(--dim);margin-top:4px">Day ends here. Never sacrificed.</div>
-    </div>
-
-    <div style="margin-bottom:20px">
-      <div style="font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin-bottom:8px">wake-up</div>
-      <div style="display:flex;align-items:center;gap:10px">
-        <input type="time" id="profile-wake" value="${decimalToTime(S.wakeUp!=null?S.wakeUp:effectiveWakeUp())}" onchange="S.wakeUp=timeToDecimal(this.value);save();showToast('Wake-up saved','#6b6258',1500)" style="background:var(--bg);border:2px solid var(--brd);color:var(--ink);font-size:16px;font-weight:600;font-family:var(--fs);padding:9px 12px;border-radius:12px;outline:none;width:140px">
-        <button onclick="S.wakeUp=null;document.getElementById('profile-wake').value=decimalToTime(effectiveWakeUp());save();showToast('Wake-up set to auto','#6b6258',1500)" style="background:none;border:none;font-family:var(--fs);font-size:12px;font-weight:700;color:var(--dim);cursor:pointer;padding:4px 8px">${S.wakeUp!=null?'auto':'auto ✓'}</button>
+      <div style="height:1px;background:var(--brd);margin:8px 0"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0">
+        <div><div style="font-size:14px;font-weight:600;color:var(--ink)">🔇 Mute all sound</div><div style="font-size:11px;color:var(--dim);margin-top:1px">Silences everything</div></div>
+        <button class="tog${S.muteAll?' on':''}" onclick="toggleMuteAll();closeSheet()"></button>
       </div>
-      <div style="font-size:10px;color:var(--dim);margin-top:4px">Day resets here. Default: bedtime + 8h.</div>
+      <div style="height:1px;background:var(--brd);margin:8px 0"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0 10px">
+        <div><div style="font-size:14px;font-weight:600;color:var(--ink)">🌊 Mute background</div><div style="font-size:11px;color:var(--dim);margin-top:1px">Water and ambient sounds</div></div>
+        <button class="tog${S.muteWater?' on':''}" onclick="toggleMuteWater();closeSheet()"></button>
+      </div>
     </div>
 
-    <div style="font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);margin-bottom:8px">your data</div>
-    <div style="display:flex;gap:8px;margin-bottom:20px">
-      <button onclick="exportData()" style="flex:1;background:var(--bg);border:2px solid var(--brd);color:var(--ink);font-family:var(--fs);font-size:13px;font-weight:700;padding:10px 0;border-radius:12px;cursor:pointer">↓ export backup</button>
-      <button onclick="document.getElementById('import-file').click()" style="flex:1;background:var(--bg);border:2px solid var(--brd);color:var(--ink);font-family:var(--fs);font-size:13px;font-weight:700;padding:10px 0;border-radius:12px;cursor:pointer">↑ import backup</button>
-      <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(this)">
+    <div class="form-group"><div class="form-group-label">Schedule</div>
+      <div style="display:flex;gap:10px">
+        <div style="flex:1">
+          <div style="font-size:11px;font-weight:700;color:var(--mid);margin-bottom:6px">🌙 bedtime</div>
+          <input type="time" id="profile-bed" value="${decimalToTime(S.bedtime)}" onchange="S.bedtime=timeToDecimal(this.value);save();renderDaybar();showToast(S.bedtime!=null?'Bedtime saved':'Bedtime cleared','#6b6258',1500)" style="background:var(--card);border:2px solid var(--brd);color:var(--ink);font-size:16px;font-weight:600;font-family:var(--fs);padding:9px 10px;border-radius:12px;outline:none;width:100%">
+          <button onclick="document.getElementById('profile-bed').value='';S.bedtime=null;save();renderDaybar();showToast('Bedtime cleared','#6b6258',1500)" style="background:none;border:none;font-family:var(--fs);font-size:11px;font-weight:700;color:var(--dim);cursor:pointer;padding:4px 0;margin-top:2px">clear</button>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:11px;font-weight:700;color:var(--mid);margin-bottom:6px">☀️ wake-up</div>
+          <input type="time" id="profile-wake" value="${decimalToTime(S.wakeUp!=null?S.wakeUp:effectiveWakeUp())}" onchange="S.wakeUp=timeToDecimal(this.value);save();showToast('Wake-up saved','#6b6258',1500)" style="background:var(--card);border:2px solid var(--brd);color:var(--ink);font-size:16px;font-weight:600;font-family:var(--fs);padding:9px 10px;border-radius:12px;outline:none;width:100%">
+          <button onclick="S.wakeUp=null;document.getElementById('profile-wake').value=decimalToTime(effectiveWakeUp());save();showToast('Wake-up set to auto','#6b6258',1500)" style="background:none;border:none;font-family:var(--fs);font-size:11px;font-weight:700;color:var(--dim);cursor:pointer;padding:4px 0;margin-top:2px">${S.wakeUp!=null?'auto':'auto ✓'}</button>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--dim);margin-top:6px">Day ends at bedtime, resets at wake-up.</div>
     </div>
-    <div style="font-size:10px;color:var(--dim);margin-top:-12px;margin-bottom:16px">Your data lives only in this browser. Back it up.</div>
 
-    <button onclick="closeSheet();setTimeout(_showDebugPanel,300)" style="display:block;width:100%;background:var(--bg);border:2px solid var(--brd);color:var(--dim);font-family:var(--fs);font-size:13px;font-weight:700;padding:10px 0;border-radius:12px;cursor:pointer;margin-bottom:20px">🔧 debug log</button>
+    <div class="form-group"><div class="form-group-label">Your data</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="exportData()" style="flex:1;background:var(--card);border:2px solid var(--brd);color:var(--ink);font-family:var(--fs);font-size:13px;font-weight:700;padding:10px 0;border-radius:12px;cursor:pointer">↓ export backup</button>
+        <button onclick="document.getElementById('import-file').click()" style="flex:1;background:var(--card);border:2px solid var(--brd);color:var(--ink);font-family:var(--fs);font-size:13px;font-weight:700;padding:10px 0;border-radius:12px;cursor:pointer">↑ import backup</button>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(this)">
+      </div>
+      <div style="font-size:10px;color:var(--dim);margin-top:6px">Your data lives only in this browser. Back it up.</div>
+    </div>
+
+    <button onclick="closeSheet();setTimeout(_showDebugPanel,300)" style="display:block;width:100%;background:var(--bg);border:1.5px solid var(--brd);color:var(--dim);font-family:var(--fs);font-size:12px;font-weight:700;padding:9px 0;border-radius:12px;cursor:pointer;margin-bottom:14px">🔧 debug log</button>
+
+    <details style="margin-bottom:14px">
+      <summary style="font-family:var(--fs);font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--dim);cursor:pointer;padding:6px 0">danger zone</summary>
+      <button onclick="event.stopPropagation();askEraseAll()" style="display:block;width:100%;margin-top:8px;background:none;border:1.5px solid #c0453a;color:#c0453a;font-family:var(--fs);font-size:12px;font-weight:800;padding:10px 0;border-radius:12px;cursor:pointer">reset all data</button>
+    </details>
 
     <div class="sh-btns"><button class="bs" onclick="closeSheet()">close</button></div>
-    <button onclick="event.stopPropagation();askEraseAll()" style="display:block;margin:24px auto 0;background:none;border:none;font-family:var(--fs);font-size:11px;font-weight:700;color:var(--dim);cursor:pointer;padding:8px 0">reset all data</button>
   `);
 }
 
@@ -3464,7 +3484,7 @@ function _maybeCancelBubbleHoldByMove(clientX,clientY){
   }
 }
 // Drag affordance overlays — visible while a bubble is being dragged.
-// Three commit zones: bottom (complete), left edge (skip), right edge (skip).
+// Four commit zones: top (reset), bottom (complete), left (skip), right (+1 block).
 // All bands fade in on drag start at "hint" alpha; brighten when bubble enters
 // the corresponding zone.
 const _EDGE_PCT=0.10; // 10% of viewport width = skip commit zone on each side
@@ -3473,7 +3493,7 @@ function _ensureDragHints(){
   if(!bot){
     bot=document.createElement('div');
     bot.id='drag-hint-bottom';
-    bot.style.cssText='position:fixed;left:0;right:0;bottom:0;height:72px;display:flex;align-items:center;justify-content:center;font-family:var(--fs);font-weight:800;font-size:13px;letter-spacing:.08em;text-transform:uppercase;z-index:8;pointer-events:none;background:linear-gradient(to top,rgba(46,158,106,0.0),transparent);color:transparent;transition:background .18s,color .18s,transform .18s;transform:translateY(10px)';
+    bot.style.cssText='position:fixed;left:0;right:0;bottom:0;height:72px;display:flex;align-items:center;justify-content:center;font-family:var(--fs);font-weight:800;font-size:13px;letter-spacing:.08em;text-transform:uppercase;z-index:8;pointer-events:none;background:linear-gradient(to top,rgba(46,158,106,0.0),transparent);color:transparent;text-shadow:0 1px 3px rgba(0,0,0,0.35),0 0 12px rgba(0,0,0,0.25);transition:background .18s,color .18s,transform .18s;transform:translateY(10px)';
     bot.textContent='✓ mark as complete';
     document.body.appendChild(bot);
   }
@@ -3481,7 +3501,7 @@ function _ensureDragHints(){
   if(!lft){
     lft=document.createElement('div');
     lft.id='drag-hint-left';
-    lft.style.cssText='position:fixed;left:0;top:64px;bottom:72px;width:72px;display:flex;align-items:center;justify-content:center;font-family:var(--fs);font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;z-index:8;pointer-events:none;background:linear-gradient(to right,rgba(168,158,146,0.0),transparent);color:transparent;transition:background .18s,color .18s,transform .18s;transform:translateX(-8px)';
+    lft.style.cssText='position:fixed;left:0;top:64px;bottom:72px;width:72px;display:flex;align-items:center;justify-content:center;font-family:var(--fs);font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;z-index:8;pointer-events:none;background:linear-gradient(to right,rgba(168,158,146,0.0),transparent);color:transparent;text-shadow:0 1px 3px rgba(0,0,0,0.35),0 0 12px rgba(0,0,0,0.25);transition:background .18s,color .18s,transform .18s;transform:translateX(-8px)';
     lft.textContent='← skip';
     document.body.appendChild(lft);
   }
@@ -3489,8 +3509,8 @@ function _ensureDragHints(){
   if(!rgt){
     rgt=document.createElement('div');
     rgt.id='drag-hint-right';
-    rgt.style.cssText='position:fixed;right:0;top:64px;bottom:72px;width:72px;display:flex;align-items:center;justify-content:center;font-family:var(--fs);font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;z-index:8;pointer-events:none;background:linear-gradient(to left,rgba(168,158,146,0.0),transparent);color:transparent;transition:background .18s,color .18s,transform .18s;transform:translateX(8px)';
-    rgt.textContent='skip →';
+    rgt.style.cssText='position:fixed;right:0;top:64px;bottom:72px;width:72px;display:flex;align-items:center;justify-content:center;font-family:var(--fs);font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;z-index:8;pointer-events:none;background:linear-gradient(to left,rgba(74,158,186,0.0),transparent);color:transparent;text-shadow:0 1px 3px rgba(0,0,0,0.35),0 0 12px rgba(0,0,0,0.25);transition:background .18s,color .18s,transform .18s;transform:translateX(8px)';
+    rgt.textContent='+1 block →';
     document.body.appendChild(rgt);
   }
   let top=document.getElementById('drag-hint-top');
@@ -3498,7 +3518,7 @@ function _ensureDragHints(){
     top=document.createElement('div');
     top.id='drag-hint-top';
     // Sits below the header — drag bubble here to rewind today's progress.
-    top.style.cssText='position:fixed;left:0;right:0;top:60px;height:72px;display:flex;align-items:center;justify-content:center;font-family:var(--fs);font-weight:800;font-size:13px;letter-spacing:.08em;text-transform:uppercase;z-index:8;pointer-events:none;background:linear-gradient(to bottom,rgba(200,132,26,0.0),transparent);color:transparent;transition:background .18s,color .18s,transform .18s;transform:translateY(-10px)';
+    top.style.cssText='position:fixed;left:0;right:0;top:60px;height:72px;display:flex;align-items:center;justify-content:center;font-family:var(--fs);font-weight:800;font-size:13px;letter-spacing:.08em;text-transform:uppercase;z-index:8;pointer-events:none;background:linear-gradient(to bottom,rgba(200,132,26,0.0),transparent);color:transparent;text-shadow:0 1px 3px rgba(0,0,0,0.35),0 0 12px rgba(0,0,0,0.25);transition:background .18s,color .18s,transform .18s;transform:translateY(-10px)';
     top.textContent='↻ reset today';
     document.body.appendChild(top);
   }
@@ -3513,52 +3533,51 @@ function _updateDragHints(clientY,clientX){
   const topZoneEnd=Math.max(132,vh*0.18); // commit zone, clamped for short viewports
   const topWarmupStart=Math.max(170,vh*0.30);
   if(clientY<topZoneEnd){
-    top.style.background='linear-gradient(to bottom,rgba(200,132,26,0.55),rgba(200,132,26,0.10))';
+    top.style.background='linear-gradient(to bottom,rgba(200,132,26,0.85),rgba(200,132,26,0.20))';
     top.style.color='#fff';
     top.style.transform='translateY(0)';
   } else {
     const inWarmup=clientY<topWarmupStart;
     const frac=inWarmup?1-(clientY-topZoneEnd)/(topWarmupStart-topZoneEnd):0;
-    top.style.background=`linear-gradient(to bottom,rgba(200,132,26,${(0.06+0.14*frac).toFixed(2)}),transparent)`;
-    top.style.color=`rgba(200,132,26,${(0.30+0.7*frac).toFixed(2)})`;
+    top.style.background=`linear-gradient(to bottom,rgba(200,132,26,${(0.18+0.45*frac).toFixed(2)}),transparent)`;
+    top.style.color=`rgba(255,255,255,${(0.55+0.45*frac).toFixed(2)})`;
     top.style.transform=`translateY(${(-6*(1-frac)).toFixed(1)}px)`;
   }
   // Bottom band — completion target (green)
   if(clientY>vh*0.85){
-    bot.style.background='linear-gradient(to top,rgba(46,158,106,0.55),rgba(46,158,106,0.10))';
+    bot.style.background='linear-gradient(to top,rgba(46,158,106,0.85),rgba(46,158,106,0.20))';
     bot.style.color='#fff';
     bot.style.transform='translateY(0)';
   } else {
-    // Hint visibility: faint always while dragging, brightening in the warmup zone (65–85%)
     const inWarmup=clientY>vh*0.65;
     const frac=inWarmup?(clientY-vh*0.65)/(vh*0.20):0;
-    bot.style.background=`linear-gradient(to top,rgba(46,158,106,${(0.06+0.14*frac).toFixed(2)}),transparent)`;
-    bot.style.color=`rgba(46,158,106,${(0.30+0.7*frac).toFixed(2)})`;
+    bot.style.background=`linear-gradient(to top,rgba(46,158,106,${(0.18+0.45*frac).toFixed(2)}),transparent)`;
+    bot.style.color=`rgba(255,255,255,${(0.55+0.45*frac).toFixed(2)})`;
     bot.style.transform=`translateY(${(6*(1-frac)).toFixed(1)}px)`;
   }
   // Left band — skip (warm tan)
   const edgePx=vw*_EDGE_PCT;
   if(clientX<edgePx){
-    lft.style.background='linear-gradient(to right,rgba(168,158,146,0.55),rgba(168,158,146,0.10))';
-    lft.style.color='#3d3530';
+    lft.style.background='linear-gradient(to right,rgba(168,158,146,0.85),rgba(168,158,146,0.20))';
+    lft.style.color='#fff';
     lft.style.transform='translateX(0)';
   } else {
     const inWarmup=clientX<vw*0.30;
     const frac=inWarmup?1-(clientX-edgePx)/(vw*0.30-edgePx):0;
-    lft.style.background=`linear-gradient(to right,rgba(168,158,146,${(0.08+0.12*frac).toFixed(2)}),transparent)`;
-    lft.style.color=`rgba(107,98,88,${(0.35+0.6*frac).toFixed(2)})`;
+    lft.style.background=`linear-gradient(to right,rgba(168,158,146,${(0.18+0.45*frac).toFixed(2)}),transparent)`;
+    lft.style.color=`rgba(255,255,255,${(0.55+0.45*frac).toFixed(2)})`;
     lft.style.transform=`translateX(${(-6*(1-frac)).toFixed(1)}px)`;
   }
-  // Right band — skip (warm tan)
+  // Right band — credit one block (cool blue/water tone)
   if(clientX>vw-edgePx){
-    rgt.style.background='linear-gradient(to left,rgba(168,158,146,0.55),rgba(168,158,146,0.10))';
-    rgt.style.color='#3d3530';
+    rgt.style.background='linear-gradient(to left,rgba(74,158,186,0.85),rgba(74,158,186,0.20))';
+    rgt.style.color='#fff';
     rgt.style.transform='translateX(0)';
   } else {
     const inWarmup=clientX>vw*0.70;
     const frac=inWarmup?(clientX-vw*0.70)/(vw-edgePx-vw*0.70):0;
-    rgt.style.background=`linear-gradient(to left,rgba(168,158,146,${(0.08+0.12*frac).toFixed(2)}),transparent)`;
-    rgt.style.color=`rgba(107,98,88,${(0.35+0.6*frac).toFixed(2)})`;
+    rgt.style.background=`linear-gradient(to left,rgba(74,158,186,${(0.18+0.45*frac).toFixed(2)}),transparent)`;
+    rgt.style.color=`rgba(255,255,255,${(0.55+0.45*frac).toFixed(2)})`;
     rgt.style.transform=`translateX(${(6*(1-frac)).toFixed(1)}px)`;
   }
 }
@@ -3575,9 +3594,6 @@ function _hideDragHints(){
     if(id==='drag-hint-top')el.style.transform='translateY(-10px)';
   });
 }
-// Track per-task tap timing for double-tap detection
-const _lastTapByTask={};
-const _DBL_TAP_MS=350;
 // Shared retirement path for both drag-to-edge and fling. Stops the timer
 // (so the ticker doesn't keep draining rem on a skipped task), preserves
 // completed/rem/isRest so un-skip resumes the prior phase, and gives the
@@ -3660,21 +3676,39 @@ function _finishBubbleHoldAsTap(block){
         _cancelBubbleHold();
         return;
       }
-      // ── Drag-to-edge band → skip for today (deterministic, position-based)
-      if((movedIntoLeft||movedIntoRight)&&!t.done&&!t.skipped){
-        _skipTaskAndFly(t,b,movedIntoLeft?-1:1,vyCss,dpr);
+      // ── Drag-to-LEFT band → skip for today
+      if(movedIntoLeft&&!t.done&&!t.skipped){
+        _skipTaskAndFly(t,b,-1,vyCss,dpr);
         _cancelBubbleHold();
         return;
       }
-      // ── Fling in any direction → skip for the day ────────────────────
-      // Velocity-based delight overlay. Now uses windowed velocity so a real
-      // throw registers even when the finger decelerates before release.
-      const isFling=vMagCss>14;
-      if(isFling&&!t.done&&!t.skipped){
-        _skipTaskAndFly(t,b,vxCss>0?1:-1,vyCss,dpr,vxCss);
+      // ── Drag-to-RIGHT band → credit one block (replaces the unreliable
+      // double-tap gesture). End states match the existing credit path:
+      // more blocks remain → onSubBlockDone + restore running.
+      // last block + checklist done → onTaskDone (full task complete).
+      // last block + items remain → onTaskTimeDone (stalled).
+      if(movedIntoRight&&!t.done&&!t.skipped){
+        if(t.completed<t.total){
+          t.completed+=1;
+          if(t.completed>=t.total){
+            t.running=false;t.savedAt=null;t._phaseStart=null;t.isRest=false;t.rem=0;
+            if(_checklistAllDone(t)){t.done=true;save();onTaskDone(t.id);}
+            else {save();onTaskTimeDone(t);}
+          } else {
+            t.rem=t.workDur;t.isRest=false;
+            t.running=true;t.savedAt=Date.now();t._phaseStart=Date.now();
+            save();
+            onSubBlockDone(t.id);
+            ensureTicker();
+          }
+          activeTaskBlocks.length=0;
+          haptic([20,30,50]);
+        }
         _cancelBubbleHold();
         return;
       }
+      // No fling-as-gesture — actions are zone-based only. A throw with
+      // momentum just bounces around inside the bounded canvas.
       // ── Normal release → toss with carried momentum, not a straight drop
       b.userPlaced=true;
       b.vx=Math.max(-28,Math.min(28,vxCss*dpr*1.2));
@@ -3690,37 +3724,8 @@ function _finishBubbleHoldAsTap(block){
   const t=S.tasks.find(x=>x.id===block.taskId);
   if(!t)return;
   if(t.done)return; // done bubbles: tap is a no-op (long-press still edits)
-  // ── Double-tap detection: second tap within 350ms credits a block ──
-  // Always credits (regardless of whether the first tap toggled running);
-  // after credit, the task is running so the user keeps working without
-  // having to re-tap to resume.
-  const now=performance.now();
-  const last=_lastTapByTask[t.id];
-  const lastT=last?last.t:0;
-  if(now-lastT<_DBL_TAP_MS){
-    _lastTapByTask[t.id]=null;
-    if(t.completed<t.total){
-      t.completed+=1;
-      if(t.completed>=t.total){
-        t.running=false;t.savedAt=null;t._phaseStart=null;t.isRest=false;t.rem=0;
-        if(_checklistAllDone(t)){t.done=true;save();onTaskDone(t.id);}
-        else {save();onTaskTimeDone(t);}
-      } else {
-        // The first tap toggled running. Force it on so the credit always
-        // lands on "task is working" — that's the user's intent.
-        t.rem=t.workDur;t.isRest=false;
-        t.running=true;t.savedAt=Date.now();t._phaseStart=Date.now();
-        save();
-        onSubBlockDone(t.id);
-        ensureTicker();
-      }
-      activeTaskBlocks.length=0; // respawn so size + markers update
-      haptic([20,30,50]);
-    }
-    return;
-  }
-  _lastTapByTask[t.id]={t:now};
-  // Single tap — fires immediately. tapCard handles unskip-on-tap.
+  // Single tap — fires immediately. Drag-to-right credits a block instead
+  // (more reliable than double-tap on touch devices).
   if(t.skipped){t.skipped=false;save();activeTaskBlocks.length=0;return;}
   popTaskBlock(block);
   tapCard(block.taskId);
@@ -4671,21 +4676,30 @@ function taskForm(t,simple){
   const colors=simple?PAL.slice(0,5):PAL;
   const sw=colors.map(p=>`<div class="sw${p===ic?' on':''}" style="background:${p}" data-p="${p}" onclick="pickCol('${p}')"></div>`).join('');
   const hideSimple=simple?'display:none':'';
+  const totalVal=t?.total??4;
+  const workMin=t?Math.round(t.workDur/60):25;
+  const restMin=t?(Math.round(t.restDur/60)||10):10;
   return`
-    <div class="field"><label>Name</label><input id="fn" type="text" value="${esc(t?.name??'')}" placeholder="e.g. Work, Chinese, Exercise" autocomplete="off"></div>
-    <div class="field" style="${hideSimple}"><label>Description <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--dimmer)">optional</span></label><input id="fdesc" type="text" value="${esc(t?.desc??'')}" placeholder="optional notes — chapter 3, drafting intro, etc." autocomplete="off"></div>
-    <div class="field"><label>Color</label><div class="cr">${sw}</div></div>
-    <div class="field" style="${hideSimple}"><label>Emoji</label><div class="cr" id="emoji-row">${TASK_EMOJIS.map(e=>`<div class="sw ew${e===(t?.emoji||pickedEmoji)?' on':''}" onclick="pickEmoji('${e}')" style="background:var(--brd);font-size:18px;display:flex;align-items:center;justify-content:center">${e}</div>`).join('')}</div></div>
-    <div class="field"><label>Number of blocks</label><input id="ftot" type="number" value="${t?.total??4}" min="1" max="20" inputmode="numeric"></div>
-    <div class="field"><label>Block duration (minutes)</label><input id="fwork" type="number" value="${t?Math.round(t.workDur/60):60}" min="1" max="480" inputmode="numeric"></div>
-    <div class="field"><label>Pomodoro rest?</label>
-      <div class="tog-row">
-        <div><div class="tog-lbl">Rest between blocks</div><div class="tog-sub">e.g. 50 min work + 10 min rest</div></div>
-        <button class="tog${pomo?' on':''}" id="ptog" onclick="togglePomo()"></button>
-      </div>
+    <div class="form-group"><div class="form-group-label">About</div>
+      <div class="field"><label>Name</label><input id="fn" type="text" value="${esc(t?.name??'')}" placeholder="e.g. Work, Chinese, Exercise" autocomplete="off"></div>
+      <div class="field" style="${hideSimple}"><label>Description <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--dimmer)">optional</span></label><input id="fdesc" type="text" value="${esc(t?.desc??'')}" placeholder="optional notes — chapter 3, drafting intro, etc." autocomplete="off"></div>
     </div>
-    <div id="rfield" style="display:${pomo?'block':'none'}">
-      <div class="field"><label>Rest duration (minutes)</label><input id="frest" type="number" value="${t?Math.round(t.restDur/60)||10:10}" min="1" max="120" inputmode="numeric"></div>
+    <div class="form-group"><div class="form-group-label">Look</div>
+      <div class="field"><label>Color</label><div class="cr">${sw}</div></div>
+      <div class="field" style="${hideSimple}"><label>Emoji</label><div class="cr" id="emoji-row">${TASK_EMOJIS.map(e=>`<div class="sw ew${e===(t?.emoji||pickedEmoji)?' on':''}" onclick="pickEmoji('${e}')" style="background:var(--brd);font-size:18px;display:flex;align-items:center;justify-content:center">${e}</div>`).join('')}</div></div>
+    </div>
+    <div class="form-group"><div class="form-group-label">Time</div>
+      <div class="field"><label>Time blocks</label>${stepperHtml('ftot',totalVal,1,20)}<div style="font-size:10px;color:var(--dim);margin-top:6px">How many timed sessions for this task</div></div>
+      <div class="field"><label>Length of each block</label>${chipRowHtml('fwork',[15,25,50,90],workMin,'m')}</div>
+      <div class="field"><label>Add rest between blocks?</label>
+        <div class="tog-row">
+          <div><div class="tog-lbl">Rest between blocks</div><div class="tog-sub">e.g. 50 min work + 10 min rest</div></div>
+          <button class="tog${pomo?' on':''}" id="ptog" onclick="togglePomo()"></button>
+        </div>
+      </div>
+      <div id="rfield" style="display:${pomo?'block':'none'}">
+        <div class="field"><label>Rest between blocks</label>${chipRowHtml('frest',[5,10,15,20],restMin,'m')}</div>
+      </div>
     </div>
     <div class="field" style="${hideSimple}"><label>Auto-continue</label>
       <div class="tog-row">
@@ -4725,6 +4739,66 @@ function getPickedDays(){
   const pills=document.querySelectorAll('#day-picker .day-pill.on');
   if(!pills.length)return null;
   return Array.from(pills).map(p=>parseInt(p.dataset.day));
+}
+// Stepper for small integer ranges (e.g. number of time blocks).
+// Hidden input keeps saveTask's existing read path (`getElementById(id).value`)
+// intact so the data flow doesn't change.
+function stepperHtml(id,value,min,max){
+  const v=Math.max(min,Math.min(max,parseInt(value)||min));
+  return `<div class="stepper" data-id="${id}" data-min="${min}" data-max="${max}">`+
+    `<button type="button" class="stp-btn" onclick="_stepperBump('${id}',-1)" aria-label="decrease">−</button>`+
+    `<div class="stp-val" id="${id}-val">${v}</div>`+
+    `<button type="button" class="stp-btn" onclick="_stepperBump('${id}',1)" aria-label="increase">+</button>`+
+    `<input type="hidden" id="${id}" value="${v}">`+
+  `</div>`;
+}
+function _stepperBump(id,dir){
+  const wrap=document.querySelector(`.stepper[data-id="${id}"]`);
+  if(!wrap)return;
+  const min=parseInt(wrap.dataset.min)||1;
+  const max=parseInt(wrap.dataset.max)||99;
+  const inp=document.getElementById(id);
+  const cur=parseInt(inp.value)||min;
+  const next=Math.max(min,Math.min(max,cur+dir));
+  if(next===cur)return;
+  inp.value=next;
+  const valEl=document.getElementById(id+'-val');
+  if(valEl)valEl.textContent=next;
+  haptic([6]);
+}
+// Chip-row: preset values + a "custom" chip that reveals a number input.
+function chipRowHtml(id,presets,value,suffix){
+  const v=parseInt(value)||presets[0];
+  const isPreset=presets.includes(v);
+  const sfx=suffix||'';
+  const chips=presets.map(p=>`<button type="button" class="chip${(isPreset&&p===v)?' on':''}" data-v="${p}" onclick="_pickChip('${id}',${p})">${p}${sfx}</button>`).join('');
+  const customOn=!isPreset;
+  return `<div class="chip-row" data-id="${id}">${chips}`+
+    `<button type="button" class="chip cust${customOn?' on':''}" onclick="_chipCustom('${id}')">${customOn?v+sfx:'custom'}</button>`+
+    `<input type="${customOn?'number':'hidden'}" id="${id}" value="${v}" min="1" inputmode="numeric"${customOn?' style="margin-left:8px;width:80px"':''}>`+
+  `</div>`;
+}
+function _pickChip(id,value){
+  const row=document.querySelector(`.chip-row[data-id="${id}"]`);
+  if(!row)return;
+  const inp=document.getElementById(id);
+  inp.type='hidden';inp.value=value;inp.style.cssText='';
+  row.querySelectorAll('.chip').forEach(c=>{
+    c.classList.toggle('on', c.dataset.v==String(value));
+    if(c.classList.contains('cust')){c.classList.remove('on');c.textContent='custom';}
+  });
+  haptic([6]);
+}
+function _chipCustom(id){
+  const row=document.querySelector(`.chip-row[data-id="${id}"]`);
+  if(!row)return;
+  const inp=document.getElementById(id);
+  inp.type='number';inp.style.cssText='margin-left:8px;width:80px';
+  row.querySelectorAll('.chip').forEach(c=>{
+    c.classList.toggle('on', c.classList.contains('cust'));
+    if(c.classList.contains('cust'))c.textContent=(parseInt(inp.value)||25);
+  });
+  setTimeout(()=>inp.focus(),20);
 }
 function checklistRowHtml(c){
   const id=c.id||Math.random().toString(36).slice(2,8);
@@ -4768,34 +4842,16 @@ function getEditedChecklist(prevList){
   return out;
 }
 
-function applyPreset(label,total,workMin,restMin){
-  document.getElementById('ftot').value=total;
-  document.getElementById('fwork').value=workMin;
-  document.getElementById('frest').value=restMin;
-  const tog=document.getElementById('ptog');
-  if(restMin>0&&tog&&!tog.classList.contains('on'))tog.click();
-  document.querySelectorAll('.preset-chip').forEach(c=>{
-    const on=c.dataset.label===label;
-    c.style.background=on?'var(--ink)':'var(--brd)';
-    c.style.color=on?'#fff':'var(--mid)';
-  });
-}
 function openAdd(simple){
   pomoOn=false;pickedCol=null;pickedEmoji=null;
-  const presets=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
-    <button class="preset-chip" data-label="focus" onclick="applyPreset('focus',1,25,5)" style="background:var(--brd);color:var(--mid);border:none;border-radius:100px;padding:6px 12px;font-size:11px;font-weight:800;font-family:var(--fs);cursor:pointer;letter-spacing:.04em">25m focus</button>
-    <button class="preset-chip" data-label="deep" onclick="applyPreset('deep',1,50,10)" style="background:var(--brd);color:var(--mid);border:none;border-radius:100px;padding:6px 12px;font-size:11px;font-weight:800;font-family:var(--fs);cursor:pointer;letter-spacing:.04em">50m + 10m rest</button>
-    <button class="preset-chip" data-label="long" onclick="applyPreset('long',1,90,0)" style="background:var(--brd);color:var(--mid);border:none;border-radius:100px;padding:6px 12px;font-size:11px;font-weight:800;font-family:var(--fs);cursor:pointer;letter-spacing:.04em">90m deep work</button>
-  </div>`;
-  openSheet(`<div class="sh-ttl">New block</div>${presets}${taskForm(null,simple)}<div class="sh-btns"><button class="bs" onclick="closeSheet()">Cancel</button><button class="bp" onclick="saveTask(null)">Add</button></div>`);
-  if(simple)setTimeout(()=>applyPreset('focus',1,25,5),50);
+  openSheet(`<div class="sh-ttl">New task</div>${taskForm(null,simple)}<div class="sh-btns"><button class="bs" onclick="closeSheet()">Cancel</button><button class="bp" onclick="saveTask(null)">Add</button></div>`);
   setTimeout(()=>document.getElementById('fn')?.focus(),80);
 }
-function openEdit(id){const t=S.tasks.find(x=>x.id===id);if(!t)return;pickedCol=t.color;pickedEmoji=t.emoji;openSheet(`<div class="sh-ttl">Edit block</div>${taskForm(t)}<div class="sh-btns"><button class="bd" onclick="confirmDel('${id}')">Delete</button><button class="bs" onclick="closeSheet()">Cancel</button><button class="bp" onclick="saveTask('${id}')">Save</button></div>`);}
+function openEdit(id){const t=S.tasks.find(x=>x.id===id);if(!t)return;pickedCol=t.color;pickedEmoji=t.emoji;openSheet(`<div class="sh-ttl">Edit task</div>${taskForm(t)}<div class="sh-btns"><button class="bd" onclick="confirmDel('${id}')">Delete</button><button class="bs" onclick="closeSheet()">Cancel</button><button class="bp" onclick="saveTask('${id}')">Save</button></div>`);}
 
 function confirmDel(id){
   const conf=document.createElement('div');conf.className='conf-ask';
-  conf.innerHTML=`<p>Delete this block?</p><div class="sh-btns"><button class="bs" onclick="this.closest('.conf-ask').remove()">No</button><button class="bd" onclick="delTask('${id}')">Yes, delete</button></div>`;
+  conf.innerHTML=`<p>Delete this task?</p><div class="sh-btns"><button class="bs" onclick="this.closest('.conf-ask').remove()">No</button><button class="bd" onclick="delTask('${id}')">Yes, delete</button></div>`;
   document.getElementById('sb').appendChild(conf);
 }
 function confirmResetToday(id){
