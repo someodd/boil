@@ -190,7 +190,8 @@
     .cal-headers{margin-bottom:2px}
     .cal-hdr{background:transparent;color:var(--dim);font-family:var(--fs);font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;cursor:default}
     .cal-hdr:hover{transform:none;box-shadow:none}
-    .cal-key{width:14px;height:14px;border-radius:3px}
+    .cal-key{width:16px;height:16px;border-radius:4px;cursor:default}
+    .cal-key:hover{transform:none;box-shadow:none}
     /* Chip-row — preset values + custom */
     .chip-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
     .chip{background:transparent;color:var(--mid);border:2px solid var(--brd);border-radius:100px;padding:8px 14px;font-size:13px;font-weight:800;font-family:var(--fs);cursor:pointer;transition:all .14s;line-height:1}
@@ -5078,12 +5079,12 @@ function openHistory(){
     <div style="text-align:center;font-size:13px;color:var(--mid);margin-bottom:14px;line-height:1.6">Last ${WEEKS} weeks. Each square is a day.</div>
     <div class="cal-grid">${headerHtml}${rowsHtml}</div>
     <div id="cal-detail" style="font-size:12px;color:var(--mid);text-align:center;margin-top:12px;min-height:18px;line-height:1.5"></div>
-    <div style="display:flex;align-items:center;justify-content:center;gap:14px;font-size:10px;color:var(--dim);margin-top:14px;flex-wrap:wrap">
-      <span style="display:inline-flex;align-items:center;gap:5px"><span class="cal-cell cal-key" style="background:#000"></span>0%</span>
-      <span style="display:inline-flex;align-items:center;gap:5px"><span class="cal-cell cal-key" style="background:rgb(192,69,58)"></span>low</span>
-      <span style="display:inline-flex;align-items:center;gap:5px"><span class="cal-cell cal-key" style="background:rgb(46,158,106)"></span>high</span>
-      <span style="display:inline-flex;align-items:center;gap:5px"><span class="cal-cell cal-key" style="background:#3a86b3"></span>100%</span>
-      <span style="display:inline-flex;align-items:center;gap:5px"><span class="cal-cell cal-key cal-rest"></span>rest</span>
+    <div style="display:flex;align-items:center;justify-content:center;gap:12px;font-size:12px;font-weight:700;color:var(--ink);margin-top:14px;flex-wrap:wrap">
+      <span style="display:inline-flex;align-items:center;gap:6px"><span class="cal-cell cal-key" style="background:#000"></span>0%</span>
+      <span style="display:inline-flex;align-items:center;gap:6px"><span class="cal-cell cal-key" style="background:rgb(192,69,58)"></span>low</span>
+      <span style="display:inline-flex;align-items:center;gap:6px"><span class="cal-cell cal-key" style="background:rgb(46,158,106)"></span>high</span>
+      <span style="display:inline-flex;align-items:center;gap:6px"><span class="cal-cell cal-key" style="background:#3a86b3"></span>100%</span>
+      <span style="display:inline-flex;align-items:center;gap:6px"><span class="cal-cell cal-key cal-rest"></span>rest</span>
     </div>
     <div class="sh-btns">
       <button class="bs" onclick="openFinishDay()">← today</button>
