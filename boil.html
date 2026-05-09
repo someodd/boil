@@ -3605,6 +3605,9 @@ function _skipTaskAndFly(t,b,dirX,vyCss,dpr,vxCssOpt){
   // Transition water/UI now — otherwise the bg branch may turn off (no running
   // task, ambient not yet enabled) and the volleyball never gets its spawn frame.
   fastUpdateAll();
+  // Daybar uses a 15s interval; force an immediate update so the skipped task
+  // disappears from the slack/segment computation right away.
+  renderDaybar();updateLogoDot();
   // Carry whatever horizontal velocity exists, but minimum 24 raw px/frame
   // toward the edge so a slow drag-to-edge still flies off cleanly.
   const baseVx=(typeof vxCssOpt==='number'?vxCssOpt*dpr*1.5:0);
