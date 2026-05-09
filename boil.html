@@ -178,6 +178,19 @@
     .stp-btn:active{transform:scale(.9)}
     .stp-btn:disabled{opacity:.35;cursor:default}
     .stp-val{flex:1;text-align:center;font-family:var(--fd);font-size:30px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1}
+    /* Calendar history grid */
+    .cal-grid{display:flex;flex-direction:column;gap:4px;align-items:center;margin-bottom:6px}
+    .cal-row{display:flex;gap:4px}
+    .cal-cell{width:28px;height:28px;border-radius:6px;background:transparent;cursor:pointer;transition:transform .12s,box-shadow .12s;flex-shrink:0;display:inline-block}
+    .cal-cell:hover{transform:scale(1.12);box-shadow:0 2px 6px rgba(0,0,0,.18)}
+    .cal-future{visibility:hidden;cursor:default}
+    .cal-empty{background:transparent;border:1.5px dashed var(--brd);cursor:default}
+    .cal-rest{background:transparent;border:1.5px solid var(--brd);cursor:default}
+    .cal-today{box-shadow:0 0 0 2px var(--ink)}
+    .cal-headers{margin-bottom:2px}
+    .cal-hdr{background:transparent;color:var(--dim);font-family:var(--fs);font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;cursor:default}
+    .cal-hdr:hover{transform:none;box-shadow:none}
+    .cal-key{width:14px;height:14px;border-radius:3px}
     /* Chip-row — preset values + custom */
     .chip-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
     .chip{background:transparent;color:var(--mid);border:2px solid var(--brd);border-radius:100px;padding:8px 14px;font-size:13px;font-weight:800;font-family:var(--fs);cursor:pointer;transition:all .14s;line-height:1}
@@ -832,13 +845,16 @@ function boot(){
   if(S.muteAll===undefined)S.muteAll=false;
   if(S.muteWater===undefined)S.muteWater=false;
   if(S.lastActiveId===undefined)S.lastActiveId=null;
+  if(S.history===undefined)S.history=[];
   S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;if(t.desc===undefined)t.desc='';if(t.continuous===undefined)t.continuous=!!S.continuous;if(t.skipped===undefined)t.skipped=false;if(t.checklist===undefined)t.checklist=[];if(t._timeDoneFiredAt===undefined)t._timeDoneFiredAt=null;});
   // Defensive: drop any tasks sharing an id (a tap-double-fire could have created
   // two `t-<sameMs>` entries; keep the first, discard the rest).
   {const _seen=new Set();S.tasks=S.tasks.filter(t=>{if(!t.id||_seen.has(t.id))return false;_seen.add(t.id);return true;});}
   const now=Date.now();
   if(shouldRollover()){
-    creditPartialAtMidnight();S.tasks.forEach(resetTask);S.lastActiveId=null;
+    creditPartialAtMidnight();
+    _logYesterdayHistory();
+    S.tasks.forEach(resetTask);S.lastActiveId=null;
     S.date=today();S.startTs=null;_bedtimeReached=false;_togHidden=false;
     resetNightTheme();bgBubbles.length=0;
   } else {
@@ -865,6 +881,25 @@ function boot(){
 function resetTask(t){t.completed=0;t.isRest=false;t.rem=t.workDur;t.running=false;t.done=false;t.skipped=false;t.savedAt=null;t._phaseStart=null;t._timeDoneFiredAt=null;if(t.checklist)t.checklist.forEach(c=>{c.done=false;});if(bubblePools[t.id])bubblePools[t.id]=[];}
 function _checklistAllDone(t){return !t.checklist||t.checklist.length===0||t.checklist.every(c=>c.done);}
 function isStalled(t){return !!(t&&!t.done&&t.completed>=t.total&&!_checklistAllDone(t));}
+// Snapshot the day that just ended into S.history so the calendar view has
+// something to render. Called once per rollover, AFTER creditPartialAtMidnight
+// (so the snapshot reflects the just-credited count) and BEFORE resetTask
+// wipes per-day state. Idempotent — won't double-log a single date.
+function _logYesterdayHistory(){
+  if(!S.history)S.history=[];
+  const day=S.date||today();
+  if(S.history.some(e=>e.date===day))return;
+  const vis=S.tasks.filter(taskVisibleToday);
+  S.history.push({
+    date:day,
+    completed:vis.reduce((a,t)=>a+(t.completed||0),0),
+    total:vis.reduce((a,t)=>a+(t.total||0),0),
+    fullyDone:vis.filter(t=>t.done).length,
+    totalTasks:vis.length,
+  });
+  // Cap at ~1 year so localStorage stays small
+  if(S.history.length>365)S.history.splice(0,S.history.length-365);
+}
 function creditPartialAtMidnight(){
   S.tasks.forEach(t=>{
     if(!t.running||t.done)return;
@@ -4961,15 +4996,105 @@ function openFinishDay(){
     <div style="text-align:center;font-style:italic;font-size:14px;font-weight:600;color:var(--mid);margin-bottom:20px;line-height:1.6">${_refl}</div>
 
     <div style="margin-bottom:10px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)">by block</div>
-    <div style="background:var(--bg);border:1.5px solid var(--brd);border-radius:14px;padding:4px 14px;margin-bottom:20px">
+    <div style="background:var(--bg);border:1.5px solid var(--brd);border-radius:14px;padding:4px 14px;margin-bottom:14px">
       ${taskRows}
     </div>
+
+    <button onclick="openHistory()" style="display:block;width:100%;background:none;border:1.5px solid var(--brd);border-radius:12px;padding:10px;color:var(--mid);font-family:var(--fs);font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin-bottom:14px">see history →</button>
 
     <div class="sh-btns">
       <button class="bs" onclick="closeSheet()">back</button>
     </div>
     <button onclick="closeSheet();askReset()" style="display:block;margin:16px auto 0;background:none;border:none;font-family:var(--fs);font-size:11px;font-weight:700;color:var(--dim);cursor:pointer;padding:8px 0">reset blocks</button>`);
 
+}
+
+// ── HISTORY VIEW ───────────────────────────────────────────────────
+// Calendar grid of past days. Memory, not target — each cell is independent,
+// no streak counters or aggregates. See plan: distributed-giggling-crab.md
+function _historyCellColor(entry){
+  // null entry = no data for that day yet (today included until rollover)
+  if(!entry)return null;
+  if(entry.totalTasks===0)return 'rest'; // day had no tasks scheduled
+  if(entry.total===0)return 'rest';
+  const frac=Math.max(0,Math.min(1,entry.completed/entry.total));
+  if(frac<=0)return '#000';                                  // 0% — black
+  if(frac>=1)return '#3a86b3';                               // 100% — water blue
+  // Mid: red→green gradient
+  const r=Math.round(192+(46-192)*frac);
+  const g=Math.round(69+(158-69)*frac);
+  const b=Math.round(58+(106-58)*frac);
+  return `rgb(${r},${g},${b})`;
+}
+function _historyCellLabel(entry,dateStr){
+  if(!entry)return `${dateStr} — no data yet`;
+  if(entry.totalTasks===0)return `${dateStr} — rest day (no tasks)`;
+  return `${dateStr} — ${entry.completed} of ${entry.total} blocks · ${entry.fullyDone} of ${entry.totalTasks} tasks done`;
+}
+function _historyDateBack(daysBack){
+  const d=new Date();
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate()-daysBack);
+  return `${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`;
+}
+function openHistory(){
+  const byDate=new Map((S.history||[]).map(e=>[e.date,e]));
+  const todayStr=today();
+  const WEEKS=12, DAYS=WEEKS*7;
+  // Find the latest Saturday on or after today so the grid ends on a full week
+  const t0=new Date();t0.setHours(0,0,0,0);
+  const dow=t0.getDay(); // 0=Sun..6=Sat
+  const daysToSat=(6-dow+7)%7;
+  // Build oldest-first list of dates, starting (DAYS - daysToSat - 1) days before today
+  const startBack=DAYS-1-daysToSat;
+  const cellsByWeek=[];
+  for(let w=0;w<WEEKS;w++)cellsByWeek.push([]);
+  for(let i=0;i<DAYS;i++){
+    const back=startBack-i;
+    const dStr=_historyDateBack(back);
+    const entry=byDate.get(dStr)||null;
+    const isFuture=back<0;
+    const isToday=dStr===todayStr;
+    const cellsRow=cellsByWeek[Math.floor(i/7)];
+    cellsRow.push({date:dStr,entry,isFuture,isToday});
+  }
+  // Most-recent week at top
+  cellsByWeek.reverse();
+  const dayHeaders=['S','M','T','W','T','F','S'];
+  const rowsHtml=cellsByWeek.map(week=>{
+    const cells=week.map(c=>{
+      if(c.isFuture)return `<div class="cal-cell cal-future"></div>`;
+      const col=_historyCellColor(c.entry);
+      const ring=c.isToday?' cal-today':'';
+      const lbl=esc(_historyCellLabel(c.entry,c.date));
+      if(col===null)return `<div class="cal-cell cal-empty${ring}" title="${lbl}" onclick="_historyCellTap(this,'${c.date}')"></div>`;
+      if(col==='rest')return `<div class="cal-cell cal-rest${ring}" title="${lbl}" onclick="_historyCellTap(this,'${c.date}')"></div>`;
+      return `<div class="cal-cell${ring}" style="background:${col}" title="${lbl}" onclick="_historyCellTap(this,'${c.date}')"></div>`;
+    }).join('');
+    return `<div class="cal-row">${cells}</div>`;
+  }).join('');
+  const headerHtml=`<div class="cal-row cal-headers">${dayHeaders.map(d=>`<div class="cal-cell cal-hdr">${d}</div>`).join('')}</div>`;
+  openSheet(`<div class="sh-ttl">history</div>
+    <div style="text-align:center;font-size:13px;color:var(--mid);margin-bottom:14px;line-height:1.6">Last ${WEEKS} weeks. Each square is a day.</div>
+    <div class="cal-grid">${headerHtml}${rowsHtml}</div>
+    <div id="cal-detail" style="font-size:12px;color:var(--mid);text-align:center;margin-top:12px;min-height:18px;line-height:1.5"></div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:14px;font-size:10px;color:var(--dim);margin-top:14px;flex-wrap:wrap">
+      <span style="display:inline-flex;align-items:center;gap:5px"><span class="cal-cell cal-key" style="background:#000"></span>0%</span>
+      <span style="display:inline-flex;align-items:center;gap:5px"><span class="cal-cell cal-key" style="background:rgb(192,69,58)"></span>low</span>
+      <span style="display:inline-flex;align-items:center;gap:5px"><span class="cal-cell cal-key" style="background:rgb(46,158,106)"></span>high</span>
+      <span style="display:inline-flex;align-items:center;gap:5px"><span class="cal-cell cal-key" style="background:#3a86b3"></span>100%</span>
+      <span style="display:inline-flex;align-items:center;gap:5px"><span class="cal-cell cal-key cal-rest"></span>rest</span>
+    </div>
+    <div class="sh-btns">
+      <button class="bs" onclick="openFinishDay()">← today</button>
+      <button class="bp" onclick="closeSheet()">close</button>
+    </div>`);
+}
+function _historyCellTap(el,dateStr){
+  const detail=document.getElementById('cal-detail');
+  if(!detail)return;
+  const entry=(S.history||[]).find(e=>e.date===dateStr);
+  detail.textContent=_historyCellLabel(entry,dateStr);
 }
 // ── SHEET ───────────────────────────────────────────────────────────
 let _sheetOpenT=0;
