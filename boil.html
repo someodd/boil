@@ -3441,6 +3441,11 @@ function _startBubbleHold(block,clientX,clientY){
     // method missed flings because finger decelerates before release; averaging
     // over a window captures the throw, not the final near-stop.
     velSamples:[{x:clientX,y:clientY,t:_t0}],
+    // Cumulative path length over the gesture. Used as the intent gate so a
+    // bubble that *starts* in a commit zone (e.g. an already-skipped ghost in
+    // the left band) can still trigger that zone on a real re-drag — net
+    // displacement would be near zero, but the path length isn't.
+    pathDist:0,
     timer:setTimeout(()=>{
       if(_bubbleHold&&_bubbleHold.taskId===id&&!_bubbleHold.dragging){
         _bubbleHold.fired=true;
@@ -3470,6 +3475,9 @@ function _maybeCancelBubbleHoldByMove(clientX,clientY){
     if(!b)return;
     const dpr=_bgDpr();
     const now=performance.now();
+    // Accumulate path length between consecutive samples.
+    const _pdx=clientX-_bubbleHold.lastX, _pdy=clientY-_bubbleHold.lastY;
+    _bubbleHold.pathDist+=Math.sqrt(_pdx*_pdx+_pdy*_pdy);
     // Append to windowed velocity sample buffer; keep only the last 80ms.
     _bubbleHold.velSamples.push({x:clientX,y:clientY,t:now});
     const cutoff=now-80;
@@ -3648,19 +3656,19 @@ function _finishBubbleHoldAsTap(block){
       const bClientX=b.x/dpr, bClientY=b.y/dpr;
       const edgePx=vw*_EDGE_PCT;
       const topZoneEnd=Math.max(132,vh*0.18);
-      // Intent gating via displacement: a zone commits only if the bubble was
-      // moved at least DRAG_COMMIT_MIN CSS px in the matching direction AND
-      // ended in the zone. Using start-outside-zone instead would falsely
-      // block drag-to-bottom when water is low and the bubble naturally bobs
-      // in the commit zone — there's nowhere "outside" to start. A noticeable
-      // displacement is the actual intent signal.
+      // Intent gating via cumulative path distance: a zone commits when the
+      // gesture traveled at least DRAG_COMMIT_MIN CSS px in total AND ended in
+      // the zone. Path-based instead of net-displacement-based so a bubble
+      // already in a zone (e.g. skipped ghost in the left band) can still
+      // re-trigger by being deliberately moved around — net dx might be near
+      // zero, but the gesture's path length isn't. Tap-with-tremor still
+      // barely accumulates and stays below the threshold.
       const DRAG_COMMIT_MIN=30;
-      const startX=_bubbleHold.startX, startY=_bubbleHold.startY;
-      const dx=bClientX-startX, dy=bClientY-startY;
-      const movedIntoTop=(-dy)>DRAG_COMMIT_MIN&&bClientY<topZoneEnd;
-      const movedIntoBottom=dy>DRAG_COMMIT_MIN&&bClientY>vh*0.85;
-      const movedIntoLeft=(-dx)>DRAG_COMMIT_MIN&&bClientX<edgePx;
-      const movedIntoRight=dx>DRAG_COMMIT_MIN&&bClientX>vw-edgePx;
+      const moved=(_bubbleHold.pathDist||0)>DRAG_COMMIT_MIN;
+      const movedIntoTop=moved&&bClientY<topZoneEnd;
+      const movedIntoBottom=moved&&bClientY>vh*0.85;
+      const movedIntoLeft=moved&&bClientX<edgePx;
+      const movedIntoRight=moved&&bClientX>vw-edgePx;
       // ── Drag-to-top band → reset today's progress ─────────────────────
       if(movedIntoTop){
         resetTask(t);
