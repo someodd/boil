@@ -932,7 +932,7 @@ function reconcileTask(t,now){
 function returnStatus(awayMin,blocksGained,tasksDoneGained){
   const vis=S.tasks.filter(t=>taskVisibleToday(t));
   const rt=vis.find(t=>t.running&&!t.done);
-  const allDone=vis.length&&vis.every(t=>t.done||t.skipped);
+  const allDone=vis.length&&vis.every(t=>t.done);
   const next=vis.find(t=>!t.done&&!t.running);
   const away=awayMin>=60?fmtHM(awayMin*60):awayMin+'m away';
   if(allDone)return `${away} — everything's done`;
@@ -2253,7 +2253,7 @@ function renderDaybar(){
   // "done ✓" only if every visible task is genuinely finished or skipped.
   // Stalled tasks contribute 0 to totalB but aren't done — saying "done" then is a lie.
   const _vis=S.tasks.filter(taskVisibleToday);
-  const _allFinished=_vis.length>0&&_vis.every(t=>t.done||t.skipped);
+  const _allFinished=_vis.length>0&&_vis.every(t=>t.done);
   const _someStalled=_vis.some(t=>isStalled(t));
   const slackLabel=_allFinished
     ?'done ✓'
@@ -2738,32 +2738,17 @@ function stepTaskBlocks(W,H,fillY,hf,step,dt){
     }
   }
   // Apply vx with drag, clamp screen, persist position.
-  // Exception: a bubble being flung-skipped ignores walls and exits the viewport.
+  // Bubbles always bounce off side walls — energy reverses with a small loss.
+  // (No more fly-off-screen behavior; skipping is a position gesture, the
+  // bubble stays on screen as a ghost.)
   activeTaskBlocks.forEach(f=>{
     f.vx*=0.86;
     f.x+=f.vx;
-    if(f._flinging){
-      // Let it fly off; once mostly off-screen, despawn (skipped state keeps it gone)
-      if(f.x<-f.size*1.5||f.x>W+f.size*1.5){
-        delete _bubblePos[f.taskId];
-        f._gone=true;
-      }
-      return;
-    }
     const margin=f.size*0.55+(f.isActive?12*dpr:0);
-    if(f.x<margin){f.x=margin;f.vx=Math.max(0,f.vx);}
-    if(f.x>W-margin){f.x=W-margin;f.vx=Math.min(0,f.vx);}
+    if(f.x<margin){f.x=margin;if(f.vx<0)f.vx=-f.vx*0.65;}
+    if(f.x>W-margin){f.x=W-margin;if(f.vx>0)f.vx=-f.vx*0.65;}
     _bubblePos[f.taskId]={x:f.x,y:f.y,userPlaced:!!f.userPlaced};
   });
-  // Drop bubbles that flew off — and if any did, clear the rest too so the
-  // skipped task's ghost spawns on the next frame. Otherwise, with other
-  // bubbles still in the array, the spawn-when-empty gate never trips and
-  // the flung task ends up invisible (looks like the skip didn't take).
-  let _anyGone=false;
-  for(let i=activeTaskBlocks.length-1;i>=0;i--){
-    if(activeTaskBlocks[i]._gone){activeTaskBlocks.splice(i,1);_anyGone=true;}
-  }
-  if(_anyGone)activeTaskBlocks.length=0;
   // Beach ball ↔ bubble collision (skip sunken bubbles).
   // Both want the surface, so bias the contact normal horizontal when they're stacked.
   if(typeof activeFloaters!=='undefined'&&activeFloaters.length){
@@ -3166,7 +3151,7 @@ function _popChecklistItem(taskId,itemId){
 function _reconcileFloaters(W,fillY){
   if(!S||!S.tasks){if(activeFloaters.length)activeFloaters.length=0;return;}
   const vis=S.tasks.filter(taskVisibleToday);
-  const allDone=vis.length>0&&vis.every(t=>t.done||t.skipped);
+  const allDone=vis.length>0&&vis.every(t=>t.done);
   if(!allDone){
     if(activeFloaters.length)activeFloaters.length=0;
     return;
@@ -3180,7 +3165,7 @@ function spawnFloaters(W,fillY){
   const dpr=_bgDpr();
   // Beach ball: a reward — only appears once everything visible today is done
   const vis=S&&S.tasks?S.tasks.filter(taskVisibleToday):[];
-  const allDone=vis.length>0&&vis.every(t=>t.done||t.skipped);
+  const allDone=vis.length>0&&vis.every(t=>t.done);
   if(allDone){
     const def=FLOATER_DEFS['float_ball'];
     activeFloaters.push({
@@ -3602,19 +3587,12 @@ function _skipTaskAndFly(t,b,dirX,vyCss,dpr,vxCssOpt){
   if(S.lastActiveId===t.id)S.lastActiveId=null;
   clearBgNotifs();
   save();
-  // Transition water/UI now — otherwise the bg branch may turn off (no running
-  // task, ambient not yet enabled) and the volleyball never gets its spawn frame.
   fastUpdateAll();
-  // Daybar uses a 15s interval; force an immediate update so the skipped task
-  // disappears from the slack/segment computation right away.
   renderDaybar();updateLogoDot();
-  // Carry whatever horizontal velocity exists, but minimum 24 raw px/frame
-  // toward the edge so a slow drag-to-edge still flies off cleanly.
-  const baseVx=(typeof vxCssOpt==='number'?vxCssOpt*dpr*1.5:0);
-  const minPush=dirX*24;
-  b.vx=(Math.abs(baseVx)>Math.abs(minPush))?baseVx:minPush;
-  b.vy=(vyCss||0)*dpr*1.2;
-  b._flinging=true;
+  // Force a respawn so the bubble re-renders as a skipped ghost at the drop
+  // position (no more flying off-screen — bubbles stay on the surface, just
+  // ghosted, until the user un-skips).
+  activeTaskBlocks.length=0;
   haptic([10,20,40]);
   try{const now=ac().currentTime;tone(360,.15,.04,now);tone(280,.18,.03,now+.06);}catch(e){}
   showToast('Skipped for today.','#6b6258',1400);
@@ -3713,20 +3691,14 @@ function _finishBubbleHoldAsTap(block){
   if(!t)return;
   if(t.done)return; // done bubbles: tap is a no-op (long-press still edits)
   // ── Double-tap detection: second tap within 350ms credits a block ──
-  // Only fires when the task was running at first-tap time. Crediting a block
-  // on a paused task makes no sense — you weren't working.
+  // Always credits (regardless of whether the first tap toggled running);
+  // after credit, the task is running so the user keeps working without
+  // having to re-tap to resume.
   const now=performance.now();
   const last=_lastTapByTask[t.id];
   const lastT=last?last.t:0;
   if(now-lastT<_DBL_TAP_MS){
     _lastTapByTask[t.id]=null;
-    if(!last||!last.wasRunning){
-      // Double-tap on a paused task: don't credit. Don't run the second
-      // tapCard either — it would toggle off the task the first tap started,
-      // leaving the user back where they began. Better to land on "running."
-      return;
-    }
-    // Credit one block
     if(t.completed<t.total){
       t.completed+=1;
       if(t.completed>=t.total){
@@ -3734,8 +3706,8 @@ function _finishBubbleHoldAsTap(block){
         if(_checklistAllDone(t)){t.done=true;save();onTaskDone(t.id);}
         else {save();onTaskTimeDone(t);}
       } else {
-        // First tap paused the task; restore running state through the credit
-        // so the user keeps working without an extra tap to resume.
+        // The first tap toggled running. Force it on so the credit always
+        // lands on "task is working" — that's the user's intent.
         t.rem=t.workDur;t.isRest=false;
         t.running=true;t.savedAt=Date.now();t._phaseStart=Date.now();
         save();
@@ -3747,9 +3719,7 @@ function _finishBubbleHoldAsTap(block){
     }
     return;
   }
-  // Capture pre-toggle running state so a follow-up tap within the double-tap
-  // window can decide whether crediting a block makes sense.
-  _lastTapByTask[t.id]={t:now,wasRunning:!!t.running};
+  _lastTapByTask[t.id]={t:now};
   // Single tap — fires immediately. tapCard handles unskip-on-tap.
   if(t.skipped){t.skipped=false;save();activeTaskBlocks.length=0;return;}
   popTaskBlock(block);
