@@ -3493,7 +3493,7 @@ function _ensureDragHints(){
   if(!bot){
     bot=document.createElement('div');
     bot.id='drag-hint-bottom';
-    bot.style.cssText='position:fixed;left:0;right:0;bottom:0;height:72px;display:flex;align-items:center;justify-content:center;font-family:var(--fs);font-weight:800;font-size:13px;letter-spacing:.08em;text-transform:uppercase;z-index:8;pointer-events:none;background:linear-gradient(to top,rgba(46,158,106,0.0),transparent);color:transparent;text-shadow:0 1px 3px rgba(0,0,0,0.35),0 0 12px rgba(0,0,0,0.25);transition:background .18s,color .18s,transform .18s;transform:translateY(10px)';
+    bot.style.cssText='position:fixed;left:0;right:0;bottom:0;height:72px;display:flex;align-items:center;justify-content:center;font-family:var(--fs);font-weight:800;font-size:13px;letter-spacing:.08em;text-transform:uppercase;z-index:8;pointer-events:none;background:linear-gradient(to top,rgba(46,158,106,0.0),transparent);color:transparent;text-shadow:0 1px 3px rgba(0,0,0,0.35),0 0 12px rgba(0,0,0,0.25);transition:background .18s,color .18s,opacity .18s,transform .18s;opacity:0;transform:translateY(10px)';
     bot.textContent='✓ mark as complete';
     document.body.appendChild(bot);
   }
@@ -3501,7 +3501,7 @@ function _ensureDragHints(){
   if(!lft){
     lft=document.createElement('div');
     lft.id='drag-hint-left';
-    lft.style.cssText='position:fixed;left:0;top:64px;bottom:72px;width:72px;display:flex;align-items:center;justify-content:center;font-family:var(--fs);font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;z-index:8;pointer-events:none;background:linear-gradient(to right,rgba(168,158,146,0.0),transparent);color:transparent;text-shadow:0 1px 3px rgba(0,0,0,0.35),0 0 12px rgba(0,0,0,0.25);transition:background .18s,color .18s,transform .18s;transform:translateX(-8px)';
+    lft.style.cssText='position:fixed;left:0;top:64px;bottom:72px;width:72px;display:flex;align-items:center;justify-content:center;font-family:var(--fs);font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;z-index:8;pointer-events:none;background:linear-gradient(to right,rgba(168,158,146,0.0),transparent);color:transparent;text-shadow:0 1px 3px rgba(0,0,0,0.35),0 0 12px rgba(0,0,0,0.25);transition:background .18s,color .18s,opacity .18s,transform .18s;opacity:0;transform:translateX(-8px)';
     lft.textContent='← skip';
     document.body.appendChild(lft);
   }
@@ -3509,7 +3509,7 @@ function _ensureDragHints(){
   if(!rgt){
     rgt=document.createElement('div');
     rgt.id='drag-hint-right';
-    rgt.style.cssText='position:fixed;right:0;top:64px;bottom:72px;width:72px;display:flex;align-items:center;justify-content:center;font-family:var(--fs);font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;z-index:8;pointer-events:none;background:linear-gradient(to left,rgba(74,158,186,0.0),transparent);color:transparent;text-shadow:0 1px 3px rgba(0,0,0,0.35),0 0 12px rgba(0,0,0,0.25);transition:background .18s,color .18s,transform .18s;transform:translateX(8px)';
+    rgt.style.cssText='position:fixed;right:0;top:64px;bottom:72px;width:72px;display:flex;align-items:center;justify-content:center;font-family:var(--fs);font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;z-index:8;pointer-events:none;background:linear-gradient(to left,rgba(74,158,186,0.0),transparent);color:transparent;text-shadow:0 1px 3px rgba(0,0,0,0.35),0 0 12px rgba(0,0,0,0.25);transition:background .18s,color .18s,opacity .18s,transform .18s;opacity:0;transform:translateX(8px)';
     rgt.textContent='+1 block →';
     document.body.appendChild(rgt);
   }
@@ -3518,7 +3518,7 @@ function _ensureDragHints(){
     top=document.createElement('div');
     top.id='drag-hint-top';
     // Sits below the header — drag bubble here to rewind today's progress.
-    top.style.cssText='position:fixed;left:0;right:0;top:60px;height:72px;display:flex;align-items:center;justify-content:center;font-family:var(--fs);font-weight:800;font-size:13px;letter-spacing:.08em;text-transform:uppercase;z-index:8;pointer-events:none;background:linear-gradient(to bottom,rgba(200,132,26,0.0),transparent);color:transparent;text-shadow:0 1px 3px rgba(0,0,0,0.35),0 0 12px rgba(0,0,0,0.25);transition:background .18s,color .18s,transform .18s;transform:translateY(-10px)';
+    top.style.cssText='position:fixed;left:0;right:0;top:60px;height:72px;display:flex;align-items:center;justify-content:center;font-family:var(--fs);font-weight:800;font-size:13px;letter-spacing:.08em;text-transform:uppercase;z-index:8;pointer-events:none;background:linear-gradient(to bottom,rgba(200,132,26,0.0),transparent);color:transparent;text-shadow:0 1px 3px rgba(0,0,0,0.35),0 0 12px rgba(0,0,0,0.25);transition:background .18s,color .18s,opacity .18s,transform .18s;opacity:0;transform:translateY(-10px)';
     top.textContent='↻ reset today';
     document.body.appendChild(top);
   }
@@ -3529,6 +3529,11 @@ function _ensureDragHints(){
 function _updateDragHints(clientY,clientX){
   const {bot,lft,rgt,top}=_ensureDragHints();
   const vh=window.innerHeight, vw=window.innerWidth;
+  // Restore opacity + shadow if a previous _hideDragHints retired them.
+  // Animating opacity instead of color avoids the mobile-Chrome ghosting where
+  // a promoted compositor layer stays visible after color → transparent.
+  const _shadow='0 1px 3px rgba(0,0,0,0.35),0 0 12px rgba(0,0,0,0.25)';
+  [bot,lft,rgt,top].forEach(el=>{el.style.opacity='1';el.style.textShadow=_shadow;});
   // Top band — reset for today (warm amber, sits below header)
   const topZoneEnd=Math.max(132,vh*0.18); // commit zone, clamped for short viewports
   const topWarmupStart=Math.max(170,vh*0.30);
@@ -3582,12 +3587,17 @@ function _updateDragHints(clientY,clientX){
   }
 }
 function _hideDragHints(){
+  // Mobile Chrome keeps a stale compositor layer when only background/color
+  // transition; the text-shadow halo also persists when color goes transparent.
+  // Drop opacity to 0 and clear text-shadow so the element fully retires.
   const ids=['drag-hint-bottom','drag-hint-left','drag-hint-right','drag-hint-top'];
   ids.forEach(id=>{
     const el=document.getElementById(id);
     if(!el)return;
     el.style.background=el.style.background.replace(/rgba\([^)]+\)/g,'rgba(0,0,0,0)');
     el.style.color='transparent';
+    el.style.textShadow='none';
+    el.style.opacity='0';
     if(id==='drag-hint-bottom')el.style.transform='translateY(10px)';
     if(id==='drag-hint-left')el.style.transform='translateX(-8px)';
     if(id==='drag-hint-right')el.style.transform='translateX(8px)';
