@@ -3641,14 +3641,19 @@ function _finishBubbleHoldAsTap(block){
       const bClientX=b.x/dpr, bClientY=b.y/dpr;
       const edgePx=vw*_EDGE_PCT;
       const topZoneEnd=Math.max(132,vh*0.18);
-      // Intent gating: a zone only commits if the bubble was DRAGGED into it
-      // from outside. Otherwise — say, water is low and the bubble naturally
-      // bobs in the bottom band — a press-with-tremor would falsely commit.
+      // Intent gating via displacement: a zone commits only if the bubble was
+      // moved at least DRAG_COMMIT_MIN CSS px in the matching direction AND
+      // ended in the zone. Using start-outside-zone instead would falsely
+      // block drag-to-bottom when water is low and the bubble naturally bobs
+      // in the commit zone — there's nowhere "outside" to start. A noticeable
+      // displacement is the actual intent signal.
+      const DRAG_COMMIT_MIN=30;
       const startX=_bubbleHold.startX, startY=_bubbleHold.startY;
-      const movedIntoTop=startY>=topZoneEnd&&bClientY<topZoneEnd;
-      const movedIntoBottom=startY<=vh*0.85&&bClientY>vh*0.85;
-      const movedIntoLeft=startX>=edgePx&&bClientX<edgePx;
-      const movedIntoRight=startX<=vw-edgePx&&bClientX>vw-edgePx;
+      const dx=bClientX-startX, dy=bClientY-startY;
+      const movedIntoTop=(-dy)>DRAG_COMMIT_MIN&&bClientY<topZoneEnd;
+      const movedIntoBottom=dy>DRAG_COMMIT_MIN&&bClientY>vh*0.85;
+      const movedIntoLeft=(-dx)>DRAG_COMMIT_MIN&&bClientX<edgePx;
+      const movedIntoRight=dx>DRAG_COMMIT_MIN&&bClientX>vw-edgePx;
       // ── Drag-to-top band → reset today's progress ─────────────────────
       if(movedIntoTop){
         resetTask(t);
@@ -3705,14 +3710,18 @@ function _finishBubbleHoldAsTap(block){
   if(!t)return;
   if(t.done)return; // done bubbles: tap is a no-op (long-press still edits)
   // ── Double-tap detection: second tap within 350ms credits a block ──
+  // Only fires when the task was running at first-tap time. Crediting a block
+  // on a paused task makes no sense — you weren't working.
   const now=performance.now();
-  const last=_lastTapByTask[t.id]||0;
-  if(now-last<_DBL_TAP_MS){
-    _lastTapByTask[t.id]=0;
-    // Undo the single-tap effect from the first tap (revert running state)
-    if(t.running!==undefined){
-      // Whatever the first tap toggled, flip back. tapCard already ran.
-      // Simpler: just trust tapCard happened, then credit a block on top.
+  const last=_lastTapByTask[t.id];
+  const lastT=last?last.t:0;
+  if(now-lastT<_DBL_TAP_MS){
+    _lastTapByTask[t.id]=null;
+    if(!last||!last.wasRunning){
+      // Double-tap on a paused task: don't credit. Don't run the second
+      // tapCard either — it would toggle off the task the first tap started,
+      // leaving the user back where they began. Better to land on "running."
+      return;
     }
     // Credit one block
     if(t.completed<t.total){
@@ -3722,18 +3731,22 @@ function _finishBubbleHoldAsTap(block){
         if(_checklistAllDone(t)){t.done=true;save();onTaskDone(t.id);}
         else {save();onTaskTimeDone(t);}
       } else {
+        // First tap paused the task; restore running state through the credit
+        // so the user keeps working without an extra tap to resume.
         t.rem=t.workDur;t.isRest=false;
-        if(t.savedAt)t.savedAt=Date.now();
-        if(t._phaseStart)t._phaseStart=Date.now();
+        t.running=true;t.savedAt=Date.now();t._phaseStart=Date.now();
         save();
         onSubBlockDone(t.id);
+        ensureTicker();
       }
       activeTaskBlocks.length=0; // respawn so size + markers update
       haptic([20,30,50]);
     }
     return;
   }
-  _lastTapByTask[t.id]=now;
+  // Capture pre-toggle running state so a follow-up tap within the double-tap
+  // window can decide whether crediting a block makes sense.
+  _lastTapByTask[t.id]={t:now,wasRunning:!!t.running};
   // Single tap — fires immediately. tapCard handles unskip-on-tap.
   if(t.skipped){t.skipped=false;save();activeTaskBlocks.length=0;return;}
   popTaskBlock(block);
