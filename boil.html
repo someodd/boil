@@ -46,7 +46,7 @@
     body{background:var(--bg);color:var(--text);font-family:var(--fs);display:flex;flex-direction:column;height:100dvh;overflow:hidden;align-items:center;user-select:none;-webkit-user-select:none}
     .app-wrap{width:100%;max-width:680px;display:flex;flex-direction:column;flex:1;overflow:hidden;position:relative}
 
-    /* ── HEADER (logo | daybar | gear) ──────────────────────── */
+    /* ── HEADER (logo | daybar | menu) ──────────────────────── */
     .hdr{
       width:100%;max-width:680px;
       padding:10px 12px;
@@ -60,16 +60,27 @@
       position:relative;z-index:2;
       box-sizing:border-box;
     }
-    /* Gear button — circular icon */
+    /* Header menu button — circular icon (hamburger) */
     .profile-pill{
       width:34px;height:34px;border-radius:50%;
       background:var(--card);border:1.5px solid var(--brd);
       display:flex;align-items:center;justify-content:center;
-      font-size:16px;line-height:1;
+      font-size:18px;line-height:1;
       cursor:pointer;transition:all .14s;flex-shrink:0;padding:0;
     }
     .profile-pill:hover{background:var(--brd)}
     .profile-pill:active{transform:scale(.9)}
+    /* Menu sheet rows — large tap targets for the consolidated header menu */
+    .menu-row{display:flex;align-items:center;gap:14px;width:100%;background:var(--bg);border:2px solid var(--brd);color:var(--ink);font-family:var(--fs);font-size:15px;font-weight:600;padding:12px 14px;border-radius:14px;cursor:pointer;text-align:left;margin-bottom:10px;transition:border-color .14s,transform .12s}
+    .menu-row:hover{border-color:var(--mid)}
+    .menu-row:active{transform:scale(.98)}
+    .menu-ico{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--card);border:1.5px solid var(--brd);font-size:18px;flex-shrink:0;color:var(--ink)}
+    .menu-ico.menu-ico-add{background:var(--ink);color:#fff;border-color:var(--ink);font-size:22px}
+    .menu-row .menu-label{flex:1}
+    .menu-row .menu-sub{display:block;font-size:11px;font-weight:500;color:var(--dim);margin-top:1px}
+    /* Toggle row variant — same shape as menu-row but holds a switch on the right */
+    .menu-row.menu-tog{padding:10px 14px}
+    .menu-row.menu-tog .tog{margin-left:auto}
     .logo{
       font-family:var(--fd);font-size:21px;font-weight:800;
       color:var(--ink);letter-spacing:-.03em;
@@ -143,20 +154,6 @@
       animation:dayDone 3.8s ease forwards;
     }
     .day-done-sub{font-size:22px;opacity:.65;font-weight:700;display:block;margin-top:4px}
-    /* ── FAB ───────────────────────────── */
-    /* Add-task button — header-resident, sits next to the gear */
-    .fab{
-      width:34px;height:34px;border-radius:50%;
-      background:var(--ink);color:#fff;border:none;
-      font-size:22px;line-height:1;
-      cursor:pointer;display:flex;align-items:center;justify-content:center;
-      flex-shrink:0;padding:0;
-      transition:transform .14s,background .14s,box-shadow .14s;
-      box-shadow:0 1px 3px rgba(28,25,23,.18);
-    }
-    .fab:hover{background:#000;transform:scale(1.06)}
-    .fab:active{transform:scale(.9)}
-
     /* ── SHEET ─────────────────────────── */
     .ov{position:fixed;inset:0;background:rgba(0,0,0,0);z-index:200;display:flex;align-items:flex-end;transition:background .25s;pointer-events:none}
     .ov.open{background:rgba(0,0,0,.42);pointer-events:all}
@@ -218,9 +215,10 @@
     .bp:active{opacity:.8}
     .bs{flex:1;background:none;color:var(--mid);border:2px solid var(--brd);padding:14px;border-radius:12px;font-size:14px;font-family:var(--fs);font-weight:700;cursor:pointer}
     .bd{background:none;color:#c0453a;border:2px solid rgba(192,69,58,.25);padding:14px 16px;border-radius:12px;font-size:14px;font-family:var(--fs);font-weight:700;cursor:pointer}
-    .conf-ask{background:color-mix(in srgb,#c0453a 8%,var(--card));border:2px solid color-mix(in srgb,#c0453a 20%,var(--brd));border-radius:12px;padding:13px;margin-top:12px}
-    .conf-ask p{font-size:13px;color:var(--text);font-weight:700;margin-bottom:10px}
-    .conf-ask .sh-btns{margin-top:0}
+    /* Inline confirm — sticky button bar morphs into a danger-tinted question.
+       Keeps the prompt where the user just tapped, instead of appended below. */
+    .sh-btns.is-conf{background:color-mix(in srgb,#c0453a 9%,var(--bg));border-top:2px solid color-mix(in srgb,#c0453a 28%,var(--brd));border-radius:10px 10px 0 0;padding:12px 10px 6px}
+    .conf-q{flex:1 1 100%;font-size:13px;font-weight:700;color:var(--text);text-align:center;padding:0 4px 6px;letter-spacing:.01em}
 
     @keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 
@@ -461,13 +459,12 @@
   <div class="logo" id="logo-tap">boil<div class="logo-dot" id="logo-dot"></div></div>
   <div class="daybar" id="daybar" onclick="openFinishDay()" title="Today's blocks"></div>
   <span id="bs-indicator" style="font-size:12px;color:var(--dim);display:none">⚡</span>
-  <button class="profile-pill" onclick="openProfile()" id="profile-pill" title="Settings">⚙</button>
-  <button class="fab" onclick="openAdd()" title="Add task">+</button>
+  <button class="profile-pill" onclick="openMenu()" id="menu-btn" title="Menu" aria-label="Menu">☰</button>
 </div>
 
 <canvas id="bg-canvas"></canvas>
 <div class="app-wrap">
-<div id="empty-hint" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;font-family:var(--fs);font-size:14px;font-weight:600;color:var(--dim);max-width:240px;line-height:1.6;display:none;pointer-events:none;z-index:3">nothing to boil yet.<br>tap <b style="font-weight:800;color:var(--ink)">+</b> at the top right to add a task</div>
+<div id="empty-hint" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;font-family:var(--fs);font-size:14px;font-weight:600;color:var(--dim);max-width:240px;line-height:1.6;display:none;pointer-events:none;z-index:3">nothing to boil yet.<br>tap <b style="font-weight:800;color:var(--ink)">☰</b> at the top right to add a task</div>
 <div id="steam-banner" style="display:none"></div>
 </div><!-- /app-wrap -->
 <div class="ov" id="ov" onclick="ovClick(event)">
@@ -746,6 +743,7 @@ function defaults(){
     batterySaver:false,
     muteAll:false,
     muteWater:false,
+    showHidden:false,
     continuous:true,
     streak:0,
     lastCompletedDate:'',
@@ -845,6 +843,7 @@ function boot(){
   if(S.batterySaver===undefined)S.batterySaver=false;
   if(S.muteAll===undefined)S.muteAll=false;
   if(S.muteWater===undefined)S.muteWater=false;
+  if(S.showHidden===undefined)S.showHidden=false;
   if(S.lastActiveId===undefined)S.lastActiveId=null;
   if(S.history===undefined)S.history=[];
   S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;if(t.desc===undefined)t.desc='';if(t.continuous===undefined)t.continuous=!!S.continuous;if(t.skipped===undefined)t.skipped=false;if(t.checklist===undefined)t.checklist=[];if(t._timeDoneFiredAt===undefined)t._timeDoneFiredAt=null;});
@@ -1307,6 +1306,40 @@ function ensureDaybar(){
 function stopDaybar(){if(_daybarIv){clearInterval(_daybarIv);_daybarIv=null;}}
 ensureDaybar();
 
+
+// Header menu — consolidates add-task, settings, and the show-hidden toggle.
+// The show-hidden row appears only when at least one task is filtered out today,
+// so the menu stays quiet when there's nothing to reveal.
+function openMenu(){
+  const hiddenCount=S&&S.tasks?S.tasks.filter(t=>!taskVisibleToday(t)).length:0;
+  const hiddenRow=hiddenCount>0
+    ? `<div class="menu-row menu-tog" onclick="toggleShowHidden();closeSheet()" role="button" tabindex="0">
+         <span class="menu-ico">👁</span>
+         <span class="menu-label">Show hidden tasks<span class="menu-sub">${hiddenCount} not scheduled today</span></span>
+         <span class="tog${S.showHidden?' on':''}" aria-hidden="true"></span>
+       </div>`
+    : '';
+  openSheet(`
+    <div class="sh-ttl">menu</div>
+    <div class="menu-row" onclick="closeSheet();setTimeout(openAdd,80)" role="button" tabindex="0">
+      <span class="menu-ico menu-ico-add">+</span>
+      <span class="menu-label">Add task<span class="menu-sub">A new thing to boil</span></span>
+    </div>
+    <div class="menu-row" onclick="closeSheet();setTimeout(openProfile,80)" role="button" tabindex="0">
+      <span class="menu-ico">⚙</span>
+      <span class="menu-label">Settings<span class="menu-sub">Schedule, sound, your data</span></span>
+    </div>
+    ${hiddenRow}
+    <div class="sh-btns"><button class="bs" onclick="closeSheet()">close</button></div>
+  `);
+}
+function toggleShowHidden(){
+  S.showHidden=!S.showHidden;
+  save();
+  activeTaskBlocks.length=0;
+  render();
+  showToast(S.showHidden?'👁 Showing hidden tasks':'Hidden tasks tucked away','#3d3530',1500);
+}
 
 function openProfile(){
   openSheet(`
@@ -2576,7 +2609,10 @@ function spawnTaskBlocks(W,fillY){
   activeTaskBlocks.length=0;
   if(!S||!S.tasks||!S.tasks.length)return;
   const dpr=_bgDpr();
-  const visible=S.tasks.filter(taskVisibleToday);
+  // showHidden expands the field to include not-today tasks, marked isHidden so
+  // the renderer/tap-router can treat them as display-only ghosts. Stats stay
+  // anchored to taskVisibleToday — the toggle is a viewing mode, not a plan edit.
+  const visible=S.tasks.filter(t=>taskVisibleToday(t)||S.showHidden);
   if(!visible.length)return;
   const activeT=_activeTaskForBubble();
   const activeId=activeT?activeT.id:null;
@@ -2614,6 +2650,7 @@ function spawnTaskBlocks(W,fillY){
       y:sp?.y ?? fillY-sz*0.3,
       vy:0,rot:0,bobPhase:Math.random()*Math.PI*2,
       isActive:false,isSunken:false,
+      isHidden:!taskVisibleToday(t),
       userPlaced:!!sp?.userPlaced,
     });
   });
@@ -2868,9 +2905,11 @@ function drawTaskBlocks(ctx){
 
     // Inactive bubbles fade when there's a running task — focus on the active one
     // Skipped bubbles are ghosted further (drift but minimally present)
+    // Hidden (not-today) bubbles are ghosted even more — present but clearly off-roster
     const stalled=isStalled(t);
     let alpha=f.isActive?1.0:(hasActive?0.45:1.0);
     if(f.isSkipped)alpha=0.22;
+    if(f.isHidden)alpha*=0.45;
     // Active bubble heartbeat: scale pulse on each timer tick
     let pulseScale=1;
     if(f.isActive&&t.running&&t._tickT){
@@ -2926,11 +2965,13 @@ function drawTaskBlocks(ctx){
         ctx.lineCap='butt';
       }
     } else {
-      // Inactive: thin clean outline
+      // Inactive: thin clean outline (dashed for hidden — visually quiet, "not for today")
       ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);
       ctx.strokeStyle=f.color+(isHover?'ff':'aa');
       ctx.lineWidth=(isHover?2.4:1.5)*dpr;
+      if(f.isHidden){ctx.setLineDash([4*dpr,3*dpr]);}
       ctx.stroke();
+      if(f.isHidden){ctx.setLineDash([]);}
     }
 
     // Emoji (dimmed in stalled state — task identity quieted while waiting on items)
@@ -2940,8 +2981,8 @@ function drawTaskBlocks(ctx){
       ctx.drawImage(emojiImg,-f.size*0.275,-f.size*0.275,f.size*0.55,f.size*0.55);
       if(stalled)ctx.restore();
     }
-    // Name label (skipped bubbles get no name — keep them quiet)
-    if(!f.isSkipped){
+    // Name label (skipped + hidden bubbles get no name — keep them quiet)
+    if(!f.isSkipped&&!f.isHidden){
       ctx.textAlign='center';ctx.textBaseline='top';
       const fontSize=Math.max(9,Math.round(f.size*0.18));
       ctx.font=`700 ${fontSize}px "Plus Jakarta Sans",sans-serif`;
@@ -3671,6 +3712,13 @@ function _finishBubbleHoldAsTap(block){
   if(_bubbleHold&&_bubbleHold.dragging){
     const b=activeTaskBlocks.find(x=>x.taskId===_bubbleHold.taskId);
     const t=b?S.tasks.find(x=>x.id===b.taskId):null;
+    // Hidden (off-day) bubbles: drag is inert. They're display-only — let the
+    // bubble bounce back without committing a zone action.
+    if(b&&t&&!taskVisibleToday(t)){
+      b.beingDragged=false;b.userPlaced=true;
+      _cancelBubbleHold();
+      return;
+    }
     if(b&&t){
       b.beingDragged=false;
       const dpr=_bgDpr();
@@ -3778,6 +3826,9 @@ function _finishBubbleHoldAsTap(block){
   const t=S.tasks.find(x=>x.id===block.taskId);
   if(!t)return;
   if(t.done)return; // done bubbles: tap is a no-op (long-press still edits)
+  // Hidden (off-day) bubble: tap opens edit so the user can change days
+  // deliberately, instead of silently starting a task that's not in today's plan.
+  if(!taskVisibleToday(t)){openEdit(t.id);return;}
   // Single tap — fires immediately. Drag-to-right credits a block instead
   // (more reliable than double-tap on touch devices).
   if(t.skipped){t.skipped=false;save();activeTaskBlocks.length=0;return;}
@@ -4903,15 +4954,33 @@ function openAdd(simple){
 }
 function openEdit(id){const t=S.tasks.find(x=>x.id===id);if(!t)return;pickedCol=t.color;pickedEmoji=t.emoji;openSheet(`<div class="sh-ttl">Edit task</div>${taskForm(t)}<div class="sh-btns"><button class="bd" onclick="confirmDel('${id}')">Delete</button><button class="bs" onclick="closeSheet()">Cancel</button><button class="bp" onclick="saveTask('${id}')">Save</button></div>`);}
 
+function _swapSheetBtns(html){
+  const btns=document.querySelector('#sb > .sh-btns');
+  if(!btns)return;
+  if(btns.dataset.origHtml===undefined)btns.dataset.origHtml=btns.innerHTML;
+  btns.innerHTML=html;
+  btns.classList.add('is-conf');
+}
+function _restoreSheetBtns(){
+  const btns=document.querySelector('#sb > .sh-btns');
+  if(!btns||btns.dataset.origHtml===undefined)return;
+  btns.innerHTML=btns.dataset.origHtml;
+  delete btns.dataset.origHtml;
+  btns.classList.remove('is-conf');
+}
 function confirmDel(id){
-  const conf=document.createElement('div');conf.className='conf-ask';
-  conf.innerHTML=`<p>Delete this task?</p><div class="sh-btns"><button class="bs" onclick="this.closest('.conf-ask').remove()">No</button><button class="bd" onclick="delTask('${id}')">Yes, delete</button></div>`;
-  document.getElementById('sb').appendChild(conf);
+  _swapSheetBtns(
+    `<div class="conf-q">Delete this task?</div>`+
+    `<button class="bs" onclick="_restoreSheetBtns()">No</button>`+
+    `<button class="bd" onclick="delTask('${id}')">Yes, delete</button>`
+  );
 }
 function confirmResetToday(id){
-  const conf=document.createElement('div');conf.className='conf-ask';
-  conf.innerHTML=`<p>Reset today's progress for this block?</p><div class="sh-btns"><button class="bs" onclick="this.closest('.conf-ask').remove()">No</button><button class="bd" onclick="resetTaskToday('${id}')">Yes, reset</button></div>`;
-  document.getElementById('sb').appendChild(conf);
+  _swapSheetBtns(
+    `<div class="conf-q">Reset today's progress?</div>`+
+    `<button class="bs" onclick="_restoreSheetBtns()">No</button>`+
+    `<button class="bd" onclick="resetTaskToday('${id}')">Yes, reset</button>`
+  );
 }
 function resetTaskToday(id){
   const t=S.tasks.find(x=>x.id===id);
