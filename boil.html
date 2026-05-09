@@ -2131,8 +2131,12 @@ function onTaskDone(id){
     showToast(`⭐ ${_dm}`,'#c8841a',2200);
     haptic([8,30,8,30,60]);
   }
-  bgWaveState.targetFill=0;bgWaveState.fill=0;bgWaveState.active=false;bgWaveState.ambient=false;activeFloaters.length=0;if(bgHF.h)bgHF.h.fill(0);if(bgHF.v)bgHF.v.fill(0);
-  const bgc=document.getElementById('bg-canvas');if(bgc)bgc.classList.remove('active');
+  // Don't wipe the water. Let updateSiteWave (via fastUpdateAll) transition to
+  // ambient if the day's still active — the surface settles, the volleyball
+  // can spawn as the day's reward. Wiping made the screen look broken and
+  // killed the spawn path that depends on `bgWaveState.ambient` being true.
+  activeFloaters.length=0; // clear so the spawn check re-evaluates with current state
+  fastUpdateAll();
   const t=S.tasks.find(x=>x.id===id);
   // POP: bubble bursts, emoji will then sink to bottom on next spawn
   const pos=_bubbleScreenPos(id);
@@ -2277,7 +2281,8 @@ function updateLogoDot(){
   const r=S.tasks.find(t=>t.running);
   const dot=document.getElementById('logo-dot');
   if(!dot)return;
-  const newCol=r?r.color:'#c8841a';
+  // Running: task color (live indicator). Idle: muted warm tone — "boil at rest."
+  const newCol=r?r.color:'#a89e92';
   if(dot.style.background!==newCol){dot.style.background=newCol;dot.classList.remove('pulse');void dot.offsetWidth;dot.classList.add('pulse');}
 }
 
@@ -3487,13 +3492,36 @@ function _ensureDragHints(){
     rgt.textContent='skip →';
     document.body.appendChild(rgt);
   }
-  return {bot,lft,rgt};
+  let top=document.getElementById('drag-hint-top');
+  if(!top){
+    top=document.createElement('div');
+    top.id='drag-hint-top';
+    // Sits below the header — drag bubble here to rewind today's progress.
+    top.style.cssText='position:fixed;left:0;right:0;top:60px;height:72px;display:flex;align-items:center;justify-content:center;font-family:var(--fs);font-weight:800;font-size:13px;letter-spacing:.08em;text-transform:uppercase;z-index:8;pointer-events:none;background:linear-gradient(to bottom,rgba(200,132,26,0.0),transparent);color:transparent;transition:background .18s,color .18s,transform .18s;transform:translateY(-10px)';
+    top.textContent='↻ reset today';
+    document.body.appendChild(top);
+  }
+  return {bot,lft,rgt,top};
 }
 // _updateDragHints is called both on drag-start (so all bands surface immediately)
 // and on every move (so brightness tracks bubble position).
 function _updateDragHints(clientY,clientX){
-  const {bot,lft,rgt}=_ensureDragHints();
+  const {bot,lft,rgt,top}=_ensureDragHints();
   const vh=window.innerHeight, vw=window.innerWidth;
+  // Top band — reset for today (warm amber, sits below header)
+  const topZoneEnd=Math.max(132,vh*0.18); // commit zone, clamped for short viewports
+  const topWarmupStart=Math.max(170,vh*0.30);
+  if(clientY<topZoneEnd){
+    top.style.background='linear-gradient(to bottom,rgba(200,132,26,0.55),rgba(200,132,26,0.10))';
+    top.style.color='#fff';
+    top.style.transform='translateY(0)';
+  } else {
+    const inWarmup=clientY<topWarmupStart;
+    const frac=inWarmup?1-(clientY-topZoneEnd)/(topWarmupStart-topZoneEnd):0;
+    top.style.background=`linear-gradient(to bottom,rgba(200,132,26,${(0.06+0.14*frac).toFixed(2)}),transparent)`;
+    top.style.color=`rgba(200,132,26,${(0.30+0.7*frac).toFixed(2)})`;
+    top.style.transform=`translateY(${(-6*(1-frac)).toFixed(1)}px)`;
+  }
   // Bottom band — completion target (green)
   if(clientY>vh*0.85){
     bot.style.background='linear-gradient(to top,rgba(46,158,106,0.55),rgba(46,158,106,0.10))';
@@ -3534,7 +3562,7 @@ function _updateDragHints(clientY,clientX){
   }
 }
 function _hideDragHints(){
-  const ids=['drag-hint-bottom','drag-hint-left','drag-hint-right'];
+  const ids=['drag-hint-bottom','drag-hint-left','drag-hint-right','drag-hint-top'];
   ids.forEach(id=>{
     const el=document.getElementById(id);
     if(!el)return;
@@ -3543,6 +3571,7 @@ function _hideDragHints(){
     if(id==='drag-hint-bottom')el.style.transform='translateY(10px)';
     if(id==='drag-hint-left')el.style.transform='translateX(-8px)';
     if(id==='drag-hint-right')el.style.transform='translateX(8px)';
+    if(id==='drag-hint-top')el.style.transform='translateY(-10px)';
   });
 }
 // Track per-task tap timing for double-tap detection
@@ -3557,6 +3586,9 @@ function _skipTaskAndFly(t,b,dirX,vyCss,dpr,vxCssOpt){
   if(S.lastActiveId===t.id)S.lastActiveId=null;
   clearBgNotifs();
   save();
+  // Transition water/UI now — otherwise the bg branch may turn off (no running
+  // task, ambient not yet enabled) and the volleyball never gets its spawn frame.
+  fastUpdateAll();
   // Carry whatever horizontal velocity exists, but minimum 24 raw px/frame
   // toward the edge so a slow drag-to-edge still flies off cleanly.
   const baseVx=(typeof vxCssOpt==='number'?vxCssOpt*dpr*1.5:0);
@@ -3592,6 +3624,23 @@ function _finishBubbleHoldAsTap(block){
       const vMagCss=Math.sqrt(vxCss*vxCss+vyCss*vyCss);
       const bClientX=b.x/dpr, bClientY=b.y/dpr;
       const edgePx=vw*_EDGE_PCT;
+      // ── Drag-to-top band → reset today's progress ─────────────────────
+      const topZoneEnd=Math.max(132,vh*0.18);
+      if(bClientY<topZoneEnd){
+        resetTask(t);
+        if(S.lastActiveId===t.id)S.lastActiveId=null;
+        delete _bubblePos[t.id];
+        clearBgNotifs();
+        save();
+        haptic([20,30,20]);
+        try{const now=ac().currentTime;tone(440,.10,.03,now);tone(330,.12,.025,now+0.06);}catch(e){}
+        showToast('↻ Reset for today.','#c8841a',1500);
+        activeTaskBlocks.length=0;
+        fastUpdateAll();
+        renderDaybar();updateLogoDot();
+        _cancelBubbleHold();
+        return;
+      }
       // ── Drag-to-bottom band → mark task entirely complete ─────────────
       if(bClientY>vh*0.85&&!t.done){
         t.completed=t.total;t.done=true;t.running=false;
