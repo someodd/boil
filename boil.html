@@ -735,8 +735,9 @@ function drawShootingStar(ctx,W,H,nA,dt){
 }
 const PAL=['#c0453a','#d4782a','#b59a1a','#3a9e6a','#2a8a8a','#4a78c0','#5b5cd6','#9b6bb5','#c06090','#8a6548'];
 const KEY='boil-v1'; // renamed from blocks-v7
-// Number of completion events between teardrops. Calibrated for ~10 days at
-// 4 blocks/day; a habit-heavy user may cycle faster, which is fine.
+// Default number of completion events between teardrops. User-tunable as
+// S.vaporCycleLen in Settings; this constant is the fallback when the
+// stored value is missing or invalid.
 const VAPOR_CYCLE_LEN=40;
 
 // In-memory list of steam-clearing taps. Each entry: {x, y, born, life}.
@@ -745,12 +746,14 @@ const VAPOR_CYCLE_LEN=40;
 let _steamClears=[];
 function _steamBlow(tx,ty){
   if(!S||!S.vapor)return false;
-  if((S.vapor.progress||0)<=0.04)return false;
+  const N=Math.max(1,S.vaporCycleLen||VAPOR_CYCLE_LEN);
+  const p=Math.max(0,Math.min(1,(S.vapor.count||0)/N));
+  if(p<=0.04)return false;
   const dpr=_bgDpr();
   const H=window.innerHeight*dpr;
   // Generous zone — steam zone plus a small reach below so the blow feels
   // tangible if the user taps just under the cloud.
-  const ceilingDepth=H*(0.04+0.21*Math.sqrt(S.vapor.progress||0));
+  const ceilingDepth=H*(0.04+0.21*Math.sqrt(p));
   if(ty>ceilingDepth+40*dpr)return false;
   _steamClears.push({x:tx,y:ty,born:performance.now(),life:1400});
   if(_steamClears.length>24)_steamClears.shift();
@@ -767,7 +770,8 @@ function _steamBlow(tx,ty){
 // everywhere — no hard path edge, no inverted-water silhouette.
 function drawVaporWisp(ctx,W,H,now){
   if(!S||!S.vapor)return;
-  const p=Math.max(0,Math.min(1,S.vapor.progress||0));
+  const N=Math.max(1,S.vaporCycleLen||VAPOR_CYCLE_LEN);
+  const p=Math.max(0,Math.min(1,(S.vapor.count||0)/N));
   if(p<=0.005)return;
   const dpr=_bgDpr();
   const t=now*0.001;
@@ -1178,10 +1182,15 @@ function defaults(){
     seen:{},
     isTrial:isFirstRun,
     eco:{energy:0,peak:0,lastWorkDate:null},
-    // Vapor cycle reward: a wisp at the top of the pot grows with every
-    // completion event. At 1.0 a teardrop falls and rests on the floor.
-    // Growth pauses while a teardrop is resting. See boot() for migrations.
-    vapor:{progress:0,teardrop:null},
+    // Vapor cycle reward: a steam ceiling at the top of the pot fills with
+    // every completion event. At `vaporCycleLen` completions a teardrop
+    // falls and rests on the floor; growth pauses until claimed. The count
+    // is stored as an integer so changing vaporCycleLen at any time
+    // reweights the visible progress without losing any earned work.
+    vapor:{count:0,teardrop:null},
+    // How many completion events until the next teardrop. User-tunable in
+    // Settings; default 40.
+    vaporCycleLen:40,
     // User-curated promises that get claimed when a resting teardrop is tapped.
     wishes:[],
   };
@@ -1273,12 +1282,19 @@ function boot(){
   if(S.history===undefined)S.history=[];
   // Wishes — user-written promises the teardrop carries to you.
   if(!Array.isArray(S.wishes))S.wishes=[];
+  // Cycle length — number of completions per teardrop (user-tunable).
+  if(typeof S.vaporCycleLen!=='number'||!isFinite(S.vaporCycleLen)||S.vaporCycleLen<1)S.vaporCycleLen=40;
+  S.vaporCycleLen=Math.max(1,Math.min(200,Math.round(S.vaporCycleLen)));
   // Vapor cycle state. `teardrop` is one of: null | 'falling' | 'resting'.
-  // A 'falling' value can only exist mid-animation; on reload we snap straight
-  // to 'resting' so we don't replay the splash for a fall the user already saw.
-  if(!S.vapor||typeof S.vapor!=='object')S.vapor={progress:0,teardrop:null};
-  if(typeof S.vapor.progress!=='number'||!isFinite(S.vapor.progress))S.vapor.progress=0;
-  S.vapor.progress=Math.max(0,Math.min(1,S.vapor.progress));
+  // Count is stored as an integer; the visible cloud fills with count/len.
+  // Migration: old state stored a fraction in `progress` — translate it.
+  if(!S.vapor||typeof S.vapor!=='object')S.vapor={count:0,teardrop:null};
+  if(typeof S.vapor.count!=='number'||!isFinite(S.vapor.count)){
+    const frac=(typeof S.vapor.progress==='number'&&isFinite(S.vapor.progress))?Math.max(0,Math.min(1,S.vapor.progress)):0;
+    S.vapor.count=Math.round(frac*S.vaporCycleLen);
+  }
+  S.vapor.count=Math.max(0,Math.min(S.vaporCycleLen,Math.round(S.vapor.count)));
+  delete S.vapor.progress;
   if(S.vapor.teardrop==='falling')S.vapor.teardrop='resting';
   else if(S.vapor.teardrop!=='resting')S.vapor.teardrop=null;
   // One-shot salvage from the cube/island experiment: if the user wrote
@@ -1367,10 +1383,11 @@ function creditPartialAtMidnight(){
 function onCompletionEvent(t){
   if(!S||!S.vapor)return;
   if(S.vapor.teardrop)return;
-  const before=Math.max(0,Math.min(1,S.vapor.progress||0));
-  const next=Math.min(1,before+1/VAPOR_CYCLE_LEN);
-  S.vapor.progress=next;
-  if(before<1&&next>=1){
+  const N=Math.max(1,S.vaporCycleLen||VAPOR_CYCLE_LEN);
+  const before=Math.max(0,Math.min(N,S.vapor.count||0));
+  const next=Math.min(N,before+1);
+  S.vapor.count=next;
+  if(before<N&&next>=N){
     // Battery-saver / reduced-motion users skip the animation — the cloud
     // doesn't get to perform, the drop is simply there.
     if(isBatterySaver()){
@@ -1858,6 +1875,18 @@ function openProfile(){
         </div>
       </div>
       <div style="font-size:10px;color:var(--dim);margin-top:6px">Day ends at bedtime, resets at wake-up.</div>
+    </div>
+
+    <div class="form-group"><div class="form-group-label">Reward</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;gap:10px">
+        <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600;color:var(--ink)">💧 Blocks per teardrop</div><div style="font-size:11px;color:var(--dim);margin-top:1px">How many completions until your next wish</div></div>
+        <div style="display:flex;align-items:center;gap:0;background:var(--bg);border:1.5px solid var(--brd);border-radius:10px;overflow:hidden;flex-shrink:0">
+          <button type="button" onclick="_changeVaporLen(-5)" aria-label="decrease" style="background:none;border:none;color:var(--ink);font-family:var(--fs);font-size:18px;font-weight:800;width:36px;height:36px;cursor:pointer">−</button>
+          <div id="vapor-len-display" style="font-family:var(--fs);font-size:14px;font-weight:700;color:var(--ink);min-width:32px;text-align:center;font-variant-numeric:tabular-nums">${S.vaporCycleLen||40}</div>
+          <button type="button" onclick="_changeVaporLen(5)" aria-label="increase" style="background:none;border:none;color:var(--ink);font-family:var(--fs);font-size:18px;font-weight:800;width:36px;height:36px;cursor:pointer">+</button>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--dim);margin-top:6px" id="vapor-len-note">Current cloud: <b id="vapor-len-now">${Math.min((S.vapor&&S.vapor.count)||0,S.vaporCycleLen||40)}</b> / <b id="vapor-len-tot">${S.vaporCycleLen||40}</b>. Lowering this can release a drop immediately.</div>
     </div>
 
     <div class="form-group"><div class="form-group-label">Your data</div>
@@ -3497,7 +3526,11 @@ function drawTaskBlocks(ctx){
     }
     // Name label (skipped + hidden bubbles get no name — keep them quiet).
     // No-time bubbles also use the larger offset so the pip strip below has room.
-    const _showPips=((f.isActive||stalled)||(!t.hasTime&&!t.done))&&!t.done;
+    // No-time bubbles with an active checklist use the orbiting items AS the
+    // progress UI — showing pips below would be a redundant second counter
+    // pointing at the same thing. Hide pips for that case.
+    const _isRoutineMode=!t.hasTime&&t.checklist&&t.checklist.length>0&&t.checklist.some(c=>!c.done);
+    const _showPips=((f.isActive||stalled)||(!t.hasTime&&!t.done&&!_isRoutineMode))&&!t.done;
     if(!f.isSkipped&&!f.isHidden){
       ctx.textAlign='center';ctx.textBaseline='top';
       const fontSize=Math.max(9,Math.round(f.size*0.18));
@@ -4848,7 +4881,7 @@ function waveLoop(now){
   // Keep the loop alive while there's anything to render — running task,
   // active water, vapor wisp, or a resting drop. Otherwise rAF stops and the
   // wisp/drop visually freeze until the user touches something.
-  const _hasVapor=!!(S&&S.vapor&&((S.vapor.progress||0)>0.005||S.vapor.teardrop));
+  const _hasVapor=!!(S&&S.vapor&&((S.vapor.count||0)>0||S.vapor.teardrop));
   _anyContinue=anyRunning||bgWaveState.active||_hasVapor;_waveErrors=0;
   if(GOD_MODE&&_tiltRaw!==undefined){const td=document.getElementById('tilt-debug');if(td)td.textContent=`tilt: ${_tiltRaw===null?'NO DATA':_tiltRaw.toFixed(1)}° smooth: ${tiltSmooth.toFixed(1)} | sensors: ${_sensorsAttached?'ON':'OFF'}`;}
   }catch(e){console.error('waveLoop:',e);_waveErrors=(_waveErrors||0)+1;if(_waveErrors>10){_anyContinue=false;_waveErrors=0;}}
@@ -5481,6 +5514,34 @@ function stepperHtml(id,value,min,max){
     `<input type="hidden" id="${id}" value="${v}">`+
   `</div>`;
 }
+// Adjust S.vaporCycleLen (used by the Settings sheet). Live-updates the
+// "Current cloud" display below the stepper. If the new length is at or
+// below the current count, immediately spawns the drop (the user can
+// release a stockpiled cloud by lowering the bar).
+function _changeVaporLen(delta){
+  const cur=Math.max(5,Math.min(100,S.vaporCycleLen||40));
+  const next=Math.max(5,Math.min(100,cur+delta));
+  if(next===cur)return;
+  S.vaporCycleLen=next;
+  const disp=document.getElementById('vapor-len-display');
+  if(disp)disp.textContent=next;
+  const totEl=document.getElementById('vapor-len-tot');
+  if(totEl)totEl.textContent=next;
+  const nowEl=document.getElementById('vapor-len-now');
+  if(nowEl)nowEl.textContent=Math.min((S.vapor&&S.vapor.count)||0,next);
+  // If the cycle is already met by the existing count, release a drop now.
+  if(S.vapor&&(S.vapor.count||0)>=next&&!S.vapor.teardrop){
+    S.vapor.count=next;
+    S.vapor.teardrop=isBatterySaver()?'resting':'falling';
+    _dropAnim=null;
+    haptic([10,30,40]);
+    try{const ac0=ac();const _t=ac0.currentTime;tone(440,.12,.04,_t);tone(660,.14,.03,_t+0.08);}catch(e){}
+    if(S.vapor.teardrop==='resting')updateDropChip();
+  } else {
+    haptic([6]);
+  }
+  save();
+}
 function _stepperBump(id,dir){
   const wrap=document.querySelector(`.stepper[data-id="${id}"]`);
   if(!wrap)return;
@@ -5851,7 +5912,7 @@ function claimWish(wid){
   if(!w)return;
   // Reset cycle — vapor starts growing again from zero.
   S.vapor.teardrop=null;
-  S.vapor.progress=0;
+  S.vapor.count=0;
   _dropPhys=null;
   save();
   closeSheet();
