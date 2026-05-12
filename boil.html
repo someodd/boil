@@ -70,6 +70,14 @@
     }
     .profile-pill:hover{background:var(--brd)}
     .profile-pill:active{transform:scale(.9)}
+    /* Resting-teardrop indicator chip — sits between the daybar and the menu.
+       Shown only while S.vapor.teardrop === 'resting'. Bobs gently to draw the
+       eye without nagging. */
+    #drop-chip{display:none;cursor:pointer;font-size:20px;line-height:1;flex-shrink:0;padding:0 2px;filter:drop-shadow(0 0 6px rgba(255,210,140,0.55))}
+    #drop-chip.on{display:inline-flex;align-items:center;animation:dropChipBob 2.6s ease-in-out infinite}
+    #drop-chip:active{transform:scale(.88)}
+    @keyframes dropChipBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+    html.battery-saver #drop-chip.on{animation:none!important}
     /* Menu sheet rows — large tap targets for the consolidated header menu */
     .menu-row{display:flex;align-items:center;gap:14px;width:100%;background:var(--bg);border:2px solid var(--brd);color:var(--ink);font-family:var(--fs);font-size:15px;font-weight:600;padding:12px 14px;border-radius:14px;cursor:pointer;text-align:left;margin-bottom:10px;transition:border-color .14s,transform .12s}
     .menu-row:hover{border-color:var(--mid)}
@@ -459,6 +467,7 @@
   <div class="logo" id="logo-tap">boil<div class="logo-dot" id="logo-dot"></div></div>
   <div class="daybar" id="daybar" onclick="openFinishDay()" title="Today's blocks"></div>
   <span id="bs-indicator" style="font-size:12px;color:var(--dim);display:none">⚡</span>
+  <span id="drop-chip" onclick="openTeardropSheet()" title="A teardrop is resting" aria-label="Tap to claim your wish">💧</span>
   <button class="profile-pill" onclick="openMenu()" id="menu-btn" title="Menu" aria-label="Menu">☰</button>
 </div>
 
@@ -726,6 +735,416 @@ function drawShootingStar(ctx,W,H,nA,dt){
 }
 const PAL=['#c0453a','#d4782a','#b59a1a','#3a9e6a','#2a8a8a','#4a78c0','#5b5cd6','#9b6bb5','#c06090','#8a6548'];
 const KEY='boil-v1'; // renamed from blocks-v7
+// Number of completion events between teardrops. Calibrated for ~10 days at
+// 4 blocks/day; a habit-heavy user may cycle faster, which is fine.
+const VAPOR_CYCLE_LEN=40;
+
+// In-memory list of steam-clearing taps. Each entry: {x, y, born, life}.
+// Used by drawVaporWisp to punch fading holes in the ceiling — "blowing" on
+// the fog. Not persisted; clears self-prune when their life expires.
+let _steamClears=[];
+function _steamBlow(tx,ty){
+  if(!S||!S.vapor)return false;
+  if((S.vapor.progress||0)<=0.04)return false;
+  const dpr=_bgDpr();
+  const H=window.innerHeight*dpr;
+  // Generous zone — steam zone plus a small reach below so the blow feels
+  // tangible if the user taps just under the cloud.
+  const ceilingDepth=H*(0.04+0.21*Math.sqrt(S.vapor.progress||0));
+  if(ty>ceilingDepth+40*dpr)return false;
+  _steamClears.push({x:tx,y:ty,born:performance.now(),life:1400});
+  if(_steamClears.length>24)_steamClears.shift();
+  haptic([6]);
+  try{const ac0=ac();const _t=ac0.currentTime;tone(280,.14,.04,_t);tone(180,.18,.03,_t+0.04);}catch(e){}
+  return true;
+}
+
+// Vapor ceiling — fluffy steam pillowing at the top of the viewport. Built
+// from a dense linear gradient cap (the FLAT top pressed against the
+// ceiling) + several LARGE overlapping radial puffs hanging from the bottom
+// (the fluffy pillowy underside). The puff radii are sized to overlap so
+// they merge into one continuous body with naturally soft fluffy edges
+// everywhere — no hard path edge, no inverted-water silhouette.
+function drawVaporWisp(ctx,W,H,now){
+  if(!S||!S.vapor)return;
+  const p=Math.max(0,Math.min(1,S.vapor.progress||0));
+  if(p<=0.005)return;
+  const dpr=_bgDpr();
+  const t=now*0.001;
+  // Warm-white kettle steam.
+  const rC=252, gC=248, bC=238;
+  // Ceiling depth — 4% (faint wisp) → 25% (full pressed-against-ceiling cap).
+  const ceilingDepth=H*(0.04+0.21*Math.sqrt(p));
+  const baseAlpha=0.28+0.50*p;
+  // ── TOP CAP: linear gradient, densest at the very top (steam pressed
+  // against the ceiling), fading to 0 at the bottom of the ceiling band.
+  // This gives the FLAT top edge that real trapped steam has.
+  const cap=ctx.createLinearGradient(0,0,0,ceilingDepth);
+  cap.addColorStop(0.00,`rgba(${rC},${gC},${bC},${(baseAlpha*1.05).toFixed(3)})`);
+  cap.addColorStop(0.45,`rgba(${rC},${gC},${bC},${(baseAlpha*0.78).toFixed(3)})`);
+  cap.addColorStop(1.00,`rgba(${rC},${gC},${bC},0)`);
+  ctx.fillStyle=cap;
+  ctx.fillRect(0,0,W,ceilingDepth);
+  // ── FLUFFY UNDERSIDE: large radial puffs anchored low in the ceiling.
+  // Each puff's soft fade naturally creates the pillowy edge; their overlap
+  // creates a continuous body. Bigger and fewer than before so they merge
+  // instead of looking disparate.
+  const puffCount=Math.min(16,Math.floor(4+14*p));
+  for(let i=0;i<puffCount;i++){
+    const seed=i*7.3;
+    const fracX=(i+0.5)/puffCount;
+    const baseX=fracX*W+Math.sin(t*0.25+seed*0.31)*22*dpr;
+    // Anchor low in the ceiling so puff tops blend into the cap and bottoms
+    // form the fluffy edge.
+    const baseY=ceilingDepth*(0.65+0.20*Math.sin(t*0.40+seed*0.50));
+    // Radius — at least 85dpr so puffs always overlap at any reasonable W,
+    // plus variation. Don't scale with ceilingDepth so low-progress puffs
+    // are still pillowy-sized instead of tiny.
+    const puffR=(85+30*((i*0.37)%1))*dpr;
+    const breath=0.82+0.18*Math.sin(t*0.45+seed);
+    const puffA=baseAlpha*0.62*breath;
+    const g=ctx.createRadialGradient(baseX,baseY,0,baseX,baseY,puffR);
+    g.addColorStop(0,`rgba(${rC},${gC},${bC},${puffA.toFixed(3)})`);
+    g.addColorStop(0.50,`rgba(${rC},${gC},${bC},${(puffA*0.55).toFixed(3)})`);
+    g.addColorStop(1,`rgba(${rC},${gC},${bC},0)`);
+    ctx.fillStyle=g;
+    ctx.fillRect(baseX-puffR,baseY-puffR,puffR*2,puffR*2);
+  }
+  // ── CENTER SAG (past 50%): a denser puff hangs lower in the middle as
+  // the drop gathers mass. Same warm-white; just an extra dollop that
+  // visually swells the underside.
+  if(p>0.50){
+    const bellyX=W*0.5+Math.sin(t*0.3)*18*dpr;
+    const bellyY=ceilingDepth*(0.95+0.20*(p-0.50)*2);
+    const bellyR=ceilingDepth*0.85+30*dpr;
+    const bellyA=Math.min(0.55,(p-0.50)*1.0)*baseAlpha;
+    const g=ctx.createRadialGradient(bellyX,bellyY,0,bellyX,bellyY,bellyR);
+    g.addColorStop(0,`rgba(${rC},${gC},${bC},${bellyA.toFixed(3)})`);
+    g.addColorStop(0.55,`rgba(${rC},${gC},${bC},${(bellyA*0.55).toFixed(3)})`);
+    g.addColorStop(1,`rgba(${rC},${gC},${bC},0)`);
+    ctx.fillStyle=g;
+    ctx.fillRect(bellyX-bellyR,bellyY-bellyR,bellyR*2,bellyR*2);
+  }
+  // ── 100% WARM UNDER-GLOW: a broad uniform warm tint along the underside
+  // (not a localized dot) — the whole hem of the cloud catches the gold
+  // light of the gestating drop.
+  if(p>=1){
+    const flash=0.5+0.5*Math.abs(Math.sin(t*1.8));
+    const wy=ceilingDepth*0.95;
+    const wr=W*0.45;
+    const g=ctx.createRadialGradient(W*0.5,wy,0,W*0.5,wy,wr);
+    g.addColorStop(0,`rgba(255,220,160,${(0.18*flash).toFixed(3)})`);
+    g.addColorStop(0.55,`rgba(255,210,150,${(0.08*flash).toFixed(3)})`);
+    g.addColorStop(1,'rgba(255,210,150,0)');
+    ctx.fillStyle=g;
+    ctx.fillRect(W*0.5-wr,wy-wr,wr*2,wr*2);
+  }
+  // ── BLOW HOLES: punch fading transparent circles wherever the user has
+  // tapped recently. Uses destination-out compositing so the holes apply
+  // to the steam already drawn above, without affecting anything else on
+  // the canvas. Holes expand outward then fade — like blown breath
+  // dispersing fog. Steam regrows as new frames re-render the cloud.
+  if(_steamClears.length){
+    const nowMs=performance.now();
+    const survivors=[];
+    ctx.save();
+    ctx.globalCompositeOperation='destination-out';
+    for(let i=0;i<_steamClears.length;i++){
+      const c=_steamClears[i];
+      const age=nowMs-c.born;
+      if(age>=c.life)continue;
+      const sp=age/c.life;
+      // Expand outward over the lifetime; alpha fades so the steam
+      // returns naturally.
+      const r=(28+sp*70)*dpr;
+      const a=(1-sp)*0.88;
+      const g=ctx.createRadialGradient(c.x,c.y,0,c.x,c.y,r);
+      g.addColorStop(0,`rgba(0,0,0,${a.toFixed(3)})`);
+      g.addColorStop(0.65,`rgba(0,0,0,${(a*0.45).toFixed(3)})`);
+      g.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=g;
+      ctx.fillRect(c.x-r,c.y-r,r*2,r*2);
+      survivors.push(c);
+    }
+    ctx.restore();
+    _steamClears=survivors;
+  }
+}
+// In-memory animation state for the falling drop. Not persisted — boot()
+// snaps any 'falling' state on disk back to 'resting' so the splash never
+// replays. Reset to null whenever a new fall begins or one settles.
+let _dropAnim=null;
+// Physics state for the resting drop. Null until the drop settles; cleared
+// on claim. Position + velocity + rotation so the drop drifts with the water
+// heightfield, bobs from tap-induced ripples, and isn't a stuck sticker.
+let _dropPhys=null;
+function _initDropPhys(W,H,initVy){
+  const dpr=_bgDpr();
+  const dropR=25*dpr;
+  const homeY=H-38*dpr;
+  // Pick a clear x position. Center first, then alternating outward, so the
+  // drop doesn't spawn directly on top of an existing bubble.
+  let homeX=W*0.5;
+  if(activeTaskBlocks&&activeTaskBlocks.length){
+    const fracs=[0.5,0.62,0.38,0.74,0.26,0.84,0.16];
+    for(const f of fracs){
+      const cx=W*f;
+      let clear=true;
+      for(const b of activeTaskBlocks){
+        if(!b||b.isSunken)continue;
+        const dx=b.x-cx;
+        const dy=b.y-homeY;
+        const minSep=(b.size||50)*0.5+dropR+12*dpr;
+        if(dx*dx+dy*dy<minSep*minSep){clear=false;break;}
+      }
+      if(clear){homeX=cx;break;}
+    }
+  }
+  _dropPhys={
+    x:homeX,
+    y:homeY,
+    vx:0,vy:initVy||0,
+    rot:0,rotV:0,
+    homeX:homeX,
+    homeY:homeY,
+  };
+}
+function _stepDropPhys(W,H){
+  if(!_dropPhys)return;
+  const dpr=_bgDpr();
+  // Keep the home in-bounds after a resize, but DON'T re-center it — the
+  // spawn picked a clear x deliberately; we want to preserve that.
+  const m=30*dpr;
+  if(_dropPhys.homeX<m)_dropPhys.homeX=m;
+  else if(_dropPhys.homeX>W-m)_dropPhys.homeX=W-m;
+  _dropPhys.homeY=H-38*dpr;
+  // Weak spring toward the home position. Strong enough to keep the drop
+  // generally centered; soft enough that swirling water can carry it.
+  _dropPhys.vx+=(_dropPhys.homeX-_dropPhys.x)*0.0018;
+  _dropPhys.vy+=(_dropPhys.homeY-_dropPhys.y)*0.0055;
+  // Heightfield-driven drift: water-surface slope pushes horizontally and
+  // vertical velocity of the column above bobs the drop. Tap-induced ripples
+  // propagate through bgHF and the drop feels them too.
+  if(bgHF&&bgHF.cols>0){
+    const col=Math.max(1,Math.min(bgHF.cols-2,Math.floor((_dropPhys.x/W)*bgHF.cols)));
+    const slope=bgHF.h[col+1]-bgHF.h[col-1];
+    _dropPhys.vx+=slope*0.55;
+    _dropPhys.vy+=bgHF.v[col]*0.10;
+  }
+  // Bubble collision — the drop is anchored to its home position, so when a
+  // bubble overlaps it the bubble yields almost fully. We also bias the
+  // separation normal toward HORIZONTAL: bubbles ride buoyancy vertically
+  // (any vertical push gets undone next frame), but slide cleanly sideways.
+  // The d2≈0 case (drop spawned exactly on top of a bubble) explicitly
+  // chooses a horizontal kick so they don't stay stacked.
+  if(activeTaskBlocks&&activeTaskBlocks.length){
+    const dropR=22*dpr;
+    for(let bi=0;bi<activeTaskBlocks.length;bi++){
+      const b=activeTaskBlocks[bi];
+      if(!b||b.isSunken)continue;
+      const dx=_dropPhys.x-b.x;
+      const dy=_dropPhys.y-b.y;
+      const minSep=(b.size||50)*0.5+dropR+6*dpr;
+      const d2=dx*dx+dy*dy;
+      if(d2>=minSep*minSep)continue;
+      let nx,ny;
+      if(d2<1){
+        // Perfectly stacked — kick horizontally away from the screen center
+        // (deterministic, prevents a stuck stack).
+        nx=(b.x<W*0.5?-1:1);ny=0;
+      } else {
+        const d=Math.sqrt(d2);
+        nx=dx/d; ny=dy/d;
+      }
+      // Bias toward horizontal: bubbles slide sideways more cleanly than
+      // they get pushed vertically (buoyancy fights vertical displacement).
+      const sgnX=nx>=0?1:-1;
+      const hBias=0.82;
+      const bnx=sgnX*hBias;
+      const bny=ny*(1-hBias);
+      const nm=Math.sqrt(bnx*bnx+bny*bny)||1;
+      const fnx=bnx/nm, fny=bny/nm;
+      const overlap=Math.max(0,minSep-Math.sqrt(Math.max(d2,1)));
+      // Bubble yields ~95% — the drop is the bigger moment, it stays put.
+      b.x-=fnx*overlap*0.95;
+      b.y-=fny*overlap*0.30;
+      if(typeof b.vx==='number')b.vx-=fnx*0.65;
+      if(typeof b.vy==='number')b.vy-=fny*0.25;
+      // Drop yields just enough for the contact to feel real.
+      _dropPhys.x+=fnx*overlap*0.08;
+      _dropPhys.vx+=fnx*0.18;
+    }
+  }
+  // Damping — preserves momentum long enough to feel alive, not so much that
+  // the drop rattles around forever.
+  _dropPhys.vx*=0.90;
+  _dropPhys.vy*=0.86;
+  _dropPhys.x+=_dropPhys.vx;
+  _dropPhys.y+=_dropPhys.vy;
+  // Clamp inside the pot. Vertical range: not above mid-screen, not past
+  // the very bottom margin. (Reuses the `m` margin from the home-bounds
+  // check at the top of this function.)
+  if(_dropPhys.x<m){_dropPhys.x=m;_dropPhys.vx=Math.abs(_dropPhys.vx)*0.4;}
+  else if(_dropPhys.x>W-m){_dropPhys.x=W-m;_dropPhys.vx=-Math.abs(_dropPhys.vx)*0.4;}
+  if(_dropPhys.y<H*0.5)_dropPhys.y=H*0.5;
+  else if(_dropPhys.y>H-8*dpr){_dropPhys.y=H-8*dpr;_dropPhys.vy=-Math.abs(_dropPhys.vy)*0.5;}
+  // Rotation from horizontal velocity — the drop appears to tumble subtly.
+  _dropPhys.rotV=_dropPhys.rotV*0.88+_dropPhys.vx*0.006;
+  _dropPhys.rot+=_dropPhys.rotV;
+}
+// Render the drop as 💧 emoji with a golden glow halo behind it. Reused
+// during the fall (with halo modulated by phase) and at rest.
+function _drawDropEmoji(ctx,cx,cy,size,haloMul,rot){
+  const haloR=size*1.85;
+  const halo=ctx.createRadialGradient(cx,cy,0,cx,cy,haloR);
+  halo.addColorStop(0,`rgba(255,222,150,${(0.55*haloMul).toFixed(3)})`);
+  halo.addColorStop(0.45,`rgba(255,210,140,${(0.22*haloMul).toFixed(3)})`);
+  halo.addColorStop(1,'rgba(255,210,140,0)');
+  ctx.fillStyle=halo;
+  ctx.fillRect(cx-haloR,cy-haloR,haloR*2,haloR*2);
+  const img=getEmojiImg('💧',Math.round(size));
+  if(img){
+    if(rot){
+      ctx.save();
+      ctx.translate(cx,cy);
+      ctx.rotate(rot);
+      ctx.drawImage(img,-img.width/2,-img.height/2);
+      ctx.restore();
+    } else {
+      ctx.drawImage(img,cx-img.width/2,cy-img.height/2);
+    }
+  }
+}
+const _DROP_FALL_MS=1200;   // air fall: cloud → water surface
+const _DROP_SINK_MS=1500;   // water sink: surface → floor sand
+
+// Animated falling teardrop. Three beats: air fall (gravity ease-in) → splash
+// (heightfield ripple + sound + haptic) → sink (ease-in-out through water) →
+// settle (transition to 'resting'). The renderer also draws a brief white
+// impact ring at the splash point so the moment reads visually.
+function drawFallingTeardrop(ctx,W,H,now){
+  if(!S||!S.vapor||S.vapor.teardrop!=='falling')return;
+  const dpr=_bgDpr();
+  const cx=W*0.5;
+  // Drop emerges from the cloud's BELLY — matches drawVaporWisp's belly y so
+  // the drop visually peels off the underside of the ceiling.
+  const _ceilDepthAtPeak=H*(0.04+0.21); // p=1 ceiling depth (~25%)
+  const cloudY=_ceilDepthAtPeak*0.95;
+  const floorY=H-38*dpr;
+  const surfaceY=(bgWaveState&&bgWaveState.active)?_fillYpx(H,bgWaveState.fill):H*0.55;
+  // Surface can be below the floor when there's no water — pin it just above.
+  const effSurfaceY=Math.min(surfaceY,floorY-12*dpr);
+  if(!_dropAnim)_dropAnim={startMs:now,splashed:false,splashAt:0,splashY:effSurfaceY};
+  const elapsed=now-_dropAnim.startMs;
+  const baseSize=32*dpr;
+
+  // Phase A — air fall (gravity ease-in: y ∝ p²)
+  if(elapsed<_DROP_FALL_MS){
+    const p=elapsed/_DROP_FALL_MS;
+    const y=cloudY+(effSurfaceY-cloudY)*(p*p);
+    // Subtle sparkle trail (3 tiny tail droplets).
+    for(let i=1;i<=3;i++){
+      const ty=y-i*5*dpr*(0.6+0.4*p);
+      ctx.fillStyle=`rgba(255,240,200,${(0.25-i*0.06).toFixed(2)})`;
+      ctx.beginPath();ctx.arc(cx,ty,baseSize*0.10*(1-i*0.2),0,Math.PI*2);ctx.fill();
+    }
+    _drawDropEmoji(ctx,cx,y,baseSize*(0.85+0.18*p),1.0,p*0.4);
+    return;
+  }
+
+  // Splash trigger — exactly once, at the moment we cross the surface.
+  if(!_dropAnim.splashed){
+    _dropAnim.splashed=true;
+    _dropAnim.splashAt=now;
+    _dropAnim.splashY=effSurfaceY;
+    // Heightfield ripple at the impact column.
+    if(bgHF&&bgHF.cols>0){
+      const col=Math.floor(bgHF.cols*0.5);
+      applyForce(bgHF,col,-32,10);
+    }
+    // Layered splash sound — low thud + clear note.
+    try{const ac0=ac();const _t=ac0.currentTime;tone(180,.18,.06,_t);tone(523,.22,.04,_t+0.02);tone(880,.14,.025,_t+0.08);}catch(e){}
+    haptic([18,10,40]);
+  }
+
+  // Phase B — sink (ease-in-out)
+  const sinkElapsed=elapsed-_DROP_FALL_MS;
+  if(sinkElapsed<_DROP_SINK_MS){
+    const p=sinkElapsed/_DROP_SINK_MS;
+    const eased=p<0.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+    const y=effSurfaceY+(floorY-effSurfaceY)*eased;
+    // Halo brightens with descent, then the emoji sits inside it.
+    _drawDropEmoji(ctx,cx,y,baseSize,1.0+0.5*p,Math.PI*0.5*p);
+    // Trailing displacement bubbles upward.
+    if(Math.random()<0.45){
+      const bx=cx+(Math.random()-0.5)*baseSize*0.6;
+      const by=y+baseSize*0.4+Math.random()*8*dpr;
+      ctx.fillStyle='rgba(255,250,220,0.55)';
+      ctx.beginPath();ctx.arc(bx,by,1.6*dpr,0,Math.PI*2);ctx.fill();
+    }
+  } else {
+    // Phase C — settle. Transition to 'resting' and persist. Seed physics
+    // with a tiny residual downward velocity so the drop bobs into place
+    // rather than appearing stuck.
+    S.vapor.teardrop='resting';
+    _dropAnim=null;
+    _initDropPhys(W,H,2.5);
+    haptic([10]);
+    try{const ac0=ac();const _t=ac0.currentTime;tone(660,.18,.035,_t);tone(990,.22,.025,_t+0.06);}catch(e){}
+    try{save();}catch(e){}
+    if(typeof updateDropChip==='function')updateDropChip();
+  }
+
+  // Splash ring overlay — fades over ~360ms after splash, drawn on top of
+  // everything else so the moment lands clearly.
+  if(_dropAnim&&_dropAnim.splashed){
+    const sa=now-_dropAnim.splashAt;
+    if(sa<360){
+      const sp=sa/360;
+      const rr=8*dpr+sp*38*dpr;
+      ctx.save();
+      ctx.strokeStyle=`rgba(255,255,255,${(0.55*(1-sp)).toFixed(3)})`;
+      ctx.lineWidth=Math.max(1, (1-sp)*2.4)*dpr;
+      ctx.beginPath();ctx.arc(cx,_dropAnim.splashY,rr,0,Math.PI*2);ctx.stroke();
+      // Second ring slightly delayed for echo
+      if(sp>0.15){
+        const sp2=(sp-0.15)/0.85;
+        const rr2=4*dpr+sp2*28*dpr;
+        ctx.strokeStyle=`rgba(255,255,255,${(0.4*(1-sp2)).toFixed(3)})`;
+        ctx.lineWidth=Math.max(1,(1-sp2)*1.8)*dpr;
+        ctx.beginPath();ctx.arc(cx,_dropAnim.splashY,rr2,0,Math.PI*2);ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+}
+// Shared drop-body drawing. cx,cy = center; r = radius. opacity scales the
+// Resting teardrop — 💧 emoji with a golden glow halo, position driven by
+// _dropPhys so it drifts with the water heightfield and bobs from tap-induced
+// ripples. Hovering near it scales up + brightens the halo (desktop tactile
+// cue). Renders last on the bg-canvas so the halo sits on top of bubbles.
+function drawRestingTeardrop(ctx,W,H,now){
+  if(!S||!S.vapor||S.vapor.teardrop!=='resting')return;
+  if(!_dropPhys)_initDropPhys(W,H,0);
+  _stepDropPhys(W,H);
+  const dpr=_bgDpr();
+  const breath=1+0.06*Math.sin(now*0.002);
+  const haloMul=1+0.10*Math.sin(now*0.0017);
+  // Hover detection — desktop only (touch sets _hoverCss out-of-range).
+  let hoverScale=1, hoverHalo=1;
+  if(_hoverCss&&_hoverCss.x>-9000){
+    const hx=_hoverCss.x*dpr, hy=_hoverCss.y*dpr;
+    const dx=hx-_dropPhys.x, dy=hy-_dropPhys.y;
+    const d=Math.sqrt(dx*dx+dy*dy);
+    const proxR=80*dpr;
+    if(d<proxR){
+      const k=1-d/proxR;
+      hoverScale=1+0.18*k;
+      hoverHalo=1+0.6*k;
+    }
+  }
+  _drawDropEmoji(ctx,_dropPhys.x,_dropPhys.y,26*dpr*breath*hoverScale,haloMul*hoverHalo,_dropPhys.rot*0.5);
+}
 
 // ── DATA MODEL ─────────────────────────────────────────────────────
 function defaults(){
@@ -759,10 +1178,16 @@ function defaults(){
     seen:{},
     isTrial:isFirstRun,
     eco:{energy:0,peak:0,lastWorkDate:null},
+    // Vapor cycle reward: a wisp at the top of the pot grows with every
+    // completion event. At 1.0 a teardrop falls and rests on the floor.
+    // Growth pauses while a teardrop is resting. See boot() for migrations.
+    vapor:{progress:0,teardrop:null},
+    // User-curated promises that get claimed when a resting teardrop is tapped.
+    wishes:[],
   };
 }
-function mkTask(id,name,color,total,workDur,restDur,days,desc,emoji){
-  return{id,name,color,total,workDur,restDur,days:days||null,desc:desc||'',emoji:emoji||null,continuous:!!S?.continuous,completed:0,isRest:false,rem:workDur,running:false,done:false,savedAt:null,checklist:[]};
+function mkTask(id,name,color,total,workDur,restDur,days,desc,emoji,hasTime){
+  return{id,name,color,total,workDur,restDur,days:days||null,desc:desc||'',emoji:emoji||null,continuous:!!S?.continuous,completed:0,isRest:false,rem:workDur,running:false,done:false,savedAt:null,checklist:[],hasTime:hasTime===undefined?true:!!hasTime};
 }
 // Auto-assign emoji for tasks that don't have one
 const TASK_EMOJIS=['📖','✏️','💻','🎯','🏋️','🎨','🎵','🧹','📞','🍳','🧘','📐','🔧','🌱','📝','🗂️','💡','🎓','🧪','📦'];
@@ -846,7 +1271,30 @@ function boot(){
   if(S.showHidden===undefined)S.showHidden=false;
   if(S.lastActiveId===undefined)S.lastActiveId=null;
   if(S.history===undefined)S.history=[];
-  S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;if(t.desc===undefined)t.desc='';if(t.continuous===undefined)t.continuous=!!S.continuous;if(t.skipped===undefined)t.skipped=false;if(t.checklist===undefined)t.checklist=[];if(t._timeDoneFiredAt===undefined)t._timeDoneFiredAt=null;});
+  // Wishes — user-written promises the teardrop carries to you.
+  if(!Array.isArray(S.wishes))S.wishes=[];
+  // Vapor cycle state. `teardrop` is one of: null | 'falling' | 'resting'.
+  // A 'falling' value can only exist mid-animation; on reload we snap straight
+  // to 'resting' so we don't replay the splash for a fall the user already saw.
+  if(!S.vapor||typeof S.vapor!=='object')S.vapor={progress:0,teardrop:null};
+  if(typeof S.vapor.progress!=='number'||!isFinite(S.vapor.progress))S.vapor.progress=0;
+  S.vapor.progress=Math.max(0,Math.min(1,S.vapor.progress));
+  if(S.vapor.teardrop==='falling')S.vapor.teardrop='resting';
+  else if(S.vapor.teardrop!=='resting')S.vapor.teardrop=null;
+  // One-shot salvage from the cube/island experiment: if the user wrote
+  // coconut promises during that build, lift the text into S.wishes so the
+  // intent isn't lost. Idempotent via _coconutMigrated. Then delete the
+  // orphaned containers so localStorage stays clean.
+  if(S.island&&Array.isArray(S.island.coconuts)&&!S._coconutMigrated){
+    S.island.coconuts.forEach(c=>{
+      const name=(c&&typeof c.name==='string')?c.name.trim():'';
+      if(name)S.wishes.push({id:'w-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,5),name});
+    });
+    S._coconutMigrated=true;
+  }
+  delete S.island;
+  delete S.companion;
+  S.tasks.forEach(t=>{if(t.days===undefined)t.days=null;if(t.desc===undefined)t.desc='';if(t.continuous===undefined)t.continuous=!!S.continuous;if(t.skipped===undefined)t.skipped=false;if(t.checklist===undefined)t.checklist=[];if(t._timeDoneFiredAt===undefined)t._timeDoneFiredAt=null;if(t.hasTime===undefined)t.hasTime=true;});
   // Defensive: drop any tasks sharing an id (a tap-double-fire could have created
   // two `t-<sameMs>` entries; keep the first, discard the rest).
   {const _seen=new Set();S.tasks=S.tasks.filter(t=>{if(!t.id||_seen.has(t.id))return false;_seen.add(t.id);return true;});}
@@ -905,11 +1353,41 @@ function creditPartialAtMidnight(){
     if(!t.running||t.done)return;
     // Credit work block past halfway (don't silently lose real work)
     if(!t.isRest&&t.rem<t.workDur/2){
-      t.completed++;
+      t.completed++;onCompletionEvent(t);
       if(t.completed>=t.total&&_checklistAllDone(t))t.done=true;
     }
     t.running=false;t.savedAt=null;t._phaseStart=null;
   });
+}
+
+// Vapor accrual. Each atomic completion event nudges progress by 1/N. Growth
+// pauses while a teardrop is resting on the floor — one drop at a time. When
+// progress crosses 1.0 the drop spawns and the fall animation kicks off; the
+// renderer transitions teardrop from 'falling' → 'resting' at settle.
+function onCompletionEvent(t){
+  if(!S||!S.vapor)return;
+  if(S.vapor.teardrop)return;
+  const before=Math.max(0,Math.min(1,S.vapor.progress||0));
+  const next=Math.min(1,before+1/VAPOR_CYCLE_LEN);
+  S.vapor.progress=next;
+  if(before<1&&next>=1){
+    // Battery-saver / reduced-motion users skip the animation — the cloud
+    // doesn't get to perform, the drop is simply there.
+    if(isBatterySaver()){
+      S.vapor.teardrop='resting';
+      _dropAnim=null;
+      haptic([10,40,10]);
+      try{const ac0=ac();const _t0=ac0.currentTime;tone(440,.12,.04,_t0);tone(660,.14,.03,_t0+0.08);}catch(e){}
+    } else {
+      S.vapor.teardrop='falling';
+      // Anim state inits lazily inside drawFallingTeardrop so a fresh
+      // performance.now() seeds the timer instead of stale state-load time.
+      _dropAnim=null;
+      // Cloud-rumble cue at the moment the drop forms — a long, soft tone.
+      haptic([8,20,8]);
+      try{const ac0=ac();const _t0=ac0.currentTime;tone(220,.45,.03,_t0);}catch(e){}
+    }
+  }
 }
 
 function resolvePhaseEnd(t,animate){
@@ -917,7 +1395,7 @@ function resolvePhaseEnd(t,animate){
   const cont=(S.continuous||t.continuous)&&!_pastBed;
   if(t.isRest){
     // Rest finished → next work block
-    t.isRest=false;t.completed++;
+    t.isRest=false;t.completed++;onCompletionEvent(t);
     if(t.completed>=t.total){
       if(_checklistAllDone(t)){t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;return true;}
       t.completed=t.total;t.running=false;t.savedAt=null;t._phaseStart=null;t.rem=0;
@@ -934,7 +1412,7 @@ function resolvePhaseEnd(t,animate){
       if(animate){t.savedAt=Date.now();t._phaseStart=Date.now();}
     } else {
       // Work finished, no rest
-      t.completed++;
+      t.completed++;onCompletionEvent(t);
       if(t.completed>=t.total){
         if(_checklistAllDone(t)){t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;return true;}
         t.completed=t.total;t.running=false;t.savedAt=null;t._phaseStart=null;t.rem=0;
@@ -1324,6 +1802,10 @@ function openMenu(){
     <div class="menu-row" onclick="closeSheet();setTimeout(openAdd,80)" role="button" tabindex="0">
       <span class="menu-ico menu-ico-add">+</span>
       <span class="menu-label">Add task<span class="menu-sub">A new thing to boil</span></span>
+    </div>
+    <div class="menu-row" onclick="closeSheet();setTimeout(openWishesEditor,80)" role="button" tabindex="0">
+      <span class="menu-ico">✨</span>
+      <span class="menu-label">Your wishes<span class="menu-sub">${(S.wishes&&S.wishes.length)?S.wishes.length+' written':'What you\'d give yourself for the work'}</span></span>
     </div>
     <div class="menu-row" onclick="closeSheet();setTimeout(openProfile,80)" role="button" tabindex="0">
       <span class="menu-ico">⚙</span>
@@ -2021,6 +2503,9 @@ function launchSolitaire(){
 function tapCard(id){
   const t=S.tasks.find(x=>x.id===id);
   if(!t||t.done)return;
+  // No-time tasks have no timer to start; route through the tap-advance path
+  // so any caller (legacy or new) still does the right thing.
+  if(!t.hasTime){_noTimeTap(t);return;}
   // Stalled on checklist: blocks already complete, can't restart timer; just nudge.
   if(t.completed>=t.total&&!_checklistAllDone(t)){
     showToast('Pop the checklist to finish.','var(--mid)',1600);
@@ -2631,6 +3116,13 @@ function spawnTaskBlocks(W,fillY){
   const sizeFor=(t)=>{
     // Stalled (time done, checklist pending): deflated husk — orbit takes visual focus.
     if(isStalled(t))return minSz*0.7;
+    if(!t.hasTime){
+      // No-time bubbles size by remaining taps. 8 taps = max; 1 = small.
+      // Sqrt keeps the small/large contrast perceptually balanced.
+      const remTaps=Math.max(0,(t.total||1)-(t.completed||0));
+      const frac=Math.min(1,Math.sqrt(remTaps/8));
+      return minSz+frac*(maxSz-minSz);
+    }
     const futureBlocks=Math.max(0,(t.total||1)-(t.completed||0)-1);
     const cur=t.rem||0;
     const remSecs=cur+futureBlocks*(t.workDur||60);
@@ -2707,6 +3199,11 @@ function _bubbleSizeFor(t){
   const minCss=Math.max(20,Math.min(Wcss*0.06,36));
   const maxCss=Math.max(40,Math.min(Wcss*0.13,80));
   const minSz=minCss*dpr,maxSz=maxCss*dpr;
+  if(!t.hasTime){
+    const remTaps=Math.max(0,(t.total||1)-(t.completed||0));
+    const frac=Math.min(1,Math.sqrt(remTaps/8));
+    return minSz+frac*(maxSz-minSz);
+  }
   const REF_SECS=4*3600;
   const futureBlocks=Math.max(0,(t.total||1)-(t.completed||0)-1);
   const cur=t.rem||0;
@@ -2918,6 +3415,15 @@ function drawTaskBlocks(ctx){
     }
     // Stalled: slow steady breathing — "I'm waiting"
     if(stalled)pulseScale*=1+0.04*Math.sin(_now*0.0035);
+    // No-time: very subtle 3.5s breath so the bubble feels alive without
+    // pretending to be running a timer.
+    if(!t.hasTime&&!t.done&&!stalled)pulseScale*=1+0.025*Math.sin(_now*0.0028);
+    // Tap pulse (Phase 4 sets t._tapT; we render the brief grow here so the
+    // no-time bubble visibly responds to every tap.)
+    if(!t.hasTime&&t._tapT){
+      const since=_now-t._tapT;
+      if(since<260)pulseScale*=1+0.16*Math.exp(-since/85);
+    }
     // Hover lift — desktop only; composes multiplicatively with pulse so they don't cancel
     const isHover=_hoverBubbleHit===f;
     if(isHover){pulseScale*=1.06;if(f.isSkipped)alpha=0.55;}
@@ -2929,9 +3435,17 @@ function drawTaskBlocks(ctx){
     const r=f.size*0.5;
     ctx.globalAlpha=alpha;
 
-    // Bubble body fill (translucent task tint; stalled = hollower)
+    // Bubble body fill (translucent task tint; stalled = hollower; no-time
+    // bubbles saturate as completion grows — "the glass filling").
     ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);
-    ctx.fillStyle=f.color+(stalled?'22':'44');ctx.fill();
+    let _fillSfx='44';
+    if(stalled)_fillSfx='22';
+    else if(!t.hasTime&&!t.done){
+      const _cf=Math.max(0,Math.min(1,(t.completed||0)/Math.max(1,t.total||1)));
+      const _a=Math.round(0x33+_cf*(0xaa-0x33));
+      _fillSfx=(_a<16?'0':'')+_a.toString(16);
+    }
+    ctx.fillStyle=f.color+_fillSfx;ctx.fill();
 
     if(stalled){
       // ── STALLED: full ring in green — "time done, waiting on items" ──
@@ -2942,7 +3456,7 @@ function drawTaskBlocks(ctx){
       ctx.lineCap='round';
       ctx.stroke();
       ctx.lineCap='butt';
-    } else if(f.isActive&&!t.done){
+    } else if(f.isActive&&!t.done&&t.hasTime){
       // ── ACTIVE: the bubble's own outline IS the stopwatch ring ──
       const strokeW=(isHover?4.2:3.5)*dpr;
       // Background full ring (faint task color)
@@ -2981,12 +3495,14 @@ function drawTaskBlocks(ctx){
       ctx.drawImage(emojiImg,-f.size*0.275,-f.size*0.275,f.size*0.55,f.size*0.55);
       if(stalled)ctx.restore();
     }
-    // Name label (skipped + hidden bubbles get no name — keep them quiet)
+    // Name label (skipped + hidden bubbles get no name — keep them quiet).
+    // No-time bubbles also use the larger offset so the pip strip below has room.
+    const _showPips=((f.isActive||stalled)||(!t.hasTime&&!t.done))&&!t.done;
     if(!f.isSkipped&&!f.isHidden){
       ctx.textAlign='center';ctx.textBaseline='top';
       const fontSize=Math.max(9,Math.round(f.size*0.18));
       ctx.font=`700 ${fontSize}px "Plus Jakarta Sans",sans-serif`;
-      const labelOff=r+((f.isActive||stalled)?7:3)*dpr;
+      const labelOff=r+(_showPips?7:3)*dpr;
       ctx.fillStyle='rgba(255,255,255,0.75)';
       ctx.fillText(f.name,1*dpr,labelOff+1);
       ctx.fillStyle=f.color;
@@ -2995,18 +3511,21 @@ function drawTaskBlocks(ctx){
 
     // Per-block pip strip — sits below the active or stalled bubble's name label.
     // Decoupled from the ring: ring = current block timer, pips = per-block status.
-    if((f.isActive||stalled)&&!t.done){
+    // No-time bubbles always show pips (no ring means the pips ARE the progress UI).
+    if(_showPips){
       const N=Math.max(1,t.total||1);
       const pipW=Math.min(f.size/N-2*dpr,8*dpr);
       const pipH=4*dpr;
       const gap=2*dpr;
       const stripW=N*pipW+(N-1)*gap;
-      const stripY=r+((f.isActive||stalled)?7:3)*dpr+Math.max(9,Math.round(f.size*0.18))+4*dpr;
+      const stripY=r+7*dpr+Math.max(9,Math.round(f.size*0.18))+4*dpr;
       for(let i=0;i<N;i++){
         const px=-stripW/2+i*(pipW+gap);
         const isDone=i<t.completed;
         const mc=isDone?'#2e9e6a':'#c0453a';
-        if(t.running&&i===t.completed){
+        // Pulse the "next" pip — visible affordance for what the next tap/tick advances.
+        const isNext=(i===t.completed)&&(t.running||!t.hasTime)&&t.completed<t.total;
+        if(isNext){
           const p=0.55+0.45*Math.sin(_now*0.005);
           ctx.globalAlpha=alpha*p;
         } else {ctx.globalAlpha=alpha;}
@@ -3047,6 +3566,9 @@ function _showChecklistFor(t){
   if(t.checklist.every(c=>c.done))return false;
   // Rest is for stepping away — don't surface pop-able items mid-recovery.
   if(t.isRest)return false;
+  // No-time tasks have no "active" running state, so always surface their
+  // orbiting items when any remain. Items are the work for these bubbles.
+  if(!t.hasTime)return true;
   return t.running||t.completed>=t.total;
 }
 function _drawChecklistOrbit(ctx){
@@ -3233,12 +3755,53 @@ function _popChecklistItem(taskId,itemId){
   }
   try{const now=ac().currentTime;tone(420,.08,.03,now);tone(640,.1,.02,now+0.05);}catch(e){}
   haptic([10,20,12]);
+  // On a no-time task the checklist is the work; finishing all items completes
+  // the task even if `completed` never advanced via bubble taps.
+  if(!t.hasTime&&_checklistAllDone(t))t.completed=Math.max(t.completed||0,t.total||1);
+  // Vapor accrual hook — each item popped counts as one completion event.
+  if(typeof onCompletionEvent==='function')onCompletionEvent(t);
   if(t.completed>=t.total&&_checklistAllDone(t)){
     t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;t.isRest=false;t.rem=0;
     save();onTaskDone(t.id);
   } else {
     save();
   }
+}
+
+// Tap-to-advance for no-time bubbles. Each tap = +1 toward `total`; when both
+// the count and the checklist are full, the task completes through the usual
+// onTaskDone path. Debounce per-task absorbs synthesized double-fires.
+let _lastNoTimeTapAt={};
+function _noTimeTap(t){
+  if(!t||t.done||t.skipped)return;
+  const now=performance.now();
+  const last=_lastNoTimeTapAt[t.id]||0;
+  if(now-last<140)return;
+  _lastNoTimeTapAt[t.id]=now;
+  // If a checklist is present and any items remain, the items ARE the work —
+  // the bubble itself is inert; nudge the user toward the orbit.
+  const itemsRemain=t.checklist&&t.checklist.length>0&&t.checklist.some(c=>!c.done);
+  if(itemsRemain){
+    haptic([6]);
+    showToast('Pop an item to advance.','var(--mid)',1100);
+    return;
+  }
+  if((t.completed||0)>=(t.total||1))return;
+  t.completed=(t.completed||0)+1;
+  t._tapT=now;
+  haptic([10]);
+  try{const ac0=ac();const _t0=ac0.currentTime;tone(560,.06,.025,_t0);tone(720,.07,.018,_t0+0.025);}catch(e){}
+  // Vapor accrual hook — each tap on a no-time bubble counts.
+  if(typeof onCompletionEvent==='function')onCompletionEvent(t);
+  if((t.completed||0)>=(t.total||1)&&_checklistAllDone(t)){
+    t.done=true;t.running=false;t.savedAt=null;t._phaseStart=null;t.isRest=false;t.rem=0;
+    save();
+    onTaskDone(t.id);
+    return;
+  }
+  save();
+  // Force respawn so the bubble re-renders with updated pip/fill state.
+  activeTaskBlocks.length=0;
 }
 
 // Reconcile the volleyball with the "all visible tasks done/skipped" state every
@@ -3790,8 +4353,15 @@ function _finishBubbleHoldAsTap(block){
       // last block + checklist done → onTaskDone (full task complete).
       // last block + items remain → onTaskTimeDone (stalled).
       if(movedIntoRight&&!t.done&&!t.skipped){
+        // No-time tasks: the drag-right gesture should advance one tap, NOT
+        // start a timer. Route through the tap-advance path for consistency.
+        if(!t.hasTime){
+          _noTimeTap(t);
+          _cancelBubbleHold();
+          return;
+        }
         if(t.completed<t.total){
-          t.completed+=1;
+          t.completed+=1;onCompletionEvent(t);
           if(t.completed>=t.total){
             t.running=false;t.savedAt=null;t._phaseStart=null;t.isRest=false;t.rem=0;
             if(_checklistAllDone(t)){t.done=true;save();onTaskDone(t.id);}
@@ -3833,9 +4403,24 @@ function _finishBubbleHoldAsTap(block){
   // (more reliable than double-tap on touch devices).
   if(t.skipped){t.skipped=false;save();activeTaskBlocks.length=0;return;}
   popTaskBlock(block);
+  // No-time bubbles use tap-to-advance; never engage the timer.
+  if(!t.hasTime){_noTimeTap(t);return;}
   tapCard(block.taskId);
 }
 document.addEventListener('touchstart',(e)=>{
+  // Resting-teardrop tap takes priority — it's the rare, high-value
+  // interaction and the drop sits at the floor where bubbles rarely live.
+  {
+    const dpr0=_bgDpr();
+    for(let i=0;i<e.changedTouches.length;i++){
+      const t0=e.changedTouches[i];
+      if(_dropHitTest(t0.clientX*dpr0,t0.clientY*dpr0)){
+        _lastBlockTapT=Date.now();
+        openTeardropSheet();
+        return;
+      }
+    }
+  }
   if(activeTaskBlocks.length>0){
     const dpr0=_bgDpr();
     for(let i=0;i<e.changedTouches.length;i++){
@@ -3854,6 +4439,8 @@ document.addEventListener('touchstart',(e)=>{
   for(let i=0;i<e.changedTouches.length;i++){
     const t=e.changedTouches[i];
     const tx=t.clientX*dpr,ty=t.clientY*dpr;
+    // Blow on the steam ceiling — clears a fading hole where you tap.
+    _steamBlow(tx,ty);
     // Star twinkle (sky zone)
     if(ty<waterY)tapStar(tx,ty);
     // Always allow floater interaction (ball juggling needs taps above water)
@@ -3914,6 +4501,8 @@ document.addEventListener('mousedown',(e)=>{
   if(Date.now()-_lastBlockTapT<800)return;
   const dpr=_bgDpr();
   const tx=e.clientX*dpr,ty=e.clientY*dpr;
+  // Resting-teardrop takes priority over the bubble field.
+  if(_dropHitTest(tx,ty)){openTeardropSheet();return;}
   // Bubble hit: start long-press tracker
   const hitBlock=hitTestTaskBlock(tx,ty);
   if(hitBlock&&hitBlock.kind==='checklist'){_popChecklistItem(hitBlock.taskId,hitBlock.itemId);return;}
@@ -3923,6 +4512,8 @@ document.addEventListener('mousedown',(e)=>{
   const waterY=_fillYpx(H,bgWaveState.fill);
   const surfZone=80*dpr;
   const aboveZone=20*dpr;
+  // Blow on the steam ceiling — clears a fading hole where you click.
+  _steamBlow(tx,ty);
   // Star twinkle (sky zone)
   if(ty<waterY)tapStar(tx,ty);
   // Always allow floater interaction (ball juggling needs taps above water)
@@ -4119,6 +4710,8 @@ function waveLoop(now){
     drawStars(ctx,W,H,waveT,nightT());
     // Rare shooting star at deep night (Bunzeck novelty signal)
     if(!isBatterySaver())drawShootingStar(ctx,W,H,nightT(),dt);
+    // Vapor wisp at the top, growing per completion event.
+    drawVaporWisp(ctx,W,H,now);
 
     if(isResting){
       // ── REST: steam dissipating ──────────────────────────────────
@@ -4220,6 +4813,11 @@ function waveLoop(now){
       ctx.fillStyle=edgeG;
       ctx.fillRect(0,0,W,H);
     }
+    // Falling / resting teardrop on the pot floor — luminous & breathing.
+    // Drawn last inside the bg-canvas block so W,H are in scope and the glow
+    // sits on top of water tint and bubble glow.
+    drawFallingTeardrop(ctx,W,H,now);
+    drawRestingTeardrop(ctx,W,H,now);
   }
 
   // Steam particles above waterline at high boil — heat level lowers threshold
@@ -4247,7 +4845,11 @@ function waveLoop(now){
     }
   }
 
-  _anyContinue=anyRunning||bgWaveState.active;_waveErrors=0;
+  // Keep the loop alive while there's anything to render — running task,
+  // active water, vapor wisp, or a resting drop. Otherwise rAF stops and the
+  // wisp/drop visually freeze until the user touches something.
+  const _hasVapor=!!(S&&S.vapor&&((S.vapor.progress||0)>0.005||S.vapor.teardrop));
+  _anyContinue=anyRunning||bgWaveState.active||_hasVapor;_waveErrors=0;
   if(GOD_MODE&&_tiltRaw!==undefined){const td=document.getElementById('tilt-debug');if(td)td.textContent=`tilt: ${_tiltRaw===null?'NO DATA':_tiltRaw.toFixed(1)}° smooth: ${tiltSmooth.toFixed(1)} | sensors: ${_sensorsAttached?'ON':'OFF'}`;}
   }catch(e){console.error('waveLoop:',e);_waveErrors=(_waveErrors||0)+1;if(_waveErrors>10){_anyContinue=false;_waveErrors=0;}}
   if(_anyContinue){
@@ -4685,7 +5287,7 @@ function updateGodBadge(){
 }
 function render(){
   document.documentElement.classList.toggle('battery-saver',!!S.batterySaver);
-  checkBeginScreen();renderDaybar();updateSteamBanner();updateLogoDot();updateHeader();applyNightTheme();updateGodBadge();
+  checkBeginScreen();renderDaybar();updateSteamBanner();updateLogoDot();updateHeader();applyNightTheme();updateGodBadge();updateDropChip();
   // Activate water (ambient or task-tinted) + force respawn of bubble field
   const _rt=S.tasks.find(t=>t.running&&!t.done);
   if(_rt){const _pd=_rt.isRest?_rt.restDur:_rt.workDur;updateSiteWave(_rt,14+(_pd>0?((_pd-_rt.rem)/_pd*86):0));}
@@ -4771,12 +5373,14 @@ function doReset(){bgBubbles.length=0;activeFloaters.length=0;if(bgHF.h)bgHF.h.f
 }
 
 // ── FORMS ───────────────────────────────────────────────────────────
-let pomoOn=false,pickedCol=null,pickedEmoji=null,contOn=true;
+let pomoOn=false,pickedCol=null,pickedEmoji=null,contOn=true,hasTimeOn=true;
 
 function taskForm(t,simple){
   const pomo=t?t.restDur>0:false;
   contOn=t?!!t.continuous:true;
   pomoOn=pomo;
+  // hasTime defaults to true; only explicit false makes a no-timer task.
+  hasTimeOn=t?(t.hasTime!==false):true;
   const ic=t?.color??PAL[0];
   const colors=simple?PAL.slice(0,5):PAL;
   const sw=colors.map(p=>`<div class="sw${p===ic?' on':''}" style="background:${p}" data-p="${p}" onclick="pickCol('${p}')"></div>`).join('');
@@ -4794,19 +5398,27 @@ function taskForm(t,simple){
       <div class="field" style="${hideSimple}"><label>Emoji</label><div class="cr" id="emoji-row">${TASK_EMOJIS.map(e=>`<div class="sw ew${e===(t?.emoji||pickedEmoji)?' on':''}" onclick="pickEmoji('${e}')" style="background:var(--brd);font-size:18px;display:flex;align-items:center;justify-content:center">${e}</div>`).join('')}</div></div>
     </div>
     <div class="form-group"><div class="form-group-label">Time</div>
-      <div class="field"><label>Time blocks</label>${stepperHtml('ftot',totalVal,1,20)}<div style="font-size:10px;color:var(--dim);margin-top:6px">How many timed sessions for this task</div></div>
-      <div class="field"><label>Length of each block</label>${chipRowHtml('fwork',[15,25,50,90],workMin,'m')}</div>
-      <div class="field"><label>Add rest between blocks?</label>
+      <div class="field"${simple?' style="display:none"':''}>
         <div class="tog-row">
-          <div><div class="tog-lbl">Rest between blocks</div><div class="tog-sub">e.g. 50 min work + 10 min rest</div></div>
-          <button class="tog${pomo?' on':''}" id="ptog" onclick="togglePomo()"></button>
+          <div><div class="tog-lbl">Has a timer</div><div class="tog-sub">Off for habits, dailies, anything without a duration</div></div>
+          <button class="tog${hasTimeOn?' on':''}" id="htog" onclick="toggleHasTime()"></button>
         </div>
       </div>
-      <div id="rfield" style="display:${pomo?'block':'none'}">
-        <div class="field"><label>Rest between blocks</label>${chipRowHtml('frest',[5,10,15,20],restMin,'m')}</div>
+      <div class="field"><label id="ftot-label">${hasTimeOn?'Time blocks':'Times today'}</label>${stepperHtml('ftot',totalVal,1,20)}<div id="ftot-hint" style="font-size:10px;color:var(--dim);margin-top:6px">${hasTimeOn?'How many timed sessions for this task':'How many taps to complete this today (1 for a single yes/no)'}</div></div>
+      <div id="time-only-fields"${hasTimeOn?'':' style="display:none"'}>
+        <div class="field"><label>Length of each block</label>${chipRowHtml('fwork',[15,25,50,90],workMin,'m')}</div>
+        <div class="field"><label>Add rest between blocks?</label>
+          <div class="tog-row">
+            <div><div class="tog-lbl">Rest between blocks</div><div class="tog-sub">e.g. 50 min work + 10 min rest</div></div>
+            <button class="tog${pomo?' on':''}" id="ptog" onclick="togglePomo()"></button>
+          </div>
+        </div>
+        <div id="rfield" style="display:${pomo?'block':'none'}">
+          <div class="field"><label>Rest between blocks</label>${chipRowHtml('frest',[5,10,15,20],restMin,'m')}</div>
+        </div>
       </div>
     </div>
-    <div class="field" style="${hideSimple}"><label>Auto-continue</label>
+    <div class="field" id="cont-field" style="${(simple||!hasTimeOn)?'display:none':hideSimple}"><label>Auto-continue</label>
       <div class="tog-row">
         <div><div class="tog-lbl">Auto-advance blocks</div><div class="tog-sub">Start next block automatically</div></div>
         <button class="tog${contOn?' on':''}" id="ctog" onclick="toggleCont()"></button>
@@ -4829,6 +5441,18 @@ function taskForm(t,simple){
 }
 function togglePomo(){pomoOn=!pomoOn;document.getElementById('ptog').classList.toggle('on',pomoOn);document.getElementById('rfield').style.display=pomoOn?'block':'none';}
 function toggleCont(){contOn=!contOn;document.getElementById('ctog').classList.toggle('on',contOn);}
+// Flip a task between timed (block-based) and no-time (tap-to-advance).
+// Hides/shows duration & rest fields and rewrites the "Time blocks" label
+// into "Times today" so the stepper repurposes cleanly for both modes.
+function toggleHasTime(){
+  hasTimeOn=!hasTimeOn;
+  const tog=document.getElementById('htog');if(tog)tog.classList.toggle('on',hasTimeOn);
+  const tf=document.getElementById('time-only-fields');if(tf)tf.style.display=hasTimeOn?'block':'none';
+  const cf=document.getElementById('cont-field');if(cf)cf.style.display=hasTimeOn?'':'none';
+  const lbl=document.getElementById('ftot-label');if(lbl)lbl.textContent=hasTimeOn?'Time blocks':'Times today';
+  const hint=document.getElementById('ftot-hint');if(hint)hint.textContent=hasTimeOn?'How many timed sessions for this task':'How many taps to complete this today (1 for a single yes/no)';
+  haptic([6]);
+}
 function pickCol(p){pickedCol=p;document.querySelectorAll('.sw:not(.ew)').forEach(s=>s.classList.toggle('on',s.dataset.p===p));}
 function pickEmoji(e){pickedEmoji=e;document.querySelectorAll('.ew').forEach(s=>s.classList.toggle('on',s.textContent===e));}
 function showAllFormFields(btn){
@@ -4998,17 +5622,21 @@ function saveTask(id){
   _savingTaskAt=performance.now();
   const name=document.getElementById('fn').value.trim();
   const desc=document.getElementById('fdesc').value.trim();
-  const total=parseInt(document.getElementById('ftot').value)||1;
-  const workDur=parseInt(document.getElementById('fwork').value)*60||3600;
-  const restDur=pomoOn?(parseInt(document.getElementById('frest').value)*60||600):0;
+  const total=Math.max(1,parseInt(document.getElementById('ftot').value)||1);
+  const hasTime=!!hasTimeOn;
+  // fwork lives in the DOM whether or not it's visible (display:none keeps the
+  // value), so we always read it — that way toggling hasTime off and back on
+  // round-trips the user's chosen block length without losing it.
+  const workDur=Math.max(60,(parseInt(document.getElementById('fwork').value)||25)*60);
+  const restDur=(hasTime&&pomoOn)?Math.max(60,(parseInt(document.getElementById('frest').value)||10)*60):0;
   const color=pickedCol||PAL[0];
   const days=getPickedDays();
   if(!name)return;
   if(id){
     const t=S.tasks.find(x=>x.id===id);
-    if(t){t.name=name;t.desc=desc;t.color=color;t.emoji=pickedEmoji||t.emoji;t.days=days;t.total=total;t.continuous=contOn;if(t.workDur!==workDur||t.restDur!==restDur){t.workDur=workDur;t.restDur=restDur;resetTask(t);}t.checklist=getEditedChecklist(t.checklist);if(t.completed>=t.total){t.completed=t.total;t.running=false;t.isRest=false;t.rem=0;t.savedAt=null;t._phaseStart=null;t.done=_checklistAllDone(t);}else if(t.done){t.done=false;t.isRest=false;t.rem=t.workDur;}}
+    if(t){t.name=name;t.desc=desc;t.color=color;t.emoji=pickedEmoji||t.emoji;t.days=days;t.total=total;t.continuous=contOn;t.hasTime=hasTime;if(t.workDur!==workDur||t.restDur!==restDur){t.workDur=workDur;t.restDur=restDur;resetTask(t);}t.checklist=getEditedChecklist(t.checklist);if(t.completed>=t.total){t.completed=t.total;t.running=false;t.isRest=false;t.rem=0;t.savedAt=null;t._phaseStart=null;t.done=_checklistAllDone(t);}else if(t.done){t.done=false;t.isRest=false;t.rem=t.workDur;}}
   } else {
-    const nt=mkTask('t-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),name,color,total,workDur,restDur,days,desc,pickedEmoji);nt.continuous=contOn;nt.checklist=getEditedChecklist([]);S.tasks.push(nt);
+    const nt=mkTask('t-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),name,color,total,workDur,restDur,days,desc,pickedEmoji,hasTime);nt.continuous=contOn;nt.checklist=getEditedChecklist([]);S.tasks.push(nt);
   }
   pickedCol=null;pickedEmoji=null;save();closeSheet();render();
 }
@@ -5170,6 +5798,114 @@ function _historyCellTap(el,dateStr){
 let _sheetOpenT=0;
 function openSheet(h){document.getElementById('sb').innerHTML=h;document.getElementById('ov').classList.add('open');_sheetOpenT=Date.now();}
 function closeSheet(){document.getElementById('ov').classList.remove('open');pickedCol=null;}
+
+// ── TEARDROP / WISHES ───────────────────────────────────────────────
+// Toggle the resting-teardrop chip in the header. Cheap to call from anywhere
+// state might have changed (settle, claim, render, boot).
+function updateDropChip(){
+  const chip=document.getElementById('drop-chip');
+  if(!chip)return;
+  const on=!!(S&&S.vapor&&S.vapor.teardrop==='resting');
+  chip.classList.toggle('on',on);
+}
+// Hit-zone for the resting drop. Uses _dropPhys's live position so the drop
+// stays tappable as it drifts. Generous radius — pixel-perfect aim shouldn't
+// be required at the claim moment.
+function _dropHitTest(tx,ty){
+  if(!S||!S.vapor||S.vapor.teardrop!=='resting')return false;
+  const dpr=_bgDpr();
+  const cx=_dropPhys?_dropPhys.x:(window.innerWidth*dpr*0.5);
+  const cy=_dropPhys?_dropPhys.y:(window.innerHeight*dpr-38*dpr);
+  const r=48*dpr;
+  const dx=tx-cx, dy=ty-cy;
+  return dx*dx+dy*dy<r*r;
+}
+// The claim sheet — uses the user's chosen phrasing. Three branches: no
+// wishes (teach), single wish (one card), many wishes (pick from list).
+function openTeardropSheet(){
+  if(!S||!S.vapor||S.vapor.teardrop!=='resting')return;
+  const wishes=Array.isArray(S.wishes)?S.wishes:[];
+  let body;
+  if(!wishes.length){
+    body=`<div class="sh-ttl">a magical teardrop.</div>
+      <p style="font-size:14px;color:var(--mid);line-height:1.6;margin-bottom:18px">you found a magical tear drop. but you haven't promised yourself anything yet — write a wish, then come back.</p>
+      <button class="bp" style="display:block;width:100%;margin-bottom:8px" onclick="closeSheet();setTimeout(openWishesEditor,80)">+ write a wish</button>
+      <p style="font-size:11px;color:var(--dim);text-align:center;margin-top:10px;font-style:italic">the drop will wait. it's not going anywhere.</p>
+      <div class="sh-btns"><button class="bs" onclick="closeSheet()">close</button></div>`;
+  } else {
+    const cards=wishes.map(w=>
+      `<button class="bp" style="display:block;width:100%;margin:0 0 8px;text-align:left;padding:14px 16px;border-radius:14px;font-weight:700;font-size:15px;line-height:1.4" onclick="claimWish('${w.id}')">${esc(w.name)}</button>`
+    ).join('');
+    body=`<div class="sh-ttl">a magical teardrop.</div>
+      <p style="font-size:14px;color:var(--mid);line-height:1.6;margin-bottom:14px">you found a magical tear drop. what's your wish?</p>
+      ${cards}
+      <p style="font-size:11px;color:var(--dim);text-align:center;margin-top:10px;font-style:italic">pick one. you promised yourself.</p>
+      <div style="text-align:center;margin-top:8px"><button onclick="closeSheet();setTimeout(openWishesEditor,80)" style="background:none;border:none;color:var(--dim);font-size:11px;font-family:var(--fs);text-decoration:underline;cursor:pointer">edit wishes</button></div>
+      <div class="sh-btns"><button class="bs" onclick="closeSheet()">close</button></div>`;
+  }
+  openSheet(body);
+}
+function claimWish(wid){
+  if(!S||!S.vapor||S.vapor.teardrop!=='resting')return;
+  const w=(S.wishes||[]).find(x=>x.id===wid);
+  if(!w)return;
+  // Reset cycle — vapor starts growing again from zero.
+  S.vapor.teardrop=null;
+  S.vapor.progress=0;
+  _dropPhys=null;
+  save();
+  closeSheet();
+  // Warm chime ladder + sparkle haptic — the claim is the meaning peak.
+  haptic([10,30,40,30,10]);
+  try{const ac0=ac();const t=ac0.currentTime;tone(660,.18,.04,t);tone(880,.22,.03,t+0.08);tone(1100,.28,.025,t+0.16);}catch(e){}
+  showToast(`you promised yourself: ${w.name} — take it.`,'#c8841a',5500);
+  updateDropChip();
+}
+function openWishesEditor(){
+  const wishes=Array.isArray(S.wishes)?S.wishes:[];
+  const rows=wishes.map(w=>_wishRowHtml(w.id,w.name)).join('');
+  openSheet(`<div class="sh-ttl">your wishes</div>
+    <p style="font-size:13px;color:var(--mid);line-height:1.6;margin-bottom:14px">things you'd give yourself for your work. when a teardrop falls, you'll pick one.</p>
+    <div id="wishes-rows">${rows}</div>
+    <button class="cl-add" onclick="addWishRow()" style="background:none;border:1.5px dashed var(--brd);border-radius:10px;width:100%;padding:9px;color:var(--dim);font-family:var(--fs);font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;margin-bottom:8px">+ add wish</button>
+    <p style="font-size:11px;color:var(--dim);text-align:center;margin-top:8px;font-style:italic">be specific. "the cake," not "food."</p>
+    <div class="sh-btns"><button class="bs" onclick="closeSheet()">cancel</button><button class="bp" onclick="saveWishes()">save</button></div>`);
+  if(!wishes.length)setTimeout(addWishRow,80);
+}
+function _wishRowHtml(id,name){
+  return `<div class="wish-row" data-id="${id}" style="display:flex;gap:6px;margin-bottom:6px;align-items:center">`+
+    `<input type="text" class="wish-input" value="${esc(name||'')}" maxlength="60" placeholder="a wish to yourself…" autocomplete="off" style="flex:1;background:var(--bg);border:2px solid var(--brd);color:var(--ink);font-size:14px;font-weight:600;font-family:var(--fs);padding:9px 12px;border-radius:12px;outline:none">`+
+    `<button onclick="deleteWishRow('${id}')" aria-label="remove" style="background:none;border:1.5px solid var(--brd);border-radius:10px;width:36px;height:36px;color:var(--dim);font-size:18px;cursor:pointer;flex:0 0 36px">×</button>`+
+  `</div>`;
+}
+function addWishRow(){
+  const host=document.getElementById('wishes-rows');
+  if(!host)return;
+  const id='w-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,5);
+  const tmp=document.createElement('div');
+  tmp.innerHTML=_wishRowHtml(id,'');
+  const row=tmp.firstElementChild;
+  host.appendChild(row);
+  setTimeout(()=>row.querySelector('input')?.focus(),20);
+}
+function deleteWishRow(wid){
+  const row=document.querySelector(`.wish-row[data-id="${wid}"]`);
+  if(row)row.remove();
+}
+function saveWishes(){
+  const rows=document.querySelectorAll('#wishes-rows .wish-row');
+  const out=[];
+  rows.forEach(r=>{
+    const id=r.dataset.id;
+    const text=(r.querySelector('.wish-input')?.value||'').trim().slice(0,60);
+    if(!text)return;
+    out.push({id,name:text});
+  });
+  S.wishes=out;
+  save();
+  closeSheet();
+  showToast(out.length?`${out.length} wish${out.length>1?'es':''} saved`:'No wishes yet','#3d3530',1500);
+}
 function ovClick(e){if(e.target.classList.contains('ov')&&Date.now()-_sheetOpenT>300)closeSheet();}
 
 
