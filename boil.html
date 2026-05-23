@@ -4093,10 +4093,15 @@ let _lastBlockTapT=0; // guard against synthetic mousedown after touchstart
 // Bubble gesture state machine — single tap activates, long-press edits, drag relocates.
 let _bubbleHold=null;
 const _BUBBLE_LONG_MS=500, _BUBBLE_MOVE_TOL=10;
+// Hold-to-commit window for zone actions. The bubble must remain in the zone
+// for this long for the action to fire; release before then is a no-op. This
+// replaces release-position commits, which were prone to misfires near edges.
+const _HOLD_COMMIT_MS=1000;
 function _cancelBubbleHold(){
   _hideDragHints();
   if(_bubbleHold){
     clearTimeout(_bubbleHold.timer);
+    if(_bubbleHold.holdRaf){cancelAnimationFrame(_bubbleHold.holdRaf);_bubbleHold.holdRaf=null;}
     if(_bubbleHold.dragging){
       const b=activeTaskBlocks.find(x=>x.taskId===_bubbleHold.taskId);
       if(b)b.beingDragged=false;
@@ -4114,11 +4119,15 @@ function _startBubbleHold(block,clientX,clientY){
     // method missed flings because finger decelerates before release; averaging
     // over a window captures the throw, not the final near-stop.
     velSamples:[{x:clientX,y:clientY,t:_t0}],
-    // Cumulative path length over the gesture. Used as the intent gate so a
-    // bubble that *starts* in a commit zone (e.g. an already-skipped ghost in
-    // the left band) can still trigger that zone on a real re-drag — net
-    // displacement would be near zero, but the path length isn't.
+    // Cumulative path length over the gesture. Retained as a diagnostic;
+    // commits are now hold-driven (see _holdAnimStart), not path-driven.
     pathDist:0,
+    // Hold-to-commit state. holdZone is the zone the bubble is currently
+    // dwelling in; holdStart is when it entered; holdRaf drives the fill
+    // animation and fires _commitZoneAction once the dwell crosses
+    // _HOLD_COMMIT_MS. committed prevents the release handler from firing
+    // a stale tap after the rAF already committed.
+    holdZone:null,holdStart:null,holdRaf:null,committed:false,
     timer:setTimeout(()=>{
       if(_bubbleHold&&_bubbleHold.taskId===id&&!_bubbleHold.dragging){
         _bubbleHold.fired=true;
@@ -4128,7 +4137,7 @@ function _startBubbleHold(block,clientX,clientY){
     },_BUBBLE_LONG_MS)};
 }
 function _maybeCancelBubbleHoldByMove(clientX,clientY){
-  if(!_bubbleHold||_bubbleHold.fired)return;
+  if(!_bubbleHold||_bubbleHold.fired||_bubbleHold.committed)return;
   const dx=clientX-_bubbleHold.startX,dy=clientY-_bubbleHold.startY;
   const movedFar=dx*dx+dy*dy>_BUBBLE_MOVE_TOL*_BUBBLE_MOVE_TOL;
   if(!_bubbleHold.dragging&&movedFar){
@@ -4162,6 +4171,24 @@ function _maybeCancelBubbleHoldByMove(clientX,clientY){
     b.y=clientY*dpr;
     b.vx=0;b.vy=0;
     _updateDragHints(clientY,clientX);
+    // Hold-to-commit zone tracking. Hidden (off-day) bubbles never commit, so
+    // their zones don't engage the hold timer — they can still be dragged
+    // around as display-only.
+    const t=S.tasks.find(x=>x.id===b.taskId);
+    const visible=!!(t&&taskVisibleToday(t));
+    const newZone=visible?_detectHoldZone(clientX,clientY,_bubbleHold.holdZone):null;
+    if(newZone!==_bubbleHold.holdZone){
+      if(newZone){
+        _bubbleHold.holdZone=newZone;
+        _bubbleHold.holdStart=now;
+        haptic([8]); // entry tick — "I see you're aiming for this zone"
+        _holdAnimStart();
+      } else {
+        _bubbleHold.holdZone=null;
+        _bubbleHold.holdStart=null;
+        if(_bubbleHold.holdRaf){cancelAnimationFrame(_bubbleHold.holdRaf);_bubbleHold.holdRaf=null;}
+      }
+    }
   }
 }
 // Drag affordance overlays — visible while a bubble is being dragged.
@@ -4229,14 +4256,16 @@ function _updateDragHints(clientY,clientX){
     top.style.color=`rgba(255,255,255,${(0.55+0.45*frac).toFixed(2)})`;
     top.style.transform=`translateY(${(-6*(1-frac)).toFixed(1)}px)`;
   }
-  // Bottom band — completion target (green)
-  if(clientY>vh*0.85){
+  // Bottom band — completion target (green). Tightened to the bottom 8% of
+  // the viewport (was 15%) — the bigger zone caused frequent misfires when
+  // bubbles were dragged low en route to other zones.
+  if(clientY>vh*0.92){
     bot.style.background='linear-gradient(to top,rgba(46,158,106,0.85),rgba(46,158,106,0.20))';
     bot.style.color='#fff';
     bot.style.transform='translateY(0)';
   } else {
-    const inWarmup=clientY>vh*0.65;
-    const frac=inWarmup?(clientY-vh*0.65)/(vh*0.20):0;
+    const inWarmup=clientY>vh*0.72;
+    const frac=inWarmup?(clientY-vh*0.72)/(vh*0.20):0;
     bot.style.background=`linear-gradient(to top,rgba(46,158,106,${(0.18+0.45*frac).toFixed(2)}),transparent)`;
     bot.style.color=`rgba(255,255,255,${(0.55+0.45*frac).toFixed(2)})`;
     bot.style.transform=`translateY(${(6*(1-frac)).toFixed(1)}px)`;
@@ -4285,6 +4314,138 @@ function _hideDragHints(){
     if(id==='drag-hint-top')el.style.transform='translateY(-10px)';
   });
 }
+// Zone detection with hysteresis: once a zone is entered, the exit threshold
+// loosens by HYS so a finger jiggle near the boundary doesn't constantly
+// reset the hold timer. Priority on overlap is top > bottom > left > right
+// (matches the historical release-position commit order).
+function _detectHoldZone(clientX,clientY,currentZone){
+  const vh=window.innerHeight, vw=window.innerWidth;
+  const HYS=14;
+  const topEntry=Math.max(132,vh*0.18);
+  const botEntry=vh*0.92;
+  const edgeEntry=vw*_EDGE_PCT;
+  if(currentZone==='top')return clientY<topEntry+HYS?'top':null;
+  if(currentZone==='bottom')return clientY>botEntry-HYS?'bottom':null;
+  if(currentZone==='left')return clientX<edgeEntry+HYS?'left':null;
+  if(currentZone==='right')return clientX>vw-edgeEntry-HYS?'right':null;
+  if(clientY<topEntry)return 'top';
+  if(clientY>botEntry)return 'bottom';
+  if(clientX<edgeEntry)return 'left';
+  if(clientX>vw-edgeEntry)return 'right';
+  return null;
+}
+// Per-frame fill update. Renders a hard fill line that grows from the band's
+// inside edge toward the outside as the hold dwell approaches commit. Pure
+// gradient stops, no DOM children — overwrites whatever _updateDragHints set
+// for the active band.
+function _updateHoldFill(zone,progress){
+  const {bot,lft,rgt,top}=_ensureDragHints();
+  const pct=(progress*100).toFixed(1);
+  if(zone==='top'){
+    top.style.background=`linear-gradient(to bottom,rgba(255,250,235,0.65) 0%,rgba(255,250,235,0.65) ${pct}%,rgba(200,132,26,0.85) ${pct}%,rgba(200,132,26,0.20))`;
+    top.style.color='#fff';
+    top.style.transform='translateY(0)';
+  } else if(zone==='bottom'){
+    bot.style.background=`linear-gradient(to top,rgba(235,255,245,0.65) 0%,rgba(235,255,245,0.65) ${pct}%,rgba(46,158,106,0.85) ${pct}%,rgba(46,158,106,0.20))`;
+    bot.style.color='#fff';
+    bot.style.transform='translateY(0)';
+  } else if(zone==='left'){
+    lft.style.background=`linear-gradient(to right,rgba(245,240,230,0.65) 0%,rgba(245,240,230,0.65) ${pct}%,rgba(168,158,146,0.85) ${pct}%,rgba(168,158,146,0.20))`;
+    lft.style.color='#fff';
+    lft.style.transform='translateX(0)';
+  } else if(zone==='right'){
+    rgt.style.background=`linear-gradient(to left,rgba(225,245,250,0.65) 0%,rgba(225,245,250,0.65) ${pct}%,rgba(74,158,186,0.85) ${pct}%,rgba(74,158,186,0.20))`;
+    rgt.style.color='#fff';
+    rgt.style.transform='translateX(0)';
+  }
+}
+// rAF loop: ticks every frame while a hold is active, drives the fill
+// animation, and fires _commitZoneAction when dwell crosses _HOLD_COMMIT_MS.
+// Fires while the finger is still down — release after commit is a no-op.
+function _holdAnimStart(){
+  if(!_bubbleHold)return;
+  if(_bubbleHold.holdRaf){cancelAnimationFrame(_bubbleHold.holdRaf);}
+  const tick=()=>{
+    if(!_bubbleHold||!_bubbleHold.holdZone){
+      if(_bubbleHold)_bubbleHold.holdRaf=null;
+      return;
+    }
+    const elapsed=performance.now()-_bubbleHold.holdStart;
+    const progress=Math.min(1,elapsed/_HOLD_COMMIT_MS);
+    _updateHoldFill(_bubbleHold.holdZone,progress);
+    if(progress>=1){
+      const zone=_bubbleHold.holdZone;
+      const id=_bubbleHold.taskId;
+      const b=activeTaskBlocks.find(x=>x.taskId===id);
+      const t=b?S.tasks.find(x=>x.id===b.taskId):null;
+      _bubbleHold.committed=true;
+      _bubbleHold.holdRaf=null;
+      if(b)b.beingDragged=false;
+      if(b&&t&&taskVisibleToday(t))_commitZoneAction(zone,t,b);
+      _hideDragHints();
+      return;
+    }
+    _bubbleHold.holdRaf=requestAnimationFrame(tick);
+  };
+  _bubbleHold.holdRaf=requestAnimationFrame(tick);
+}
+// Commit dispatcher — invoked from _holdAnimStart when dwell completes. Per-zone
+// behavior matches what release-in-zone used to do, with one change: drag-to-
+// bottom (mark complete) now credits the remaining blocks to the vapor cycle
+// before flipping done. Honors user intent ("this is finished") instead of
+// silently zeroing the steam reward for early completion.
+function _commitZoneAction(zone,t,b){
+  if(!t||!b)return;
+  if(zone==='top'){
+    resetTask(t);
+    if(S.lastActiveId===t.id)S.lastActiveId=null;
+    delete _bubblePos[t.id];
+    clearBgNotifs();
+    save();
+    haptic([20,30,20]);
+    try{const now=ac().currentTime;tone(440,.10,.03,now);tone(330,.12,.025,now+0.06);}catch(e){}
+    showToast('↻ Reset for today.','#c8841a',1500);
+    activeTaskBlocks.length=0;
+    fastUpdateAll();
+    renderDaybar();updateLogoDot();
+    return;
+  }
+  if(zone==='bottom'){
+    if(t.done)return;
+    const remaining=Math.max(0,t.total-t.completed);
+    for(let i=0;i<remaining;i++)onCompletionEvent(t);
+    t.completed=t.total;t.done=true;t.running=false;
+    t.savedAt=null;t._phaseStart=null;t.isRest=false;t.rem=0;
+    save();
+    onTaskDone(t.id);
+    return;
+  }
+  if(zone==='left'){
+    if(t.done||t.skipped)return;
+    _skipTaskAndFly(t,b,-1,0,_bgDpr());
+    return;
+  }
+  if(zone==='right'){
+    if(t.done||t.skipped)return;
+    if(!t.hasTime){_noTimeTap(t);return;}
+    if(t.completed<t.total){
+      t.completed+=1;onCompletionEvent(t);
+      if(t.completed>=t.total){
+        t.running=false;t.savedAt=null;t._phaseStart=null;t.isRest=false;t.rem=0;
+        if(_checklistAllDone(t)){t.done=true;save();onTaskDone(t.id);}
+        else {save();onTaskTimeDone(t);}
+      } else {
+        t.rem=t.workDur;t.isRest=false;
+        t.running=true;t.savedAt=Date.now();t._phaseStart=Date.now();
+        save();
+        onSubBlockDone(t.id);
+        ensureTicker();
+      }
+      activeTaskBlocks.length=0;
+      haptic([20,30,50]);
+    }
+  }
+}
 // Shared retirement path for both drag-to-edge and fling. Stops the timer
 // (so the ticker doesn't keep draining rem on a skipped task), preserves
 // completed/rem/isRest so un-skip resumes the prior phase, and gives the
@@ -4305,6 +4466,8 @@ function _skipTaskAndFly(t,b,dirX,vyCss,dpr,vxCssOpt){
   showToast('Skipped for today.','#6b6258',1400);
 }
 function _finishBubbleHoldAsTap(block){
+  // Hold-to-commit already fired during dwell — release is a no-op cleanup.
+  if(_bubbleHold&&_bubbleHold.committed){_cancelBubbleHold();return;}
   if(_bubbleHold&&_bubbleHold.dragging){
     const b=activeTaskBlocks.find(x=>x.taskId===_bubbleHold.taskId);
     const t=b?S.tasks.find(x=>x.id===b.taskId):null;
@@ -4318,9 +4481,6 @@ function _finishBubbleHoldAsTap(block){
     if(b&&t){
       b.beingDragged=false;
       const dpr=_bgDpr();
-      const H=window.innerHeight*dpr;
-      const W=window.innerWidth*dpr;
-      const vw=window.innerWidth, vh=window.innerHeight;
       // Windowed velocity — average over the last ~80ms of motion. The single-
       // last-event method missed real flings because the finger decelerates
       // before release; this captures the throw, not the final near-stop.
@@ -4332,89 +4492,9 @@ function _finishBubbleHoldAsTap(block){
         vxCss=(newest.x-oldest.x)/dtW*16;
         vyCss=(newest.y-oldest.y)/dtW*16;
       }
-      const vMagCss=Math.sqrt(vxCss*vxCss+vyCss*vyCss);
-      const bClientX=b.x/dpr, bClientY=b.y/dpr;
-      const edgePx=vw*_EDGE_PCT;
-      const topZoneEnd=Math.max(132,vh*0.18);
-      // Intent gating via cumulative path distance: a zone commits when the
-      // gesture traveled at least DRAG_COMMIT_MIN CSS px in total AND ended in
-      // the zone. Path-based instead of net-displacement-based so a bubble
-      // already in a zone (e.g. skipped ghost in the left band) can still
-      // re-trigger by being deliberately moved around — net dx might be near
-      // zero, but the gesture's path length isn't. Tap-with-tremor still
-      // barely accumulates and stays below the threshold.
-      const DRAG_COMMIT_MIN=30;
-      const moved=(_bubbleHold.pathDist||0)>DRAG_COMMIT_MIN;
-      const movedIntoTop=moved&&bClientY<topZoneEnd;
-      const movedIntoBottom=moved&&bClientY>vh*0.85;
-      const movedIntoLeft=moved&&bClientX<edgePx;
-      const movedIntoRight=moved&&bClientX>vw-edgePx;
-      // ── Drag-to-top band → reset today's progress ─────────────────────
-      if(movedIntoTop){
-        resetTask(t);
-        if(S.lastActiveId===t.id)S.lastActiveId=null;
-        delete _bubblePos[t.id];
-        clearBgNotifs();
-        save();
-        haptic([20,30,20]);
-        try{const now=ac().currentTime;tone(440,.10,.03,now);tone(330,.12,.025,now+0.06);}catch(e){}
-        showToast('↻ Reset for today.','#c8841a',1500);
-        activeTaskBlocks.length=0;
-        fastUpdateAll();
-        renderDaybar();updateLogoDot();
-        _cancelBubbleHold();
-        return;
-      }
-      // ── Drag-to-bottom band → mark task entirely complete ─────────────
-      if(movedIntoBottom&&!t.done){
-        t.completed=t.total;t.done=true;t.running=false;
-        t.savedAt=null;t._phaseStart=null;t.isRest=false;t.rem=0;
-        save();
-        onTaskDone(t.id);
-        _cancelBubbleHold();
-        return;
-      }
-      // ── Drag-to-LEFT band → skip for today
-      if(movedIntoLeft&&!t.done&&!t.skipped){
-        _skipTaskAndFly(t,b,-1,vyCss,dpr);
-        _cancelBubbleHold();
-        return;
-      }
-      // ── Drag-to-RIGHT band → credit one block (replaces the unreliable
-      // double-tap gesture). End states match the existing credit path:
-      // more blocks remain → onSubBlockDone + restore running.
-      // last block + checklist done → onTaskDone (full task complete).
-      // last block + items remain → onTaskTimeDone (stalled).
-      if(movedIntoRight&&!t.done&&!t.skipped){
-        // No-time tasks: the drag-right gesture should advance one tap, NOT
-        // start a timer. Route through the tap-advance path for consistency.
-        if(!t.hasTime){
-          _noTimeTap(t);
-          _cancelBubbleHold();
-          return;
-        }
-        if(t.completed<t.total){
-          t.completed+=1;onCompletionEvent(t);
-          if(t.completed>=t.total){
-            t.running=false;t.savedAt=null;t._phaseStart=null;t.isRest=false;t.rem=0;
-            if(_checklistAllDone(t)){t.done=true;save();onTaskDone(t.id);}
-            else {save();onTaskTimeDone(t);}
-          } else {
-            t.rem=t.workDur;t.isRest=false;
-            t.running=true;t.savedAt=Date.now();t._phaseStart=Date.now();
-            save();
-            onSubBlockDone(t.id);
-            ensureTicker();
-          }
-          activeTaskBlocks.length=0;
-          haptic([20,30,50]);
-        }
-        _cancelBubbleHold();
-        return;
-      }
-      // No fling-as-gesture — actions are zone-based only. A throw with
-      // momentum just bounces around inside the bounded canvas.
-      // ── Normal release → toss with carried momentum, not a straight drop
+      // Zone actions now require holding the bubble in the zone for
+      // _HOLD_COMMIT_MS (see _holdAnimStart). A release alone never commits
+      // — release just tosses the bubble with carried momentum.
       b.userPlaced=true;
       b.vx=Math.max(-28,Math.min(28,vxCss*dpr*1.2));
       b.vy=Math.max(-28,Math.min(28,vyCss*dpr*1.2));
