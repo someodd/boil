@@ -1,0 +1,94 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@85..125,400..800&display=swap">
+  <style>
+    body { margin: 0; background: #EFEFEA; }
+    a { color: #CE3118; } a:hover { color: #A32712; }
+    .app { width: 390px; height: 844px; background: #EFEFEA; color: #17171C; overflow: hidden;
+      font-family: 'Archivo', ui-rounded, -apple-system, 'Helvetica Neue', system-ui, sans-serif;
+      font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1;
+      display: flex; flex-direction: column; }
+    .nano { font-size: 9.5px; font-weight: 800; letter-spacing: .186em; line-height: 12px; text-transform: uppercase; }
+    .row { display: flex; align-items: stretch; flex: none; position: relative; z-index: 1; }
+    .gut { width: 52px; flex: none; text-align: right; padding-right: 12px; color: #6B6B63; }
+    .bd { flex: 1; min-width: 0; display: flex; align-items: center; padding-left: 12px; padding-right: 20px; overflow: hidden; }
+    .nm { font-size: 15px; font-weight: 700; letter-spacing: -.0141em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .q { font-size: 13px; font-weight: 650; letter-spacing: -.0124em; margin-left: auto; flex: none; }
+    .q i { font-style: normal; font-size: .62em; opacity: .45; padding-left: 1px; }
+    .hero { font-size: 52px; font-weight: 800; font-stretch: 112%; letter-spacing: -.0431em; line-height: 44px; }
+    .hero i { font-style: normal; font-size: .42em; opacity: .42; }
+    .queue { position: relative; flex: none; }
+  </style>
+</helmet>
+
+<div class="app">
+
+  <div class="row nano" style="height:34px;align-items:center;padding-left:64px;padding-right:20px">
+    <span>Sun 23 Aug &middot; 0/7 done</span>
+    <span style="margin-left:auto">Settings</span>
+  </div>
+
+  <div class="row" style="height:24px;align-items:center">
+    <div class="gut nano">06:00</div>
+    <div style="flex:1;position:relative;height:100%;display:flex;align-items:center">
+      <div style="position:absolute;left:0;right:0;top:50%;border-top:1.5px dashed #17171C;opacity:.28"></div>
+      <span class="nano" style="color:#6B6B63;background:#EFEFEA;padding:0 8px 0 12px;position:relative">up</span>
+    </div>
+  </div>
+
+  <div style="height:62px;flex:none"></div>
+
+  <div class="row" style="height:28px">
+    <div class="gut nano">11:10</div>
+    <div class="bd" style="background:#FF6B00;color:#17171C">
+      <span class="nm">Chinese</span><span class="q">13<i>m</i></span>
+    </div>
+  </div>
+
+  <div style="height:72px;flex:none"></div>
+
+  <div class="row" style="height:84px;align-items:center;background:#17171C;color:#EFEFEA;padding-right:20px;z-index:4">
+    <div style="width:52px;flex:none;text-align:right;padding-right:12px">
+      <div class="nano" style="color:rgba(239,239,234,.55)">now</div>
+      <div class="nano" style="color:#EFEFEA;margin-top:4px">19:37</div>
+    </div>
+    <div style="margin-left:auto;text-align:right">
+      <div class="hero">13<i>m</i></div>
+      <div class="nano" style="color:rgba(239,239,234,.55);margin-top:-2px">banked &middot; 11h 41m to go</div>
+    </div>
+  </div>
+
+
+  <div class="queue" style="flex:1;display:flex;flex-direction:column">
+    <div class="row" style="height:16px">
+      <div class="gut nano">19:37</div>
+      <div class="bd" style="background:#B8D3FF;box-shadow:inset 4px 0 0 0 #2438D6"></div>
+    </div>
+
+  <div style="position:absolute;left:0;right:0;top:16px;height:0;border-top:1.5px dashed #CE3118;z-index:5"></div>
+  <div class="nano" style="position:absolute;left:0;top:4px;width:52px;text-align:right;padding-right:12px;color:#CE3118;z-index:6">20:00</div>
+  <div class="nano" style="position:absolute;left:64px;top:21px;color:#CE3118;z-index:6">past bed</div>
+  
+    <div style="height:34px;flex:none"></div>
+    <div style="padding-left:64px;padding-right:20px">
+      <div class="hero" style="color:#CE3118">11<i>h</i>19<i>m</i></div>
+      <div class="nano" style="color:#CE3118;margin-top:6px">past bed &middot; 7 blocks owed</div>
+      <div style="display:flex;height:14px;margin-top:20px;gap:1px"><div style="flex:457;background:#2438D6"></div><div style="flex:46;background:#FF6B00"></div><div style="flex:30;background:#7B2FF7"></div><div style="flex:30;background:#2E9E1F"></div><div style="flex:30;background:#00A88E"></div><div style="flex:60;background:#FFC400"></div><div style="flex:25;background:#D01070"></div></div>
+      <div class="nano" style="color:#6B6B63;margin-top:10px">lands 07:19 tomorrow &middot; tap to unfold</div>
+    </div>
+  </div>
+
+  <div class="row nano" style="margin-top:auto;height:34px;align-items:center;padding-right:20px">
+    <span style="margin-left:auto">New timer</span>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

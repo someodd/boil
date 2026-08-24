@@ -1,0 +1,122 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@85..125,400..800&display=swap">
+  <style>
+    body { margin: 0; background: #EFEFEA; }
+    a { color: #CE3118; } a:hover { color: #A32712; }
+    .app { width: 390px; height: 844px; background: #EFEFEA; color: #17171C; overflow: hidden;
+      font-family: 'Archivo', ui-rounded, -apple-system, 'Helvetica Neue', system-ui, sans-serif;
+      font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1;
+      display: flex; flex-direction: column; }
+    .nano { font-size: 9.5px; font-weight: 800; letter-spacing: .186em; line-height: 12px; text-transform: uppercase; }
+    .row { display: flex; align-items: stretch; flex: none; position: relative; z-index: 1; }
+    .gut { width: 52px; flex: none; text-align: right; padding-right: 12px; color: #6B6B63; }
+    .bd { flex: 1; min-width: 0; display: flex; align-items: center; padding-left: 12px; padding-right: 20px; overflow: hidden; }
+    .nm { font-size: 15px; font-weight: 700; letter-spacing: -.0141em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .q { font-size: 13px; font-weight: 650; letter-spacing: -.0124em; margin-left: auto; flex: none; }
+    .q i { font-style: normal; font-size: .62em; opacity: .45; padding-left: 1px; }
+    .hero { font-size: 52px; font-weight: 800; font-stretch: 112%; letter-spacing: -.0431em; line-height: 44px; }
+    .hero i { font-style: normal; font-size: .42em; opacity: .42; }
+    .queue { position: relative; flex: none; }
+  </style>
+</helmet>
+
+<div class="app">
+  <div class="row nano" style="height:34px;align-items:center;padding-left:64px;padding-right:20px">
+    <span>Sun 23 Aug &middot; 0/7 done</span><span style="margin-left:auto">Settings</span>
+  </div>
+  <div class="row" style="height:24px;align-items:center">
+    <div class="gut nano">06:00</div>
+    <div style="flex:1;position:relative;height:100%;display:flex;align-items:center">
+      <div style="position:absolute;left:0;right:0;top:50%;border-top:1.5px dashed #17171C;opacity:.28"></div>
+      <span class="nano" style="color:#6B6B63;background:#EFEFEA;padding:0 8px 0 12px;position:relative">up</span>
+    </div>
+  </div>
+  <div style="height:62px;flex:none"></div>
+  <div class="row" style="height:28px">
+    <div class="gut nano">11:10</div>
+    <div class="bd" style="background:#FF6B00;color:#17171C">
+      <span class="nm">Chinese</span><span class="q">13<i>m</i></span>
+    </div>
+  </div>
+  <div style="height:72px;flex:none"></div>
+  <div class="row" style="height:84px;align-items:center;background:#17171C;color:#EFEFEA;padding-right:20px;z-index:4">
+    <div style="width:52px;flex:none;text-align:right;padding-right:12px">
+      <div class="nano" style="color:rgba(239,239,234,.55)">now</div>
+      <div class="nano" style="color:#EFEFEA;margin-top:4px">19:37</div>
+    </div>
+    <div style="margin-left:auto;text-align:right">
+      <div class="hero">13<i>m</i></div>
+      <div class="nano" style="color:rgba(239,239,234,.55);margin-top:-2px">banked &middot; 11h 20m past bed</div>
+    </div>
+  </div>
+
+  <div class="queue">
+    <div style="position:absolute;left:0;right:0;top:16px;bottom:0;background:#17171C;z-index:0"></div>
+
+  <div class="row" style="height:330px;margin-bottom:2px;">
+    <div class="gut nano" style="color:#6B6B63">19:37</div>
+    <div class="bd" style="background:linear-gradient(#B8D3FF 0 16px, #1B225B 16px);box-shadow:inset 4px 0 0 0 #2438D6">
+      <span class="nm" style="color:#B8D3FF">Drex</span><span class="q" style="color:#B8D3FF">8<i>h</i></span>
+    </div>
+  </div>
+  <div class="row" style="height:26px;margin-bottom:2px;">
+    <div class="gut nano" style="color:rgba(239,239,234,.55)">03:37</div>
+    <div class="bd" style="background:#663312;box-shadow:inset 4px 0 0 0 #FF6B00">
+      <span class="nm" style="color:#FFC2A2">Chinese</span><span class="q" style="color:#FFC2A2">46<i>m</i></span>
+    </div>
+  </div>
+  <div class="row" style="height:26px;margin-bottom:2px;">
+    <div class="gut nano" style="color:rgba(239,239,234,.55)">04:24</div>
+    <div class="bd" style="background:#391F67;box-shadow:inset 4px 0 0 0 #7B2FF7">
+      <span class="nm" style="color:#D5C9FF">Reading</span><span class="q" style="color:#D5C9FF">30<i>m</i></span>
+    </div>
+  </div>
+  <div class="row" style="height:26px;margin-bottom:2px;">
+    <div class="gut nano" style="color:rgba(239,239,234,.55)">04:54</div>
+    <div class="bd" style="background:#1F451D;box-shadow:inset 4px 0 0 0 #2E9E1F">
+      <span class="nm" style="color:#B5E3AE">Adulting</span><span class="q" style="color:#B5E3AE">30<i>m</i></span>
+    </div>
+  </div>
+  <div class="row" style="height:26px;margin-bottom:2px;">
+    <div class="gut nano" style="color:rgba(239,239,234,.55)">05:24</div>
+    <div class="bd" style="background:#0F4843;box-shadow:inset 4px 0 0 0 #00A88E">
+      <span class="nm" style="color:#AEE1D3">Job Hunt</span><span class="q" style="color:#AEE1D3">30<i>m</i></span>
+    </div>
+  </div>
+  <div class="row" style="height:34px;margin-bottom:2px;">
+    <div class="gut nano" style="color:rgba(239,239,234,.55)">05:54</div>
+    <div class="bd" style="background:#665212;box-shadow:inset 4px 0 0 0 #FFC400">
+      <span class="nm" style="color:#EBD197">ML</span><span class="q" style="color:#EBD197">1<i>h</i></span>
+    </div>
+  </div>
+  <div class="row" style="height:26px;">
+    <div class="gut nano" style="color:rgba(239,239,234,.55)">06:54</div>
+    <div class="bd" style="background:#561539;box-shadow:inset 4px 0 0 0 #D01070">
+      <span class="nm" style="color:#FFB9D2">Lecter Study</span><span class="q" style="color:#FFB9D2">25<i>m</i></span>
+    </div>
+  </div>
+
+  <div style="position:absolute;left:52px;right:0;top:190px;height:0;border-top:1px dashed rgba(239,239,234,.22);z-index:5"></div>
+  <div style="position:absolute;left:0;top:175px;width:52px;text-align:right;padding-right:12px;z-index:6">
+    <div class="nano" style="color:rgba(239,239,234,.5)">00:00</div>
+    <div class="nano" style="color:rgba(239,239,234,.5);opacity:.66">mon</div>
+  </div>
+
+  <div style="position:absolute;left:52px;right:0;top:16px;height:0;border-top:1.5px dashed #CE3118;z-index:6"></div>
+  <div class="nano" style="position:absolute;left:0;top:10px;width:52px;text-align:right;padding-right:12px;color:#6B6B63;z-index:7">20:00</div>
+  <div class="nano" style="position:absolute;left:52px;top:9px;font-size:10.5px;letter-spacing:.124em;color:#17171C;background:#EFEFEA;padding:0 8px 0 12px;z-index:7">past bed</div>
+  </div>
+  <div class="row nano" style="margin-top:auto;height:34px;align-items:center;padding-right:20px">
+    <span style="margin-left:auto">New timer</span>
+  </div>
+</div></x-dc>
+</body>
+</html>

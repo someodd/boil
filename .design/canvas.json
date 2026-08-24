@@ -1,0 +1,164 @@
+{
+  "pages": [
+    {
+      "id": "page-1",
+      "name": "The fix"
+    },
+    {
+      "id": "page-2",
+      "name": "Directions (retired)"
+    }
+  ],
+  "artboards": [
+    {
+      "file": "Today.dc.html",
+      "page": "page-1",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "Today \u00b7 the bug"
+    },
+    {
+      "file": "Main.dc.html",
+      "page": "page-1",
+      "x": 510,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "The fix"
+    },
+    {
+      "file": "Sliver.dc.html",
+      "page": "page-1",
+      "x": 1020,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "The fix \u00b7 small overrun"
+    },
+    {
+      "file": "Boundary.dc.html",
+      "page": "page-1",
+      "x": 1530,
+      "y": 120,
+      "w": 660,
+      "h": 600,
+      "title": "Spec"
+    },
+    {
+      "file": "Signal.dc.html",
+      "page": "page-2",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "A \u00b7 Signal"
+    },
+    {
+      "file": "Nightfall.dc.html",
+      "page": "page-2",
+      "x": 510,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "B \u00b7 Nightfall"
+    },
+    {
+      "file": "Unfunded.dc.html",
+      "page": "page-2",
+      "x": 1020,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "C \u00b7 Unfunded"
+    },
+    {
+      "file": "Horizon.dc.html",
+      "page": "page-2",
+      "x": 1530,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "D \u00b7 Horizon"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "note-today",
+      "page": "page-1",
+      "x": 0,
+      "y": -210,
+      "w": 390,
+      "text": "TODAY \u2014 what your screenshot does.\n\nThe bed line is appended after the queue, so 20:00 draws underneath rows stamped 03:37 to 06:54. The ruler stops sorting the way the day does.\n\nIt also says \"past bed\" at 19:37, when bed is still 23 minutes away \u2014 the label fires on projected overrun, not on elapsed time."
+    },
+    {
+      "id": "note-fix",
+      "page": "page-1",
+      "x": 510,
+      "y": -210,
+      "w": 390,
+      "text": "THE FIX \u2014 four changes, all subtractive.\n\n1. The line sits at its true offset, 23 minutes below NOW, and CROSSES Drex. One block, one hard stop.\n\n2. Everything past it is multiplied by 0.86 \u2014 ground and blocks together. Same sheet, less light on it. The 52px margin is the AXIS and stays paper for its full height: no stamp ever straddles two grounds.\n\n3. The margin goes quiet. 04:24 was the accumulated error of six duration guesses printed as fact. Durations stay (you set those). Start times go. 00:00 stays \u2014 midnight is a fact about the axis, not about the plan. The first queue row's stamp goes too: it always reprinted the time the NOW band shows directly above it.\n\n4. The bed marker is now exactly the wake marker. Rule in the field only, stamp in the margin, ONE WORD on the chip. The overrun moved to the day's status line under the banked total, which is where the ledger already lives \u2014 it is the same number as 11h41m to go, measured from the other end. Rounded to 5 minutes \u2014 the grid the column is drawn on. A projection cannot be finer than that.\n\nThe word does not conjugate. Names never do, and the rule's position relative to the black band already says the tense."
+    },
+    {
+      "id": "note-sliver",
+      "page": "page-1",
+      "x": 1020,
+      "y": -210,
+      "w": 390,
+      "text": "THE SAME RULE, 38 MINUTES OVER.\n\nA different day: 3h26 owed at 17:12, landing at 20:38. The line falls inside Chinese, and only the tail of the column dims.\n\nNo threshold, no state, no second design \u2014 the treatment is proportional to the overrun because it is drawn at the same true scale as everything else. Note the stamps: 19:22 is real and prints; everything after the line does not."
+    },
+    {
+      "id": "note-spec",
+      "page": "page-1",
+      "x": 1530,
+      "y": -210,
+      "w": 660,
+      "text": "THE WHOLE MECHANISM IS ONE SCALAR.\n\nk = 0.86, multiplied per channel. Below k = 0.84 the block labels drop under the readable floor.\n\nThis is why it is a multiply and not a new palette: multiplication is monotone per channel, so ground > tint > solid cannot invert. A night ground inverts cobalt and violet \u2014 owed becomes lighter than done \u2014 and no night-tint lightness exists that avoids it."
+    },
+    {
+      "id": "note-retired",
+      "page": "page-2",
+      "x": 0,
+      "y": -260,
+      "w": 900,
+      "text": "The four directions that were drawn first, kept for the record.\n\nAll four answered \"how loudly do we mark this as bad\". A is a warning in a fixed slot, which fMRI shows collapsing after the second exposure. B is arithmetically impossible \u2014 no night-tint lightness keeps all eight hues separate from both the ground and their own solids. C removes the fill, which is where colour discriminability is worst. D clips, which prompt #16 forbids outright.\n\nThe better question turned out to be \"what is the screen asserting that isn't true\"."
+    },
+    {
+      "id": "note-a",
+      "page": "page-2",
+      "x": 0,
+      "y": -120,
+      "w": 390,
+      "text": "A \u00b7 SIGNAL \u2014 red rail in the margin from the line down."
+    },
+    {
+      "id": "note-b",
+      "page": "page-2",
+      "x": 510,
+      "y": -120,
+      "w": 390,
+      "text": "B \u00b7 NIGHTFALL \u2014 ground flips to night past the line. The right channel at an impossible amplitude."
+    },
+    {
+      "id": "note-c",
+      "page": "page-2",
+      "x": 1020,
+      "y": -120,
+      "w": 390,
+      "text": "C \u00b7 UNFUNDED \u2014 blocks lose their fill and become outlines."
+    },
+    {
+      "id": "note-d",
+      "page": "page-2",
+      "x": 1530,
+      "y": -120,
+      "w": 390,
+      "text": "D \u00b7 HORIZON \u2014 stop drawing at the line, print the total."
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "page-1"
+  }
+}

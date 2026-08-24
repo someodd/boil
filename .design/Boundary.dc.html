@@ -1,0 +1,138 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@85..125,400..800&display=swap">
+  <style>
+    body { margin: 0; background: #EFEFEA; }
+    a { color: #CE3118; } a:hover { color: #A32712; }
+    .app { width: 390px; height: 844px; background: #EFEFEA; color: #17171C; overflow: hidden;
+      font-family: 'Archivo', ui-rounded, -apple-system, 'Helvetica Neue', system-ui, sans-serif;
+      font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1;
+      display: flex; flex-direction: column; }
+    .nano { font-size: 9.5px; font-weight: 800; letter-spacing: .186em; line-height: 12px; text-transform: uppercase; }
+    .row { display: flex; align-items: stretch; flex: none; position: relative; z-index: 1; }
+    .gut { width: 52px; flex: none; text-align: right; padding-right: 12px; color: #6B6B63; }
+    .bd { flex: 1; min-width: 0; display: flex; align-items: center; padding-left: 12px; padding-right: 20px; overflow: hidden; }
+    .nm { font-size: 15px; font-weight: 700; letter-spacing: -.0141em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .q { font-size: 13px; font-weight: 650; letter-spacing: -.0124em; margin-left: auto; flex: none; }
+    .q i { font-style: normal; font-size: .62em; opacity: .45; padding-left: 1px; }
+    .hero { font-size: 52px; font-weight: 800; font-stretch: 112%; letter-spacing: -.0431em; line-height: 44px; }
+    .hero i { font-style: normal; font-size: .42em; opacity: .42; }
+    .queue { position: relative; flex: none; }
+  </style>
+</helmet>
+
+<div style="width:660px;height:600px;background:#EFEFEA;color:#17171C;padding:28px 32px;box-sizing:border-box;
+     font-family:'Archivo',ui-rounded,-apple-system,'Helvetica Neue',system-ui,sans-serif;
+     font-variant-numeric:tabular-nums;display:flex;gap:32px">
+
+  <div style="width:220px;flex:none">
+    <div class="nano" style="color:#6B6B63;margin-bottom:14px">the boundary, 2&times;</div>
+    <div style="position:relative;width:220px;height:300px;background:#EFEFEA;overflow:hidden">
+      <div style="position:absolute;left:104px;right:0;top:96px;bottom:0;background:#CECEC9"></div>
+      <div style="position:absolute;left:0;top:0;bottom:0;width:104px"></div>
+      <div style="position:absolute;left:104px;right:0;top:0;height:96px;background:#B8D3FF;box-shadow:inset 8px 0 0 0 #2438D6"></div>
+      <div style="position:absolute;left:104px;right:0;top:96px;bottom:0;background:#9eb5db;box-shadow:inset 8px 0 0 0 #2438D6"></div>
+      <div style="position:absolute;left:104px;right:0;top:96px;height:0;border-top:3px dashed #CE3118"></div>
+      <div class="nano" style="position:absolute;left:0;top:70px;width:104px;text-align:right;padding-right:16px;color:#6B6B63;font-size:19px;letter-spacing:.124em">20:00</div>
+      <div class="nano" style="position:absolute;left:128px;top:104px;color:#17171C;background:#B8D3FF;padding:0 10px 0 14px;font-size:21px;letter-spacing:.124em">bed</div>
+      <div style="position:absolute;left:128px;top:190px;font-size:26px;font-weight:700;letter-spacing:-.02em">Drex</div>
+    </div>
+    <div class="nano" style="color:#6B6B63;margin-top:14px;line-height:15px;text-transform:none;letter-spacing:0;font-size:11px;font-weight:500">
+      Red lives in the rule only. At 9.5&ndash;10.5px a pure-red glyph carries roughly one
+      stroke width of chromatic blur, so the type stays ink and the mask takes whatever
+      ground it stands on &mdash; here the block's own tint.
+    </div>
+  </div>
+
+  <div style="flex:1;min-width:0">
+    <div style="font-size:30px;font-weight:800;font-stretch:108%;letter-spacing:-.0263em;line-height:32px">Dim, don't invert</div>
+    <div class="nano" style="color:#6B6B63;margin-top:8px">every value past the line &times; 0.86</div>
+
+    <div style="display:flex;flex-direction:column;gap:6px;margin-top:22px">
+      
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="nano" style="color:#6B6B63;width:96px;flex:none">ground</span>
+    <span style="width:56px;height:22px;flex:none;background:#EFEFEA"></span>
+    <span class="nano" style="color:#6B6B63;width:62px;flex:none">#EFEFEA</span>
+    <span class="nano" style="color:#6B6B63;flex:none">&rarr;</span>
+    <span style="width:56px;height:22px;flex:none;background:#cecec9"></span>
+    <span class="nano" style="color:#6B6B63;width:62px;flex:none">#CECEC9</span>
+  </div>
+      
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="nano" style="color:#6B6B63;width:96px;flex:none">cobalt</span>
+    <span style="width:56px;height:22px;flex:none;background:#B8D3FF"></span>
+    <span class="nano" style="color:#6B6B63;width:62px;flex:none">#B8D3FF</span>
+    <span class="nano" style="color:#6B6B63;flex:none">&rarr;</span>
+    <span style="width:56px;height:22px;flex:none;background:#9eb5db"></span>
+    <span class="nano" style="color:#6B6B63;width:62px;flex:none">#9EB5DB</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="nano" style="color:#6B6B63;width:96px;flex:none">orange</span>
+    <span style="width:56px;height:22px;flex:none;background:#FFC2A2"></span>
+    <span class="nano" style="color:#6B6B63;width:62px;flex:none">#FFC2A2</span>
+    <span class="nano" style="color:#6B6B63;flex:none">&rarr;</span>
+    <span style="width:56px;height:22px;flex:none;background:#dba78b"></span>
+    <span class="nano" style="color:#6B6B63;width:62px;flex:none">#DBA78B</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="nano" style="color:#6B6B63;width:96px;flex:none">violet</span>
+    <span style="width:56px;height:22px;flex:none;background:#D5C9FF"></span>
+    <span class="nano" style="color:#6B6B63;width:62px;flex:none">#D5C9FF</span>
+    <span class="nano" style="color:#6B6B63;flex:none">&rarr;</span>
+    <span style="width:56px;height:22px;flex:none;background:#b7addb"></span>
+    <span class="nano" style="color:#6B6B63;width:62px;flex:none">#B7ADDB</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="nano" style="color:#6B6B63;width:96px;flex:none">grass</span>
+    <span style="width:56px;height:22px;flex:none;background:#B5E3AE"></span>
+    <span class="nano" style="color:#6B6B63;width:62px;flex:none">#B5E3AE</span>
+    <span class="nano" style="color:#6B6B63;flex:none">&rarr;</span>
+    <span style="width:56px;height:22px;flex:none;background:#9cc396"></span>
+    <span class="nano" style="color:#6B6B63;width:62px;flex:none">#9CC396</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="nano" style="color:#6B6B63;width:96px;flex:none">jade</span>
+    <span style="width:56px;height:22px;flex:none;background:#AEE1D3"></span>
+    <span class="nano" style="color:#6B6B63;width:62px;flex:none">#AEE1D3</span>
+    <span class="nano" style="color:#6B6B63;flex:none">&rarr;</span>
+    <span style="width:56px;height:22px;flex:none;background:#96c2b5"></span>
+    <span class="nano" style="color:#6B6B63;width:62px;flex:none">#96C2B5</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="nano" style="color:#6B6B63;width:96px;flex:none">chrome</span>
+    <span style="width:56px;height:22px;flex:none;background:#EBD197"></span>
+    <span class="nano" style="color:#6B6B63;width:62px;flex:none">#EBD197</span>
+    <span class="nano" style="color:#6B6B63;flex:none">&rarr;</span>
+    <span style="width:56px;height:22px;flex:none;background:#cab482"></span>
+    <span class="nano" style="color:#6B6B63;width:62px;flex:none">#CAB482</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <span class="nano" style="color:#6B6B63;width:96px;flex:none">magenta</span>
+    <span style="width:56px;height:22px;flex:none;background:#FFB9D2"></span>
+    <span class="nano" style="color:#6B6B63;width:62px;flex:none">#FFB9D2</span>
+    <span class="nano" style="color:#6B6B63;flex:none">&rarr;</span>
+    <span style="width:56px;height:22px;flex:none;background:#db9fb5"></span>
+    <span class="nano" style="color:#6B6B63;width:62px;flex:none">#DB9FB5</span>
+  </div>
+    </div>
+
+    <div style="margin-top:26px;border-top:1.5px solid #17171C;padding-top:14px">
+      <div class="nano" style="color:#17171C">why a multiply</div>
+      <div style="font-size:13px;font-weight:500;line-height:19px;margin-top:8px;max-width:340px">
+        Multiplication is monotone per channel, so ground &gt; tint &gt; solid cannot invert &mdash;
+        which is exactly what a night ground does to cobalt and violet. One scalar, no second
+        palette, and the ordering is preserved by construction rather than by tuning.
+      </div>
+    </div>
+  </div>
+</div></x-dc>
+</body>
+</html>
