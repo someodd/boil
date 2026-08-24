@@ -997,6 +997,11 @@ function runs(cfg, today, upto) {
    ========================================================================= */
 
 const MINROW = 24;   /* a block shorter than this cannot hold its own name */
+/* The deadline is a rule, and a rule sits on something rather than on the edge. When
+   nothing is owed past bed the day's last rest ends exactly at it, so without this the
+   marker draws flush against the bottom and reads as clipped. The old 28px bed row used
+   to reserve this space by accident; it is reserved on purpose now. */
+const BED_ROOM = 12;
 /* Two axes for the whole screen: time is right aligned inside the margin, and every
    other piece of type starts at CONTENT_X. Continuity is the weakest cue to lose and
    the cheapest to keep. */
@@ -1065,7 +1070,7 @@ function Graph({ cfg, today, proj, running, handlers, pressed, first, flood, che
   for (const g of gaps) g.px = gapPx(g.min);
   const gapSum = gaps.reduce((n, g) => n + g.px, 0);
   const qgapSum = 2 * rows.filter((r) => r.kind === "queue").length;
-  const room = Math.max(120, viewH - fixed - gapSum - qgapSum - 2);
+  const room = Math.max(120, viewH - fixed - gapSum - qgapSum - BED_ROOM);
   let lo = 0.05, hi = 2.2;
   for (let i = 0; i < 22; i++) {
     const mid = (lo + hi) / 2;
@@ -1104,7 +1109,7 @@ function Graph({ cfg, today, proj, running, handlers, pressed, first, flood, che
 
   /* whatever is left over is spent on the rests, evenly, so the day fills the screen
      exactly without stretching a single block out of proportion */
-  const slack = Math.max(0, viewH - height() - (cut.n ? 28 : 0) - 2);
+  const slack = Math.max(0, viewH - height() - (cut.n ? 28 : 0) - BED_ROOM);
   if (gaps.length && slack > 0) {
     const each = Math.floor(slack / gaps.length / 4) * 4;
     for (const g of gaps) g.px += Math.min(each, 28);
@@ -1335,7 +1340,7 @@ function Graph({ cfg, today, proj, running, handlers, pressed, first, flood, che
           The tense is carried by where this rule sits relative to the now band, and by
           nothing else, so it cannot be got wrong. */}
       <div style={{ position: "absolute", left: 0, right: 0, top: bedTop, height: 0, zIndex: 6, pointerEvents: "none" }}>
-        <div style={{ position: "absolute", left: GUT, right: 0, top: 0, borderTop: `1.5px dashed ${ALARM.solid}` }} />
+        <div style={{ position: "absolute", left: GUT, right: 0, top: 0, borderTop: `1.5px dashed ${ALARM.solid}`, opacity: 0.55 }} />
         <div style={{ position: "absolute", left: 0, top: -6, width: GUT, textAlign: "right", paddingRight: S[3], ...T.nano, color: P.mute }}>
           {stampTime(wake + total)}
         </div>
@@ -1828,10 +1833,10 @@ export default function Timeblock() {
   const todayRight = !cfg.timers.some((t) => t.goal > 0)
     ? "no goals yet"
     : owedSec === 0
-    ? "clear for today"
+    ? "day clear"
     : spill > 0
     ? `${fmtShort(round5(spill) * 60)} past bed`
-    : `done by ${clock(round5(proj.startMin + proj.head))}${suffix(proj.startMin + proj.head)}`;
+    : `${fmtShort(owedSec)} to go`;
 
   if (!ready) return <div style={{ minHeight: "100vh", background: P.paper }} />;
   const editing = sheet?.kind === "timer" ? cfg.timers.find((t) => t.id === sheet.id) : null;
