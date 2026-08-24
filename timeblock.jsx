@@ -1001,7 +1001,7 @@ const MINROW = 24;   /* a block shorter than this cannot hold its own name */
    nothing is owed past bed the day's last rest ends exactly at it, so without this the
    marker draws flush against the bottom and reads as clipped. The old 28px bed row used
    to reserve this space by accident; it is reserved on purpose now. */
-const BED_ROOM = 12;
+const BED_ROOM = 16;
 /* Two axes for the whole screen: time is right aligned inside the margin, and every
    other piece of type starts at CONTENT_X. Continuity is the weakest cue to lose and
    the cheapest to keep. */
@@ -1118,7 +1118,7 @@ function Graph({ cfg, today, proj, running, handlers, pressed, first, flood, che
   /* The column is piecewise, so the deadline's offset is walked, not multiplied: work,
      owed and rest rows carry time; the now band and a running timer take space without
      taking any. The rests above guarantee some row reaches it. */
-  let bedTop = 0;
+  let bedTop = 0, dayEnd = 0, bedGround = P.paper;
   {
     let y = 0, found = false;
     for (const r of rows) {
@@ -1126,11 +1126,13 @@ function Graph({ cfg, today, proj, running, handlers, pressed, first, flood, che
       const span = r.kind === "gap" || r.kind === "work" || r.kind === "queue" ? r.min : 0;
       if (!found && span > 0 && total >= r.at && total <= r.at + span) {
         bedTop = y + ((total - r.at) / span) * px;
+        if (r.kind === "queue") bedGround = ink(r.s.color).tint;
         found = true;
       }
       y += px + (r.kind === "queue" ? QGAP : 0);
     }
     if (!found) bedTop = Math.min(y, viewH);
+    dayEnd = y;
   }
 
   /* one fill, cut where the deadline runs through it. the block is not split in two —
@@ -1160,7 +1162,9 @@ function Graph({ cfg, today, proj, running, handlers, pressed, first, flood, che
       {/* The ground past the deadline. The 52px margin is the axis and keeps its paper for
           the full height, so no stamp ever straddles two grounds and the change reads as a
           change to the column rather than to the screen. */}
-      <div style={{ position: "absolute", left: GUT, right: 0, top: bedTop, bottom: 0, background: DUSK, zIndex: 0 }} />
+      {dayEnd > bedTop + 1 && (
+        <div style={{ position: "absolute", left: GUT, right: 0, top: bedTop, height: dayEnd - bedTop, background: DUSK, zIndex: 0 }} />
+      )}
 
       {rows.map((r, i) => {
         /* ---- empty time: a paper rest with its duration in the margin ---- */
@@ -1340,15 +1344,19 @@ function Graph({ cfg, today, proj, running, handlers, pressed, first, flood, che
           The tense is carried by where this rule sits relative to the now band, and by
           nothing else, so it cannot be got wrong. */}
       <div style={{ position: "absolute", left: 0, right: 0, top: bedTop, height: 0, zIndex: 6, pointerEvents: "none" }}>
-        <div style={{ position: "absolute", left: GUT, right: 0, top: 0, borderTop: `1.5px dashed ${ALARM.solid}`, opacity: 0.55 }} />
+        <div style={{ position: "absolute", left: GUT, right: 0, top: 0, borderTop: `1.5px dashed ${P.ink}`, opacity: 0.5 }} />
         <div style={{ position: "absolute", left: 0, top: -6, width: GUT, textAlign: "right", paddingRight: S[3], ...T.nano, color: P.mute }}>
           {stampTime(wake + total)}
         </div>
-        {/* sits above the rule, never on it: the rule stays continuous across the field,
-            and a label centred on it would straddle the two grounds it separates. Ink, not
-            red — at this size a pure-red glyph carries about one stroke width of chromatic
-            blur, and red on a tint measures a third of ink's contrast. */}
-        <div style={{ position: "absolute", left: GUT, top: -14, ...T.chip, color: P.ink, background: P.paper, padding: `0 ${S[2]}px 0 ${S[3]}px` }}>
+        {/* The word sits on the rule and knocks through it, as `up` does — one line of
+            information rather than a word stacked over a line. Its ground is whatever it
+            landed on, cut at the deadline like everything else, so it reads as a hole in
+            the rule instead of a label pasted over a block. */}
+        <div style={{
+          position: "absolute", left: GUT, top: -6, ...T.nano, color: P.ink,
+          background: `linear-gradient(${bedGround} 0 6px, ${dayEnd > bedTop + 1 ? dim(bedGround) : bedGround} 6px)`,
+          padding: `0 ${S[2]}px 0 ${S[3]}px`,
+        }}>
           {stampTime(wake + total) === cfg.bed ? "bed" : "day ends"}
         </div>
       </div>
