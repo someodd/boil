@@ -1,2 +1,8 @@
 .claude/
 ignore/
+node_modules/
+dist/
+.gstack/
+
+# the seeded design canvas is a 2MB editor payload; the .dc.html sources regenerate it
+.design/past-bed-boundary.html
