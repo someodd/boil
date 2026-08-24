@@ -500,10 +500,11 @@ Every value below is either measured or derived from a cited finding; none is ta
 
 | piece | where | value |
 |---|---|---|
-| the rule | **the field only**, `left: GUT` — never across the margin | 1.5px dashed, `ALARM.solid`, **constant**: same colour, same weight, both tenses |
+| the rule | **the field only**, `left: GUT` — never across the margin | 1.5px dashed, `P.ink` at 0.5, **constant**: same colour, same weight, both tenses |
 | the stamp | the margin, right-aligned, centred on the rule | `P.mute`, like every other stamp in the column |
-| the word | on the rule at `CONTENT_X`, masked | `bed`, always; `T.chip` (10.5px), `P.ink` |
+| the word | **on** the rule at `CONTENT_X`, knocking through it | `bed`, always; `T.nano`, `P.ink`; ground = whatever it landed on, cut at the deadline |
 | the quantity | **not here** — the NOW band's caption | `banked · 11h 20m past bed` |
+| clearance | `BED_ROOM` below the last row | 16px, so the rule sits on something rather than the edge |
 
 **Why each.**
 
@@ -512,6 +513,19 @@ Every value below is either measured or derived from a cited finding; none is ta
 - **The stamp is mute, not red.** Measured, red buys nothing there — Lc 64.2 against
   mute's 67.1 — and it spends the palette's one semantic colour on a fact that is not
   the alarm, on a row that already states the alarm twice.
+- **The rule is ink, and red is unspent.** *Corrected 24 Aug, after looking at it.* The
+  bug was that one projection-derived boolean fired the rule's colour, its opacity and
+  its wording together. The finding was **stop varying**; pinning it at `ALARM` was an
+  addition, not the finding, and it drew an alarm on a day the deadline was beaten by
+  forty minutes. The dim carries past bed, so nothing needs the alarm colour — and §5's
+  "red is spent on past bed" is retired in favour of the stronger claim the prior-art
+  research made: a red held back for something genuinely rare is worth more than one more
+  line drawn in it every day.
+- **The word sits on the rule, not above it.** Charting convention puts a threshold label
+  clear of its line; in a column this dense that reads as a word stacked over a line
+  rather than one line of information, and it breaks the pair with `up`. The mask takes
+  the ground it landed on, cut at the deadline like every other fill, so where the rule
+  crosses a block the word is a hole in the rule rather than paper pasted over the block.
 - **The word is ink, not red.** Longitudinal chromatic aberration between the sRGB red
   and green primaries is 0.295 D, and `ALARM.solid` draws 85% of its luminance from the
   red primary, so the blur circle is 2.5–3.1′ against an Archivo-800 stem of 2.9′ at this
@@ -519,15 +533,17 @@ Every value below is either measured or derived from a cited finding; none is ta
   on a tint also measures Lc 31 with visible chromostereopsis, where ink on any tint is
   Lc 62 — and identical across all eight, because they share one lightness. **Red lives
   in the rule; type stays ink.**
-- **`T.chip`, not `T.nano`.** At a measured 32cm phone viewing distance, nano's cap
-  height subtends 11.1′ — just under the 12′ critical print size below which reading
-  speed falls away. `chip` gives 12.3′ and clears it. The role already exists.
+- **`T.nano`, the same role as `up`.** The typography research prefers `T.chip`: at a
+  measured 32cm viewing distance nano's cap height subtends 11.1′, just under the 12′
+  critical print size, where chip gives 12.3′. That gain is real but small, and it costs
+  the pair with `up` — two sibling rules whose labels are set differently read as two
+  kinds of thing. Consistency wins here; revisit if nano ever proves hard to read.
 - **The mask takes the ground it stands on**, per cartographic practice, so the label
   reads as a hole rather than a sticker. `background: P.paper` is hard-coded at
   `timeblock.jsx:1259` and `:1270`; the moment the dim ships that is a light rectangle
   floating on dusk. Over a block the ground is the block's own tint, which means no
   visible chip at all — ink type, dashes suppressed behind it.
-- **Nothing is conditional.** The shipped `r.over` ternary fires the rule's colour, its
+- **Nothing is conditional.** The old `r.over` ternary fired the rule's colour, its
   opacity *and* its wording from one projection-derived boolean — which is why the app
   says "past bed" at 09:00. Making all three constant deletes the bug class rather than
   patching it: **the tense is carried by the rule's position relative to the NOW band,
@@ -536,6 +552,10 @@ Every value below is either measured or derived from a cited finding; none is ta
   overshoot; the queue does. It is also the same number as `11h 41m to go` measured from
   the other end — `19:37 + 11h41m = 07:18`, `07:18 − 20:00 = 11h18m` — so printing it on
   the rule encodes one datum three times.
+- **An estimate is a duration, in the caption too.** `done by 9:05pm` shipped for half a
+  day beside the rule that forbids it. A clock time impersonates a commitment, which is
+  the whole argument for taking projected start times out of the margin. Both branches
+  are durations: `6h to go`, then `11h 20m past bed`.
 - **Round it to five minutes.** `SLOT_MIN = 5` is the grid the column is drawn on, and a
   projection assembled from a dozen self-set goals cannot be finer than the grid it is
   drawn on. §"the rule that resolves it" applied to our own number.
