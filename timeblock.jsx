@@ -24,8 +24,13 @@ const MILESTONE = 30 * 60;
 const PXM = 0.8;
 const BASE = 4;
 const BRICK = 30;   /* the block is built from half hours, aligned to the day grid */
-const OVERFLOW_CAP = 200;
-const LATE_CAP = 210;   /* how far past bed the column will draw before it pins */
+/* Past the deadline the field is multiplied by one scalar, ground and blocks together.
+   A multiply is monotone per channel, so ground > tint > solid cannot invert — which is
+   exactly what a dark ground does to cobalt and violet, whose solids are dark enough that
+   any night tint bright enough to clear the ground crosses them. Below 0.84 the block
+   labels drop under the readable floor, so the dial has almost no travel: if this reads as
+   nothing on a phone the answer is to remove it, not to deepen it. */
+const DIM_K = 0.86;
 
 const P = {
   paper: "#EFEFEA",
@@ -54,6 +59,12 @@ const ALARM = INKS[0];
 function ink(hex) {
   return INKS.find((i) => i.solid === hex) || { solid: hex, tint: hex + "33", wash: hex + "18", on: P.ink };
 }
+
+/* the same sheet with less light on it. derived, never authored, so a ninth ink costs
+   nothing and no two families can drift apart. */
+const dim = (hex) =>
+  "#" + [1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * DIM_K).toString(16).padStart(2, "0")).join("");
+const DUSK = dim(P.paper);
 
 const F = '"Archivo", ui-rounded, -apple-system, BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif';
 
@@ -164,6 +175,10 @@ const stampTime = (mins) => {
   const m = ((Math.round(mins) % 1440) + 1440) % 1440;
   return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
 };
+/* SLOT_MIN is the grid the column is drawn on and the finest thing storage knows, so a
+   projection assembled from a dozen self-set goals may not claim a minute inside it.
+   "11h 19m" asserts a precision nothing in the system ever had. */
+const round5 = (min) => Math.round(min / SLOT_MIN) * SLOT_MIN;
 const suffix = (mins) => ((((Math.round(mins) % 1440) + 1440) % 1440) < 720 ? "am" : "pm");
 const dayKey = (ms) => {
   const d = new Date(ms);
@@ -903,9 +918,10 @@ function Overflow({ event }) {
 
 /* ============================== the graph ==============================
    The block IS the timer. Tap it to run, hold it to edit. The queue stacks
-   forward from now and is never clipped: past bed it runs into the red, and
-   past that it runs into tomorrow. Anything with no block at all is counted
-   under the graph instead of being hidden.
+   forward from now and is never clipped: it runs into tomorrow if that is the
+   truth. Past bed the field is multiplied by one scalar, ground and blocks
+   together, and the margin stops printing start times it cannot know. Anything
+   with no block at all is counted under the graph instead of being hidden.
    ====================================================================== */
 
 const DRAW_CAP = 2880;   /* two days of drawing, a guard rail, not a design limit */
@@ -990,7 +1006,7 @@ const CONTENT_X = GUT + S[3];
    so an hour of nothing and four hours of nothing both read as "a while". */
 const gapPx = (min) => (min < 15 ? 10 : min < 45 ? 16 : min < 150 ? 24 : 32);
 
-function Graph({ cfg, today, proj, running, handlers, pressed, first, flood, chew, replay, dayTotal, viewH, owedSec, pop, flash }) {
+function Graph({ cfg, today, proj, running, handlers, pressed, first, flood, chew, replay, dayTotal, viewH, owedSec, status, pop, flash }) {
   const { cursor, total, startMin, plan } = proj;
   const wake = startMin;
 
@@ -1025,23 +1041,21 @@ function Graph({ cfg, today, proj, running, handlers, pressed, first, flood, che
     }
     g.lanes = busy.length;
   }
-  const bedPassed = total <= cursor;
-  let bedDone = false;
-  const bedRow = () => { bedDone = true; rows.push({ kind: "bed", at: total, fixed: 28, over: true }); };
+  /* Bed is not a row. A row cannot cross a block, and the deadline lands mid-block nearly
+     every evening — a row had to be pushed aside to somewhere it did not belong, which is
+     how 20:00 came to be drawn underneath 06:54. It is an overlay at its own offset now.
+     What the list still owes it is a rest to fall inside when nothing else reaches. */
   for (const g of groups) {
-    if (bedPassed && !bedDone && g.top >= total) { gap(at, total); bedRow(); at = Math.max(at, total); }
     gap(at, g.top);
     rows.push({ kind: "work", min: g.end - g.top, at: g.top, items: g.items, lanes: g.lanes });
     at = Math.max(at, g.end);
   }
-  if (bedPassed && !bedDone) { gap(at, total); bedRow(); at = Math.max(at, total); }
   gap(at, cursor);
   rows.push({ kind: "now", at: cursor, fixed: 84 });
   for (const t of live) rows.push({ kind: "live", t, fixed: 76 });
   let qat = cursor;
-  for (const s of plan) { rows.push({ kind: "queue", min: s.h, at: s.top, s }); qat = s.top + s.h; }
+  plan.forEach((s, i) => { rows.push({ kind: "queue", min: s.h, at: s.top, s, first: i === 0 }); qat = s.top + s.h; });
   if (total > qat) gap(qat, total);
-  if (!bedDone) rows.push({ kind: "bed", at: total, fixed: 28, over: qat > total + 1 });
 
   /* ---- 2. heights. content proportional, gaps take the slack ---- */
   const fixed = rows.filter((r) => r.fixed).reduce((n, r) => n + r.fixed, 0);
@@ -1096,6 +1110,34 @@ function Graph({ cfg, today, proj, running, handlers, pressed, first, flood, che
     for (const g of gaps) g.px += Math.min(each, 28);
   }
 
+  /* The column is piecewise, so the deadline's offset is walked, not multiplied: work,
+     owed and rest rows carry time; the now band and a running timer take space without
+     taking any. The rests above guarantee some row reaches it. */
+  let bedTop = 0;
+  {
+    let y = 0, found = false;
+    for (const r of rows) {
+      const px = r.px ?? r.fixed ?? 0;
+      const span = r.kind === "gap" || r.kind === "work" || r.kind === "queue" ? r.min : 0;
+      if (!found && span > 0 && total >= r.at && total <= r.at + span) {
+        bedTop = y + ((total - r.at) / span) * px;
+        found = true;
+      }
+      y += px + (r.kind === "queue" ? QGAP : 0);
+    }
+    if (!found) bedTop = Math.min(y, viewH);
+  }
+
+  /* one fill, cut where the deadline runs through it. the block is not split in two —
+     splitting reads as two tasks; the line crosses one block and the ground changes under
+     it, which is the honest drawing of a deadline that falls mid-block. */
+  const fill = (color, top, h, px) => {
+    if (top >= total) return dim(color);
+    if (top + h <= total) return color;
+    const y = Math.round(((total - top) / h) * px);
+    return `linear-gradient(${color} 0 ${y}px, ${dim(color)} ${y}px)`;
+  };
+
   const stamp = (m) => (
     <div style={{ width: GUT, flex: "none", textAlign: "right", paddingRight: S[3], ...T.nano, color: P.mute }}>
       {stampTime(wake + m)}
@@ -1109,6 +1151,11 @@ function Graph({ cfg, today, proj, running, handlers, pressed, first, flood, che
           {cfg.timers.map((t) => <div key={t.id} style={{ flex: 1, background: ink(t.color).solid }} />)}
         </div>
       )}
+
+      {/* The ground past the deadline. The 52px margin is the axis and keeps its paper for
+          the full height, so no stamp ever straddles two grounds and the change reads as a
+          change to the column rather than to the screen. */}
+      <div style={{ position: "absolute", left: GUT, right: 0, top: bedTop, bottom: 0, background: DUSK, zIndex: 0 }} />
 
       {rows.map((r, i) => {
         /* ---- empty time: a paper rest with its duration in the margin ---- */
@@ -1138,7 +1185,7 @@ function Graph({ cfg, today, proj, running, handlers, pressed, first, flood, che
             ticks.push({ y: b.y, at: b.it.top });
           }
           return (
-            <div key={`w${i}`} style={{ height: r.px, flex: "none", display: "flex", alignItems: "stretch", position: "relative" }}>
+            <div key={`w${i}`} style={{ height: r.px, flex: "none", display: "flex", alignItems: "stretch", position: "relative", zIndex: 1 }}>
               {stamp(r.at)}
               {ticks.map((t) => (
                 <div key={t.y} style={{
@@ -1157,7 +1204,7 @@ function Graph({ cfg, today, proj, running, handlers, pressed, first, flood, che
                       style={{
                         position: "absolute", top: y, height: h,
                         left: `${it.lane * laneW}%`, width: `calc(${laneW}% - ${r.lanes > 1 ? 2 : 0}px)`,
-                        background: it.color, color: c.on,
+                        background: fill(it.color, it.top, it.h, h), color: c.on,
                         display: "flex", alignItems: "center", gap: S[2], paddingLeft: S[3], paddingRight: S[4],
                         cursor: "pointer", overflow: "hidden", userSelect: "none", WebkitUserSelect: "none",
                         transform: pressed === it.id ? "scale(.995)" : "scale(1)", transition: `transform ${M.tap}`,
@@ -1196,7 +1243,10 @@ function Graph({ cfg, today, proj, running, handlers, pressed, first, flood, che
             <div style={{ marginLeft: "auto", flex: "none", textAlign: "right" }}>
               <Num sec={dayTotal} role={live.length ? "title" : "hero"} color={P.paper} dim={0.42} />
               <div style={{ ...T.nano, color: "rgba(239,239,234,.55)", marginTop: -2 }}>
-                banked{owedSec > 0 ? ` · ${fmtShort(owedSec)} to go` : " · day clear"}
+                {/* The overrun is a state of the day, not a property of the deadline: bed
+                    does not overshoot, the queue does. Hanging it on the rule would also
+                    make a fixed landmark carry a number that jitters on every edit. */}
+                banked{status ? ` · ${status}` : ""}
               </div>
             </div>
           </div>
@@ -1232,12 +1282,17 @@ function Graph({ cfg, today, proj, running, handlers, pressed, first, flood, che
           const U = Math.max(6, BRICK * pxm);
           return (
             <div key={s2.key} id={`blk-${s2.key}`} {...handlers(s2.key)} title={`${s2.name} · ${fmtShort(s2.h * 60)} left`}
-              style={{ height: r.px, flex: "none", display: "flex", alignItems: "stretch", marginBottom: 2 }}>
-              {stamp(s2.top)}
+              style={{ height: r.px, flex: "none", display: "flex", alignItems: "stretch", marginBottom: 2, position: "relative", zIndex: 1 }}>
+              {/* Durations are facts — you set them. Start times past the deadline are the
+                  accumulated error of a dozen self-set goals, printed in the same face at
+                  the same authority as the wake time you actually committed to. And the
+                  first row's stamp always reprints the time the now band shows directly
+                  above it. Both go; the margin keeps only what it knows. */}
+              {r.first || s2.top >= total ? <div style={{ width: GUT, flex: "none" }} /> : stamp(s2.top)}
               <div style={{
                 flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: S[2], paddingLeft: S[3], paddingRight: S[4],
-                background: c.tint,
-                boxShadow: hot ? `inset 0 0 0 2.5px ${c.solid}` : `inset 4px 0 0 0 ${c.solid}`,
+                background: fill(c.tint, s2.top, s2.h, r.px),
+                boxShadow: hot ? `inset 0 0 0 2.5px ${c.solid}` : `inset 4px 0 0 0 ${s2.top >= total ? dim(c.solid) : c.solid}`,
                 borderRadius: hot ? 12 : 0, cursor: "pointer", overflow: "hidden",
                 filter: hot ? "brightness(.97)" : "none",
                 transition: `filter ${M.tap}, box-shadow ${M.tap}, border-radius ${M.shape}`,
@@ -1261,18 +1316,7 @@ function Graph({ cfg, today, proj, running, handlers, pressed, first, flood, che
           </div>
         );
 
-        /* ---- bed ---- */
-        return (
-          <div key="bed" style={{ height: r.fixed, flex: "none", display: "flex", alignItems: "center" }}>
-            {stamp(r.at)}
-            <div style={{ flex: 1, position: "relative", height: "100%", display: "flex", alignItems: "center" }}>
-              <div style={{ position: "absolute", left: 0, right: 0, top: "50%", borderTop: `1.5px dashed ${r.over ? ALARM.solid : P.ink}`, opacity: r.over ? 1 : 0.5 }} />
-              <span style={{ ...T.nano, color: r.over ? ALARM.solid : P.ink, background: P.paper, padding: `0 ${S[2]}px 0 ${S[3]}px`, position: "relative" }}>
-                {r.over ? "past bed" : stampTime(wake + r.at) === cfg.bed ? "bed" : "day ends"}
-              </span>
-            </div>
-          </div>
-        );
+        return null;
       })}
 
       {cut.n > 0 && (
@@ -1282,6 +1326,27 @@ function Graph({ cfg, today, proj, running, handlers, pressed, first, flood, che
           </span>
         </div>
       )}
+
+      {/* Bed. A rule in the field, a stamp in the margin, one word — the wake marker with a
+          different colour and a different offset. Nothing here is conditional. The rule is
+          always red, the stamp always mute, and the word does not conjugate: names never
+          do. One projection-derived boolean used to fire the colour, the opacity and the
+          wording together, which is how the app came to say "past bed" in the afternoon.
+          The tense is carried by where this rule sits relative to the now band, and by
+          nothing else, so it cannot be got wrong. */}
+      <div style={{ position: "absolute", left: 0, right: 0, top: bedTop, height: 0, zIndex: 6, pointerEvents: "none" }}>
+        <div style={{ position: "absolute", left: GUT, right: 0, top: 0, borderTop: `1.5px dashed ${ALARM.solid}` }} />
+        <div style={{ position: "absolute", left: 0, top: -6, width: GUT, textAlign: "right", paddingRight: S[3], ...T.nano, color: P.mute }}>
+          {stampTime(wake + total)}
+        </div>
+        {/* sits above the rule, never on it: the rule stays continuous across the field,
+            and a label centred on it would straddle the two grounds it separates. Ink, not
+            red — at this size a pure-red glyph carries about one stroke width of chromatic
+            blur, and red on a tint measures a third of ink's contrast. */}
+        <div style={{ position: "absolute", left: GUT, top: -14, ...T.chip, color: P.ink, background: P.paper, padding: `0 ${S[2]}px 0 ${S[3]}px` }}>
+          {stampTime(wake + total) === cfg.bed ? "bed" : "day ends"}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1765,8 +1830,8 @@ export default function Timeblock() {
     : owedSec === 0
     ? "clear for today"
     : spill > 0
-    ? `${fmtShort(spill * 60)} past bed`
-    : `done by ${clock(proj.startMin + proj.head)}${suffix(proj.startMin + proj.head)}`;
+    ? `${fmtShort(round5(spill) * 60)} past bed`
+    : `done by ${clock(round5(proj.startMin + proj.head))}${suffix(proj.startMin + proj.head)}`;
 
   if (!ready) return <div style={{ minHeight: "100vh", background: P.paper }} />;
   const editing = sheet?.kind === "timer" ? cfg.timers.find((t) => t.id === sheet.id) : null;
@@ -1868,7 +1933,7 @@ export default function Timeblock() {
               cfg={cfg} today={today} proj={proj} running={running}
               handlers={handlers} pressed={press?.id} first={first} flood={flood}
               chew={chew} replay={replay} dayTotal={dayTotal} viewH={viewH} owedSec={owedSec}
-              pop={pop} flash={flash}
+              status={todayRight} pop={pop} flash={flash}
             />
           )}
         </div>
